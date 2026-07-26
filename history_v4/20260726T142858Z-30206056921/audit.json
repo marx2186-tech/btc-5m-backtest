@@ -1,0 +1,49 @@
+{
+  "source": "Binance USDⓈ-M Futures official monthly klines",
+  "symbol": "BTCUSDT",
+  "interval": "5m",
+  "start_utc": "2026-01-01T00:00:00+00:00",
+  "end_utc": "2026-06-30T23:55:00+00:00",
+  "expected_rows": 52128,
+  "actual_rows": 52128,
+  "unique_rows": 52128,
+  "duplicate_timestamps": 0,
+  "missing_rows": 0,
+  "extra_rows": 0,
+  "off_grid_rows": 0,
+  "invalid_close_time_rows": 0,
+  "invalid_ohlc_rows": 0,
+  "files": [
+    {
+      "file": "BTCUSDT-5m-2026-01.zip",
+      "sha256": "c092f3b26036f203bb5b11c28958574aa8501315ed26dd0f8c017051b9fb3abf",
+      "rows": 8928
+    },
+    {
+      "file": "BTCUSDT-5m-2026-02.zip",
+      "sha256": "8be83befce2cd9bf0959c872d91108debd03e1b51a451bac3a56b8ddca196bb4",
+      "rows": 8064
+    },
+    {
+      "file": "BTCUSDT-5m-2026-03.zip",
+      "sha256": "0302ccef9b3e5e38c35bc8667a1e890138c9136e89145688220eea99b748200e",
+      "rows": 8928
+    },
+    {
+      "file": "BTCUSDT-5m-2026-04.zip",
+      "sha256": "e2934467bdb6a000124948f4c8fef176e2066520a6b2e5a0522450fed51396f7",
+      "rows": 8640
+    },
+    {
+      "file": "BTCUSDT-5m-2026-05.zip",
+      "sha256": "b1a73378796bb62084c32ca5865903beeaf87d521d950d5e7776343f682dea93",
+      "rows": 8928
+    },
+    {
+      "file": "BTCUSDT-5m-2026-06.zip",
+      "sha256": "782c555963c852ca768335de21d5743147e5d50bff449600f8fceb9ebe5273de",
+      "rows": 8640
+    }
+  ],
+  "passed": true
+}

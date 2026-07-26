@@ -1,0 +1,75 @@
+{
+  "qualified": false,
+  "engine": "BTC 5m walk-forward probability filter V5",
+  "method": "Jan-Mar train→April prefilter; Jan-Apr train→May selection; Jan-May train→June untouched OOS",
+  "symbol": "BTCUSDT",
+  "interval": "5m",
+  "months": [
+    "2026-01",
+    "2026-02",
+    "2026-03",
+    "2026-04",
+    "2026-05",
+    "2026-06"
+  ],
+  "constraints": {
+    "min_trades": 15,
+    "max_trades": 30,
+    "min_win_rate": 0.7,
+    "min_avg_win_loss_ratio": 1.5
+  },
+  "selected_policy": {
+    "risk": {
+      "rr": 2.0,
+      "sl_atr": 1.2,
+      "min_stop_pct": 0.0045,
+      "max_hold": 144
+    },
+    "model": {
+      "max_depth": 2,
+      "learning_rate": 0.05,
+      "max_iter": 140,
+      "l2_regularization": 1.0,
+      "min_samples_leaf": 35
+    },
+    "probability_quantile": 0.9,
+    "cooldown_bars": 6,
+    "direction_mode": "只做多"
+  },
+  "april_prefilter": {
+    "trades": 15,
+    "wins": 8,
+    "win_rate": 0.5333333333333333,
+    "avg_win_R": 1.776169347113957,
+    "avg_loss_R": 1.2223226485828442,
+    "avg_win_loss_ratio": 1.4531100680931015,
+    "profit_factor": 1.6606972206778303,
+    "net_R": 5.653096236831748,
+    "max_drawdown_R": 4.889157192688317
+  },
+  "monthly_stats": {
+    "2026-05": {
+      "trades": 22,
+      "wins": 12,
+      "win_rate": 0.5454545454545454,
+      "avg_win_R": 1.4404710859513556,
+      "avg_loss_R": 1.222274867634922,
+      "avg_win_loss_ratio": 1.1785164892890574,
+      "profit_factor": 1.414219787146869,
+      "net_R": 5.06290435506705,
+      "max_drawdown_R": 4.889081406116703
+    },
+    "2026-06": {
+      "trades": 5,
+      "wins": 2,
+      "win_rate": 0.4,
+      "avg_win_R": 1.7761038598992,
+      "avg_loss_R": 1.2223996233896903,
+      "avg_win_loss_ratio": 1.452964992719892,
+      "profit_factor": 0.968643328479928,
+      "net_R": -0.11499115037067065,
+      "max_drawdown_R": 3.667198870169071
+    }
+  },
+  "search_policies": 8748
+}
