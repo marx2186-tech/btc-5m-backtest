@@ -1,0 +1,7 @@
+上传方法：
+1. 解压本压缩包。
+2. 打开 GitHub 仓库 marx2186-tech/btc-5m-backtest。
+3. 点击 Add file -> Upload files。
+4. 把解压后的 README.md、requirements.txt、src 文件夹、.github 文件夹一起拖入上传区。
+5. 点击 Commit changes。
+6. 打开 Actions，工作流会自动运行。
