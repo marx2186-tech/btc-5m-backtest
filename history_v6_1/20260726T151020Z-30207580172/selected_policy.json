@@ -1,0 +1,22 @@
+{
+  "risk": {
+    "rr": 3.0,
+    "sl_atr": 1.1,
+    "min_stop_pct": 0.0045,
+    "max_hold": 288
+  },
+  "model": {
+    "max_depth": 2,
+    "learning_rate": 0.045,
+    "max_iter": 170,
+    "l2_regularization": 2.0,
+    "min_samples_leaf": 35
+  },
+  "probability_quantile": 0.94,
+  "cooldown_bars": 3,
+  "direction_mode": "只做空",
+  "regime_mask": 5,
+  "regime": "组合5",
+  "setup_mask": 15,
+  "setup": "全部"
+}

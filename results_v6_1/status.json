@@ -1,0 +1,142 @@
+{
+  "qualified": false,
+  "engine": "BTC 5m regime walk-forward ensemble V6.1",
+  "method": "Sep-Nov train→Dec prefilter; rolling Jan-Apr validation; May selection; June untouched OOS",
+  "symbol": "BTCUSDT",
+  "interval": "5m",
+  "months": [
+    "2025-09",
+    "2025-10",
+    "2025-11",
+    "2025-12",
+    "2026-01",
+    "2026-02",
+    "2026-03",
+    "2026-04",
+    "2026-05",
+    "2026-06"
+  ],
+  "constraints": {
+    "min_trades": 15,
+    "max_trades": 30,
+    "min_win_rate": 0.7,
+    "min_avg_win_loss_ratio": 1.5
+  },
+  "selected_policy": {
+    "risk": {
+      "rr": 3.0,
+      "sl_atr": 1.1,
+      "min_stop_pct": 0.0045,
+      "max_hold": 288
+    },
+    "model": {
+      "max_depth": 2,
+      "learning_rate": 0.045,
+      "max_iter": 170,
+      "l2_regularization": 2.0,
+      "min_samples_leaf": 35
+    },
+    "probability_quantile": 0.94,
+    "cooldown_bars": 3,
+    "direction_mode": "只做空",
+    "regime_mask": 5,
+    "regime": "组合5",
+    "setup_mask": 15,
+    "setup": "全部"
+  },
+  "development_monthly_stats": {
+    "2025-12": {
+      "trades": 13,
+      "wins": 6,
+      "win_rate": 0.46153846153846156,
+      "avg_win_R": 2.7903213179465873,
+      "avg_loss_R": 1.22323174157704,
+      "avg_win_loss_ratio": 2.2811060432009325,
+      "profit_factor": 1.9552337513150853,
+      "net_R": 8.179305716640247,
+      "max_drawdown_R": 2.4464756097523415
+    },
+    "2026-01": {
+      "trades": 12,
+      "wins": 6,
+      "win_rate": 0.5,
+      "avg_win_R": 2.778790461277957,
+      "avg_loss_R": 1.0487932117924703,
+      "avg_win_loss_ratio": 2.649512248967349,
+      "profit_factor": 2.649512248967349,
+      "net_R": 10.379983496912923,
+      "max_drawdown_R": 2.6541578168208337
+    },
+    "2026-02": {
+      "trades": 12,
+      "wins": 4,
+      "win_rate": 0.3333333333333333,
+      "avg_win_R": 2.7967713030080983,
+      "avg_loss_R": 1.1647701804032038,
+      "avg_win_loss_ratio": 2.4011357348107514,
+      "profit_factor": 1.2005678674053757,
+      "net_R": 1.8689237688067628,
+      "max_drawdown_R": 8.161862765376735
+    },
+    "2026-03": {
+      "trades": 2,
+      "wins": 1,
+      "win_rate": 0.5,
+      "avg_win_R": 2.7786174314742036,
+      "avg_loss_R": 1.2233893878446815,
+      "avg_win_loss_ratio": 2.2712453280058775,
+      "profit_factor": 2.2712453280058775,
+      "net_R": 1.555228043629522,
+      "max_drawdown_R": 1.2233893878446815
+    },
+    "2026-04": {
+      "trades": 6,
+      "wins": 4,
+      "win_rate": 0.6666666666666666,
+      "avg_win_R": 2.778686282652893,
+      "avg_loss_R": 1.2233877591069717,
+      "avg_win_loss_ratio": 2.271304630905603,
+      "profit_factor": 4.542609261811206,
+      "net_R": 8.667969612397629,
+      "max_drawdown_R": 2.4467755182139435
+    },
+    "2026-05": {
+      "trades": 10,
+      "wins": 4,
+      "win_rate": 0.4,
+      "avg_win_R": 2.7787026685512988,
+      "avg_loss_R": 1.2233056047984963,
+      "avg_win_loss_ratio": 2.2714705611187065,
+      "profit_factor": 1.514313707412471,
+      "net_R": 3.774977045414218,
+      "max_drawdown_R": 3.6699682936049838
+    }
+  },
+  "monthly_stats": {
+    "2026-05": {
+      "trades": 10,
+      "wins": 4,
+      "win_rate": 0.4,
+      "avg_win_R": 2.7787026685512988,
+      "avg_loss_R": 1.2233056047984963,
+      "avg_win_loss_ratio": 2.2714705611187065,
+      "profit_factor": 1.514313707412471,
+      "net_R": 3.774977045414218,
+      "max_drawdown_R": 3.6699682936049838
+    },
+    "2026-06": {
+      "trades": 5,
+      "wins": 1,
+      "win_rate": 0.2,
+      "avg_win_R": 2.7785617954064414,
+      "avg_loss_R": 1.2234123219258808,
+      "avg_win_loss_ratio": 2.2711572751142994,
+      "profit_factor": 0.5677893187785749,
+      "net_R": -2.1150874922970817,
+      "max_drawdown_R": 4.893649287703523
+    }
+  },
+  "stage1_policies": 2160,
+  "expanded_policies": 3780,
+  "may_hard_qualified_candidates": 0
+}
