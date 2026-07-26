@@ -1,0 +1,71 @@
+{
+  "qualified": false,
+  "engine": "BTC 5m price-action structure V4",
+  "selected_by": "2026-05 only, with half-month stability; 2026-06 untouched OOS",
+  "symbol": "BTCUSDT",
+  "interval": "5m",
+  "months": [
+    "2026-05",
+    "2026-06"
+  ],
+  "constraints": {
+    "min_trades": 15,
+    "max_trades": 30,
+    "min_win_rate": 0.7,
+    "min_avg_win_loss_ratio": 1.5
+  },
+  "family": "三结构组合",
+  "direction": "双向",
+  "monthly_stats": {
+    "2026-05": {
+      "trades": 17,
+      "wins": 12,
+      "win_rate": 0.7058823529411765,
+      "avg_win_R": 1.6422540991838233,
+      "avg_loss_R": 1.2241700846452155,
+      "avg_win_loss_ratio": 1.3415244497334498,
+      "profit_factor": 3.2196586793602795,
+      "net_R": 13.586198766979805
+    },
+    "2026-06": {
+      "trades": 11,
+      "wins": 4,
+      "win_rate": 0.36363636363636365,
+      "avg_win_R": 1.4202599807823575,
+      "avg_loss_R": 1.1485383673992922,
+      "avg_win_loss_ratio": 1.2365803538617013,
+      "profit_factor": 0.7066173450638293,
+      "net_R": -2.3587286486656156
+    }
+  },
+  "search_size": 1500000,
+  "config": {
+    "family_mask": 7,
+    "direction": 0,
+    "rr": 2.6,
+    "sl_atr": 1.996776852145633,
+    "min_stop_pct": 0.004440550952642681,
+    "max_hold": 432,
+    "cooldown": 44,
+    "session_start": 0,
+    "session_end": 24,
+    "weekday_mask": 124,
+    "htf_mode": 1,
+    "adx_min": 31.702484391047435,
+    "rsi_long_min": 53.09921142405105,
+    "rsi_long_max": 72.966706427419,
+    "relvol_min": 0.7794836546459069,
+    "body_min": 0.5945166622172338,
+    "close_loc_min": 0.6436832173445245,
+    "wick_min": 0.5257886499571789,
+    "eff_min": 0.34764577768641025,
+    "chop_max": 56.280755276859104,
+    "atr_rank_min": 0.6048390580234709,
+    "vwap_dev_max": 2.101731115922903,
+    "pull_idx": 1,
+    "sweep_idx": 0,
+    "retest_idx": 15,
+    "trail_trigger": 1.7172736314927748,
+    "trail_lock": 1.622368919804399
+  }
+}
