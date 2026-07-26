@@ -1,0 +1,18 @@
+{
+  "risk": {
+    "rr": 2.0,
+    "sl_atr": 1.2,
+    "min_stop_pct": 0.0045,
+    "max_hold": 144
+  },
+  "model": {
+    "max_depth": 2,
+    "learning_rate": 0.05,
+    "max_iter": 140,
+    "l2_regularization": 1.0,
+    "min_samples_leaf": 35
+  },
+  "probability_quantile": 0.9,
+  "cooldown_bars": 6,
+  "direction_mode": "只做多"
+}
