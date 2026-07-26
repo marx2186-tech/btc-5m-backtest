@@ -1,0 +1,79 @@
+name: BTC 5m V6.1 regime backtest
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - autonomous_backtest_v6_1.py
+      - request.v6_1.json
+      - .github/workflows/v6-1-regime-backtest.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: btc-v6-1-regime
+  cancel-in-progress: false
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Verify exact V6.1 engine
+        shell: bash
+        run: |
+          echo "3a75cd304e8db41d18d12ff23a3838bdcd57924f99cdef9bf0c365339fdb95f3  autonomous_backtest_v6_1.py" | sha256sum -c -
+          grep -F 'ENGINE_VERSION = "V6.1"' autonomous_backtest_v6_1.py
+          grep -F 'range(8, 0, -1)' autonomous_backtest_v6_1.py
+          grep -F 'RESULTS = ROOT / "results_v6_1"' autonomous_backtest_v6_1.py
+          python -m py_compile autonomous_backtest_v6_1.py
+
+      - name: Run V6.1 regime optimizer
+        env:
+          PYTHONHASHSEED: '0'
+          NUMBA_NUM_THREADS: '2'
+          BACKTEST_REQUEST_FILE: request.v6_1.json
+        run: |
+          rm -rf results_v6_1
+          python autonomous_backtest_v6_1.py
+
+      - name: Verify V6.1 output
+        shell: bash
+        run: |
+          test -f results_v6_1/status.json
+          test -f results_v6_1/report.md
+          grep -F 'V6.1' results_v6_1/report.md
+          grep -F 'regime walk-forward ensemble V6.1' results_v6_1/status.json
+
+      - name: Upload V6.1 results
+        uses: actions/upload-artifact@v4
+        with:
+          name: btc-v6-1-results-${{ github.run_id }}
+          path: results_v6_1/
+          retention-days: 30
+
+      - name: Save V6.1 results
+        run: |
+          stamp="$(date -u +%Y%m%dT%H%M%SZ)-${GITHUB_RUN_ID}"
+          mkdir -p "history_v6_1/$stamp"
+          cp -R results_v6_1/. "history_v6_1/$stamp/"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add results_v6_1/ history_v6_1/ request.v6_1.json
+          git commit -m "Add V6.1 regime result $stamp [skip ci]" || true
+          git pull --rebase origin main
+          git push origin main
