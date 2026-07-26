@@ -1,0 +1,38 @@
+{
+  "qualified": false,
+  "symbol": "BTCUSDT",
+  "interval": "5m",
+  "months": [
+    "2026-05",
+    "2026-06"
+  ],
+  "constraints": {
+    "min_trades": 20,
+    "max_trades": 30,
+    "min_win_rate": 0.7,
+    "min_avg_win_loss_ratio": 1.5
+  },
+  "monthly_stats": {
+    "2026-05": {
+      "trades": 24,
+      "wins": 18,
+      "win_rate": 0.75,
+      "avg_win_R": 1.0740156010647075,
+      "avg_loss_R": 0.8787177165007146,
+      "avg_win_loss_ratio": 1.2222532684804859,
+      "profit_factor": 3.666759805441458,
+      "net_R": 14.059974520160448
+    },
+    "2026-06": {
+      "trades": 37,
+      "wins": 19,
+      "win_rate": 0.5135135135135135,
+      "avg_win_R": 1.2173309005737019,
+      "avg_loss_R": 1.1778411404410714,
+      "avg_win_loss_ratio": 1.0335272379073486,
+      "profit_factor": 1.0909454177910902,
+      "net_R": 1.9281465829610556
+    }
+  },
+  "search_size": 800000
+}

@@ -1,0 +1,93 @@
+//@version=6
+strategy("BTCUSDT 5m 自动优化策略", overlay=true, pyramiding=0, initial_capital=100000, default_qty_type=strategy.percent_of_equity, default_qty_value=20, commission_type=strategy.commission.percent, commission_value=0.050000, slippage=2, process_orders_on_close=true)
+
+// 自动搜索结果；训练月2026-05，样本外验证月2026-06。仅用于5m图。
+g="自动优化参数"
+rr=input.float(1.5000,"盈亏比",minval=1.50,step=0.05,group=g)
+slAtr=input.float(1.166701,"止损ATR倍数",minval=0.5,step=0.05,group=g)
+minStop=input.float(0.474396,"最小止损百分比",minval=0.1,step=0.05,group=g)/100
+startTime=input.time(1777593600000,"开始时间",group=g)
+endTime=input.time(1782863700000,"结束时间",group=g)
+
+ema9=ta.ema(close,9)
+ema21=ta.ema(close,21)
+ema50=ta.ema(close,50)
+atr=ta.atr(14)
+[pdi,mdi,adx]=ta.dmi(14,14)
+rsi=ta.rsi(close,14)
+macd=ta.ema(close,12)-ta.ema(close,26)
+macdHist=macd-ta.ema(macd,9)
+basis=ta.sma(close,20)
+sd=ta.stdev(close,20)
+bbPos=(close-(basis-2*sd))/math.max(4*sd,syminfo.mintick)
+vwapValue=ta.vwap(hlc3)
+volMean=ta.sma(volume,50), volSd=ta.stdev(volume,50)
+volZ=(volume-volMean)/math.max(volSd,syminfo.mintick)
+rng=math.max(high-low,syminfo.mintick)
+body=math.abs(close-open)/rng
+closeLoc=(close-low)/rng
+ret1=close/close[1]-1
+ret3=close/close[3]-1
+ret12=close/close[12]-1
+donH=ta.highest(high[1],6)
+donL=ta.lowest(low[1],6)
+
+m15Long=request.security(syminfo.tickerid,"15",close[1]>ta.ema(close,20)[1] and ta.ema(close,20)[1]>ta.ema(close,50)[1] and ta.ema(close,50)[1]>ta.ema(close,50)[3],lookahead=barmerge.lookahead_on)
+m15Short=request.security(syminfo.tickerid,"15",close[1]<ta.ema(close,20)[1] and ta.ema(close,20)[1]<ta.ema(close,50)[1] and ta.ema(close,50)[1]<ta.ema(close,50)[3],lookahead=barmerge.lookahead_on)
+h1Long=request.security(syminfo.tickerid,"60",close[1]>ta.ema(close,20)[1] and ta.ema(close,20)[1]>ta.ema(close,50)[1] and ta.ema(close,50)[1]>ta.ema(close,50)[3],lookahead=barmerge.lookahead_on)
+h1Short=request.security(syminfo.tickerid,"60",close[1]<ta.ema(close,20)[1] and ta.ema(close,20)[1]<ta.ema(close,50)[1] and ta.ema(close,50)[1]<ta.ema(close,50)[3],lookahead=barmerge.lookahead_on)
+
+longTouch=low<=ema21+atr*0.4000 and low>=ema50-atr
+shortTouch=high>=ema21-atr*0.4000 and high<=ema50+atr
+pullLong=ta.barssince(longTouch)<=12 and close>ema9
+pullShort=ta.barssince(shortTouch)<=12 and close<ema9
+meanLong=ta.crossover(close,basis-2*sd) and rsi<42
+meanShort=ta.crossunder(close,basis+2*sd) and rsi>58
+
+var weights=array.from(0,1,0,1,0,1,1,1,0,0,1,0,0,0,1,1)
+longComp=array.from(ema9>ema21,ema21>ema50,close>vwapValue,adx>=13.651463,pdi>mdi,rsi>=37.950879 and rsi<=70.690917,macdHist>0,ret3>=0.00202414,ret12>0,volZ>=-0.394811,close>open and body>=0.363785 and closeLoc>=0.713374,close>donH,pullLong,m15Long,h1Long,bbPos>=0.256363 and bbPos<=0.771591)
+shortComp=array.from(ema9<ema21,ema21<ema50,close<vwapValue,adx>=13.651463,mdi>pdi,rsi<=62.049121 and rsi>=29.309083,macdHist<0,ret3<=-0.00202414,ret12<0,volZ>=-0.394811,close<open and body>=0.363785 and closeLoc<=0.286626,close<donL,pullShort,m15Short,h1Short,bbPos<=0.743637 and bbPos>=0.228409)
+f_score(arr)=>
+    int s=0
+    for i=0 to 15
+        if array.get(arr,i)
+            s+=array.get(weights,i)
+    s
+longBase=meanLong and array.get(longComp,10)
+shortBase=meanShort and array.get(shortComp,10)
+
+hourOk=hour(time,"UTC")>=0 and hour(time,"UTC")<24
+dow=dayofweek(time,"UTC")
+wd=dow==dayofweek.monday?0:dow==dayofweek.tuesday?1:dow==dayofweek.wednesday?2:dow==dayofweek.thursday?3:dow==dayofweek.friday?4:dow==dayofweek.saturday?5:6
+weekdayOk=int(math.floor(31/math.pow(2,wd)))%2==1
+inRange=time>=startTime and time<=endTime
+var int lastExit=na
+if strategy.position_size==0 and strategy.position_size[1]!=0
+    lastExit:=bar_index
+cooldownOk=na(lastExit) or bar_index-lastExit>=19
+allowLong="只做空"!="只做空"
+allowShort="只做空"!="只做多"
+longSignal=inRange and hourOk and weekdayOk and cooldownOk and strategy.position_size==0 and allowLong and longBase and f_score(longComp)>=2
+shortSignal=inRange and hourOk and weekdayOk and cooldownOk and strategy.position_size==0 and allowShort and shortBase and f_score(shortComp)>=2
+
+var float risk=na
+var int entryBar=na
+if longSignal
+    risk:=math.max(atr*slAtr,close*minStop)
+    strategy.entry("L",strategy.long)
+if shortSignal
+    risk:=math.max(atr*slAtr,close*minStop)
+    strategy.entry("S",strategy.short)
+if strategy.position_size!=0 and strategy.position_size[1]==0
+    entryBar:=bar_index
+if strategy.position_size>0
+    strategy.exit("LX","L",stop=strategy.position_avg_price-risk,limit=strategy.position_avg_price+risk*rr)
+if strategy.position_size<0
+    strategy.exit("SX","S",stop=strategy.position_avg_price+risk,limit=strategy.position_avg_price-risk*rr)
+if strategy.position_size!=0 and bar_index-entryBar>=72
+    strategy.close_all(comment="时间退出")
+plot(ema9,"EMA9",color=color.aqua)
+plot(ema21,"EMA21",color=color.orange)
+plot(ema50,"EMA50",color=color.blue)
+plotshape(longSignal,style=shape.triangleup,location=location.belowbar,color=color.lime,size=size.tiny,text="多")
+plotshape(shortSignal,style=shape.triangledown,location=location.abovebar,color=color.red,size=size.tiny,text="空")
