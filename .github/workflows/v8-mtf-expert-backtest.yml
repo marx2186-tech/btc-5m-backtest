@@ -19,15 +19,15 @@ jobs:
   backtest:
     runs-on: ubuntu-latest
     timeout-minutes: 360
+
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Set up Python
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: "3.11"
-          cache: pip
 
       - name: Install dependencies
         run: |
@@ -53,9 +53,23 @@ jobs:
           python autonomous_backtest_v8.py --self-test
 
       - name: Run V8 backtest
+        shell: bash
         env:
           BACKTEST_REQUEST_FILE: request.v8.json
-        run: python autonomous_backtest_v8.py
+        run: |
+          set -o pipefail
+          python autonomous_backtest_v8.py 2>&1 | tee v8-run.log
+
+      - name: Upload diagnostic log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: btc-5m-v8-diagnostic-log
+          path: |
+            v8-run.log
+            results_v8/
+          if-no-files-found: warn
+          retention-days: 30
 
       - name: Verify V8 outputs
         shell: bash
