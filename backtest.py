@@ -474,7 +474,20 @@ def evaluate_many(params, weights, o, h, l, c, atr, ema9, ema21, ema50, vwap, pl
         score = min(wr5, wr6) * 180 + min(ratio5, ratio6) * 18 + min(pf5, pf6) * 5 + total_r - count_pen * 2.5 - max_dd * 0.4
         if qualified:
             score += 10000
-        out[q] = (score, qualified, count5, wr5, ratio5, pf5, count6, wr6, ratio6, pf6, total_r, max_dd, wins5, wins6)
+        out[q, 0] = score
+        out[q, 1] = 1.0 if qualified else 0.0
+        out[q, 2] = float(count5)
+        out[q, 3] = wr5
+        out[q, 4] = ratio5
+        out[q, 5] = pf5
+        out[q, 6] = float(count6)
+        out[q, 7] = wr6
+        out[q, 8] = ratio6
+        out[q, 9] = pf6
+        out[q, 10] = total_r
+        out[q, 11] = max_dd
+        out[q, 12] = float(wins5)
+        out[q, 13] = float(wins6)
     return out
 
 
