@@ -1,0 +1,96 @@
+name: BTC 5m V7 count-calibrated backtest
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "autonomous_backtest_v7.py"
+      - "request.v7.json"
+      - ".github/workflows/v7-count-calibrated-backtest.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: btc-5m-v7-count-calibrated
+  cancel-in-progress: false
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 300
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: pip
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install numpy==1.26.4 pandas==2.2.2 requests==2.32.3 numba==0.60.0 scikit-learn==1.5.1 tabulate==0.9.0
+
+      - name: Verify exact V7 program
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f autonomous_backtest_v7.py
+          test -f request.v7.json
+          actual="$(sha256sum autonomous_backtest_v7.py | awk '{print $1}')"
+          expected="a845d9887de6e5590c50f5bb2c2103e53bd36996a3e0bd8f5bcb3443ac162d13"
+          echo "actual_sha256=$actual"
+          test "$actual" = "$expected"
+          grep -F 'ENGINE_VERSION = "V7"' autonomous_backtest_v7.py
+          grep -F 'RESULTS = ROOT / "results_v7"' autonomous_backtest_v7.py
+          grep -F 'candidate_leaderboard.csv' autonomous_backtest_v7.py
+          python -m py_compile autonomous_backtest_v7.py
+
+      - name: Run V7 backtest
+        env:
+          BACKTEST_REQUEST_FILE: request.v7.json
+        run: python autonomous_backtest_v7.py
+
+      - name: Verify V7 outputs
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f results_v7/status.json
+          test -f results_v7/report.md
+          test -f results_v7/trades.csv
+          test -f results_v7/candidate_leaderboard.csv
+          test -f results_v7/run_identity.txt
+          grep -F 'BTC 5m count-calibrated protected-exit ensemble V7' results_v7/run_identity.txt
+          grep -F 'output=results_v7' results_v7/run_identity.txt
+          python - <<'PY'
+          import json
+          data = json.load(open('results_v7/status.json', encoding='utf-8'))
+          assert data['engine'] == 'BTC 5m count-calibrated protected-exit ensemble V7'
+          assert data['months'][0] == '2025-09'
+          assert data['months'][-1] == '2026-06'
+          print(json.dumps(data['monthly_stats'], ensure_ascii=False, indent=2))
+          PY
+
+      - name: Upload result artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: btc-5m-v7-results
+          path: results_v7/
+          retention-days: 30
+
+      - name: Commit readable results
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add results_v7
+          if git diff --cached --quiet; then
+            echo "No result changes"
+            exit 0
+          fi
+          git commit -m "Add V7 count-calibrated result $(date -u +%Y%m%dT%H%M%SZ)-${{ github.run_id }} [skip ci]"
+          git push
