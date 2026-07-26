@@ -1,0 +1,32 @@
+{
+  "source": "Binance USDⓈ-M Futures official monthly klines",
+  "symbol": "BTCUSDT",
+  "interval": "5m",
+  "start_utc": "2026-05-01T00:00:00Z",
+  "end_utc": "2026-06-30T23:55:00Z",
+  "expected_rows": 17568,
+  "actual_rows": 17568,
+  "unique_rows": 17568,
+  "duplicate_timestamps": 0,
+  "missing_rows": 0,
+  "extra_rows": 0,
+  "off_grid_rows": 0,
+  "invalid_close_time_rows": 0,
+  "invalid_ohlc_rows": 0,
+  "first_open_time": 1777593600000,
+  "last_open_time": 1782863700000,
+  "files": [
+    {
+      "file": "BTCUSDT-5m-2026-05.zip",
+      "sha256": "b1a73378796bb62084c32ca5865903beeaf87d521d950d5e7776343f682dea93",
+      "rows": 8928
+    },
+    {
+      "file": "BTCUSDT-5m-2026-06.zip",
+      "sha256": "782c555963c852ca768335de21d5743147e5d50bff449600f8fceb9ebe5273de",
+      "rows": 8640
+    }
+  ],
+  "passed": true,
+  "missing_preview": []
+}
