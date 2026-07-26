@@ -25,7 +25,7 @@ except ImportError:  # GitHub runner fallback; keeps deployment to one file.
 
 ROOT = Path(__file__).resolve().parent
 CACHE = ROOT / ".cache"
-RESULTS = ROOT / "results_v6"
+RESULTS = ROOT / "results_v4"
 CACHE.mkdir(exist_ok=True)
 RESULTS.mkdir(exist_ok=True)
 
@@ -40,7 +40,7 @@ DEFAULT_REQUEST: dict[str, Any] = {
     "max_trades_per_month": 30,
     "min_win_rate": 0.70,
     "min_avg_win_loss_ratio": 1.50,
-    "base_seed": 20260801,
+    "base_seed": 20260731,
 }
 
 
@@ -60,12 +60,12 @@ SYMBOL = str(REQUEST["symbol"]).upper()
 INTERVAL = str(REQUEST["interval"]).lower()
 EVAL_MONTHS = tuple(str(x) for x in REQUEST["months"])
 if len(EVAL_MONTHS) != 2:
-    raise ValueError("V6 requires exactly two evaluation months")
+    raise ValueError("V5 requires exactly two evaluation months")
 first_eval = pd.Period(EVAL_MONTHS[0], freq="M")
 last_eval = pd.Period(EVAL_MONTHS[1], freq="M")
 if last_eval != first_eval + 1:
     raise ValueError("Evaluation months must be consecutive")
-MONTHS = tuple(str(first_eval - offset) for offset in range(8, 0, -1)) + EVAL_MONTHS
+MONTHS = tuple(str(first_eval - offset) for offset in range(4, 0, -1)) + EVAL_MONTHS
 FEE_RATE = float(REQUEST["fee_rate_per_side"])
 TICK_SIZE = float(REQUEST["tick_size"])
 SLIPPAGE_ABS = TICK_SIZE * int(REQUEST["slippage_ticks_per_fill"])
@@ -98,7 +98,7 @@ def download(url: str, path: Path, attempts: int = 6) -> bytes:
     last: Exception | None = None
     for attempt in range(attempts):
         try:
-            response = requests.get(url, timeout=90, headers={"User-Agent": "btc-regime-walkforward-v6/1.0"})
+            response = requests.get(url, timeout=90, headers={"User-Agent": "btc-walkforward-v5/1.0"})
             response.raise_for_status()
             path.write_bytes(response.content)
             return response.content
@@ -340,27 +340,6 @@ def add_features(data: pd.DataFrame) -> pd.DataFrame:
     x["candidate_long"] = pull_long | sweep_long | breakout_long | momentum_long
     x["candidate_short"] = pull_short | sweep_short | breakout_short | momentum_short
 
-    # Exclusive market regimes. These are computed only from current/past bars.
-    high_vol = x["atr_rank"] >= 0.80
-    trend_regime = (
-        ~high_vol
-        & (x["h1_trend"] != 0)
-        & (x["h1_trend"] == x["h4_trend"])
-        & (x["adx"] >= 22)
-        & (x["chop"] <= 56)
-    )
-    range_regime = (~high_vol) & (~trend_regime) & ((x["adx"] <= 20) | (x["chop"] >= 60))
-    neutral_regime = ~(high_vol | trend_regime | range_regime)
-    x["regime"] = np.select(
-        [trend_regime, range_regime, high_vol, neutral_regime],
-        [0, 1, 2, 3],
-        default=3,
-    ).astype(float)
-    x["regime_trend"] = (x["regime"] == 0).astype(float)
-    x["regime_range"] = (x["regime"] == 1).astype(float)
-    x["regime_high_vol"] = (x["regime"] == 2).astype(float)
-    x["regime_neutral"] = (x["regime"] == 3).astype(float)
-
     hours = x.index.hour + x.index.minute / 60.0
     x["hour_sin"] = np.sin(2 * np.pi * hours / 24.0)
     x["hour_cos"] = np.cos(2 * np.pi * hours / 24.0)
@@ -380,7 +359,6 @@ FEATURES = [
     "eff12", "eff24", "chop",
     "m15_trend", "h1_trend", "h4_trend", "m15_gap", "h1_gap", "h4_gap",
     "hour_sin", "hour_cos", "weekday",
-    "regime_trend", "regime_range", "regime_high_vol", "regime_neutral",
     "setup_pull_long", "setup_pull_short", "setup_sweep_long", "setup_sweep_short",
     "setup_break_long", "setup_break_short", "setup_mom_long", "setup_mom_short",
 ]
@@ -410,25 +388,10 @@ class Policy:
     quantile: float
     cooldown: int
     direction_mode: int  # 0 both, 1 long, 2 short
-    regime_mask: int = 15  # bits: trend, range, high-vol, neutral
-    setup_mask: int = 15   # bits: pullback, sweep, breakout, momentum
-    validation_metrics: dict[str, dict[str, float]] | None = None
-    validation_scores: list[float] | None = None
-    aggregate_score: float = -1e12
-
-    def clone(self, *, regime_mask: int | None = None, setup_mask: int | None = None) -> "Policy":
-        return Policy(
-            self.risk,
-            self.model,
-            self.quantile,
-            self.cooldown,
-            self.direction_mode,
-            self.regime_mask if regime_mask is None else regime_mask,
-            self.setup_mask if setup_mask is None else setup_mask,
-            dict(self.validation_metrics or {}),
-            list(self.validation_scores or []),
-            self.aggregate_score,
-        )
+    april_score: float
+    april_metrics: dict[str, float]
+    may_score: float = -1e12
+    may_metrics: dict[str, float] | None = None
 
 
 @njit(cache=True)
@@ -544,12 +507,7 @@ def fit_models(
             n_iter_no_change=15,
             random_state=BASE_SEED,
         )
-        base_w = balanced_weights(y)
-        train_month_values = months[mask]
-        ordered_months = sorted(train_months)
-        recency = {m: 0.82 + 0.36 * (i / max(1, len(ordered_months) - 1)) for i, m in enumerate(ordered_months)}
-        time_w = np.array([recency.get(str(m), 1.0) for m in train_month_values], dtype=float)
-        model.fit(X, y, sample_weight=base_w * time_w)
+        model.fit(X, y, sample_weight=balanced_weights(y))
         train_prob = model.predict_proba(X)[:, 1]
         models.append(model)
         thresholds.append(float(np.nanmedian(train_prob)))
@@ -585,19 +543,10 @@ def build_prediction_bundle(
     train_prob = prob[train_mask]
     if len(train_prob) < 50:
         return None
-    suffix = "long" if direction > 0 else "short"
-    setup_mask = (
-        (x.iloc[idx][f"setup_pull_{suffix}"].to_numpy(bool).astype(np.int16) * 1)
-        | (x.iloc[idx][f"setup_sweep_{suffix}"].to_numpy(bool).astype(np.int16) * 2)
-        | (x.iloc[idx][f"setup_break_{suffix}"].to_numpy(bool).astype(np.int16) * 4)
-        | (x.iloc[idx][f"setup_mom_{suffix}"].to_numpy(bool).astype(np.int16) * 8)
-    )
     return {
         "idx": idx, "direction": direction, "labels": labels, "exits": exits,
         "net_r": net_r, "reasons": reasons, "prob": prob, "months": months,
         "train_prob": train_prob,
-        "regime": x.iloc[idx]["regime"].to_numpy(np.int16),
-        "setup_mask": setup_mask,
     }
 
 
@@ -615,8 +564,6 @@ def events_from_bundle(bundle: dict[str, Any] | None, eval_month: str, quantile:
             "prob": float(bundle["prob"][k]),
             "net_r": float(bundle["net_r"][k]),
             "reason": int(bundle["reasons"][k]),
-            "regime": int(bundle["regime"][k]),
-            "setup_mask": int(bundle["setup_mask"][k]),
         })
     return events
 
@@ -662,22 +609,11 @@ def predict_events(
     return events
 
 
-def select_trades(
-    events: list[dict[str, Any]],
-    cooldown: int,
-    direction_mode: int,
-    regime_mask: int = 15,
-    setup_mask: int = 15,
-) -> list[dict[str, Any]]:
+def select_trades(events: list[dict[str, Any]], cooldown: int, direction_mode: int) -> list[dict[str, Any]]:
     if direction_mode == 1:
         events = [e for e in events if e["direction"] > 0]
     elif direction_mode == 2:
         events = [e for e in events if e["direction"] < 0]
-    events = [
-        e for e in events
-        if ((regime_mask >> int(e.get("regime", 3))) & 1) != 0
-        and (int(e.get("setup_mask", 15)) & setup_mask) != 0
-    ]
     events = sorted(events, key=lambda e: (e["signal_i"], -e["prob"]))
     selected: list[dict[str, Any]] = []
     last_exit = -10**9
@@ -723,91 +659,24 @@ def metrics(trades: list[dict[str, Any]]) -> dict[str, float]:
     }
 
 
-def month_score(m: dict[str, float], *, final_month: bool = False) -> float:
+def month_score(m: dict[str, float]) -> float:
     count = int(m["trades"])
-    target_min = MIN_TRADES if final_month else max(10, MIN_TRADES - 3)
-    target_max = MAX_TRADES if final_month else MAX_TRADES + 8
-    target = (target_min + target_max) / 2
-    count_error = abs(count - target)
+    count_error = abs(count - (MIN_TRADES + MAX_TRADES) / 2)
     score = (
-        m["win_rate"] * 1050.0
-        + min(m["avg_win_loss_ratio"], 4.0) * 220.0
-        + min(m["profit_factor"], 8.0) * 45.0
-        + m["net_R"] * 9.0
-        - m["max_drawdown_R"] * 5.0
-        - count_error * 10.0
+        m["win_rate"] * 900.0
+        + min(m["avg_win_loss_ratio"], 4.0) * 180.0
+        + min(m["profit_factor"], 8.0) * 40.0
+        + m["net_R"] * 8.0
+        - m["max_drawdown_R"] * 4.0
+        - count_error * 12.0
     )
-    if count < target_min or count > target_max:
-        score -= 4200.0 + abs(count - np.clip(count, target_min, target_max)) * 260.0
+    if count < MIN_TRADES or count > MAX_TRADES:
+        score -= 5000.0 + abs(count - np.clip(count, MIN_TRADES, MAX_TRADES)) * 300.0
     if m["win_rate"] < MIN_WIN_RATE:
-        score -= (MIN_WIN_RATE - m["win_rate"]) * 7200.0
+        score -= (MIN_WIN_RATE - m["win_rate"]) * 6000.0
     if m["avg_win_loss_ratio"] < MIN_RATIO:
-        score -= (MIN_RATIO - m["avg_win_loss_ratio"]) * 3200.0
-    if m["net_R"] <= 0:
-        score -= 900.0 + abs(m["net_R"]) * 40.0
+        score -= (MIN_RATIO - m["avg_win_loss_ratio"]) * 2500.0
     return float(score)
-
-
-def refresh_policy_score(policy: Policy) -> None:
-    scores = np.asarray(policy.validation_scores or [], dtype=float)
-    if len(scores) == 0:
-        policy.aggregate_score = -1e12
-        return
-    recent = scores[-1]
-    policy.aggregate_score = float(
-        0.42 * np.min(scores)
-        + 0.33 * np.mean(scores)
-        + 0.25 * recent
-        - 0.18 * np.std(scores)
-    )
-
-
-def add_validation(policy: Policy, month: str, value: dict[str, float], *, final_month: bool = False) -> None:
-    if policy.validation_metrics is None:
-        policy.validation_metrics = {}
-    if policy.validation_scores is None:
-        policy.validation_scores = []
-    policy.validation_metrics[month] = value
-    policy.validation_scores.append(month_score(value, final_month=final_month))
-    refresh_policy_score(policy)
-
-
-def policy_base_key(policy: Policy) -> tuple[RiskConfig, ModelConfig]:
-    return policy.risk, policy.model
-
-
-def evaluate_policy_batch(
-    x: pd.DataFrame,
-    long_data: dict[str, np.ndarray],
-    short_data: dict[str, np.ndarray],
-    policies: list[Policy],
-    train_months: set[str],
-    eval_month: str,
-    *,
-    final_month: bool = False,
-) -> None:
-    groups: dict[tuple[RiskConfig, ModelConfig], list[Policy]] = {}
-    for policy in policies:
-        groups.setdefault(policy_base_key(policy), []).append(policy)
-    for (risk, model_cfg), group in groups.items():
-        long_model, short_model, _, _ = fit_models(x, long_data, short_data, risk, model_cfg, train_months)
-        if long_model is None and short_model is None:
-            for policy in group:
-                add_validation(policy, eval_month, metrics([]), final_month=final_month)
-            continue
-        long_bundle = build_prediction_bundle(x, long_data, long_model, risk, train_months)
-        short_bundle = build_prediction_bundle(x, short_data, short_model, risk, train_months)
-        event_cache: dict[float, list[dict[str, Any]]] = {}
-        for policy in group:
-            if policy.quantile not in event_cache:
-                events = events_from_bundle(long_bundle, eval_month, policy.quantile)
-                events += events_from_bundle(short_bundle, eval_month, policy.quantile)
-                event_cache[policy.quantile] = events
-            chosen = select_trades(
-                event_cache[policy.quantile], policy.cooldown, policy.direction_mode,
-                policy.regime_mask, policy.setup_mask,
-            )
-            add_validation(policy, eval_month, metrics(chosen), final_month=final_month)
 
 
 def evaluate_policy(
@@ -821,7 +690,7 @@ def evaluate_policy(
     long_model, short_model, _, _ = fit_models(x, long_data, short_data, policy.risk, policy.model, train_months)
     events = predict_events(x, long_data, long_model, policy.risk, eval_month, train_months, policy.quantile)
     events += predict_events(x, short_data, short_model, policy.risk, eval_month, train_months, policy.quantile)
-    selected = select_trades(events, policy.cooldown, policy.direction_mode, policy.regime_mask, policy.setup_mask)
+    selected = select_trades(events, policy.cooldown, policy.direction_mode)
     return metrics(selected), selected
 
 
@@ -872,92 +741,64 @@ def main() -> None:
     long_data = make_side_data(x, "candidate_long", 1)
     short_data = make_side_data(x, "candidate_short", -1)
 
-    # Higher nominal RR and longer holding windows preserve the realised win/loss ratio.
     risk_grid = [
         RiskConfig(rr, sl, min_stop, hold)
-        for rr in (2.4, 2.6, 2.8, 3.0)
-        for sl in (1.0, 1.4, 1.8)
+        for rr in (2.0, 2.2, 2.4)
+        for sl in (1.2, 1.6, 2.0)
         for min_stop in (0.0030, 0.0045)
-        for hold in (288, 576, 864)
+        for hold in (72, 144)
     ]
     model_grid = [
-        ModelConfig(2, 0.045, 170, 2.0, 35),
-        ModelConfig(3, 0.035, 210, 4.0, 45),
-        ModelConfig(4, 0.028, 240, 8.0, 60),
+        ModelConfig(2, 0.05, 140, 1.0, 35),
+        ModelConfig(3, 0.04, 170, 3.0, 45),
+        ModelConfig(4, 0.03, 190, 6.0, 55),
     ]
-    quantiles = (0.88, 0.90, 0.92, 0.94, 0.955, 0.97, 0.982, 0.99)
-    cooldowns = (3, 6, 12, 24)
+    quantiles = (0.90, 0.93, 0.95, 0.965, 0.975, 0.982, 0.988, 0.992, 0.995)
+    cooldowns = (3, 6, 12)
     directions = (0, 1, 2)
-    regime_masks = (15, 1, 2, 4, 8, 5, 9, 12)
-    setup_masks = (15, 1, 2, 4, 8, 3, 5, 6, 9, 10, 12)
 
-    # Months: Sep-Apr development, May final selection, June untouched OOS.
-    # Stage 1: Sep-Nov train -> Dec broad prefilter.
+    # Stage 1: Jan-Mar train, April prefilter.
     stage1: list[Policy] = []
-    train0 = {MONTHS[0], MONTHS[1], MONTHS[2]}
     for risk in risk_grid:
         for model_cfg in model_grid:
-            long_model, short_model, _, _ = fit_models(x, long_data, short_data, risk, model_cfg, train0)
+            long_model, short_model, _, _ = fit_models(
+                x, long_data, short_data, risk, model_cfg, {MONTHS[0], MONTHS[1], MONTHS[2]}
+            )
             if long_model is None and short_model is None:
                 continue
-            long_bundle = build_prediction_bundle(x, long_data, long_model, risk, train0)
-            short_bundle = build_prediction_bundle(x, short_data, short_model, risk, train0)
+            train_stage1 = {MONTHS[0], MONTHS[1], MONTHS[2]}
+            long_bundle = build_prediction_bundle(x, long_data, long_model, risk, train_stage1)
+            short_bundle = build_prediction_bundle(x, short_data, short_model, risk, train_stage1)
             for q in quantiles:
                 events = events_from_bundle(long_bundle, MONTHS[3], q)
                 events += events_from_bundle(short_bundle, MONTHS[3], q)
                 for cooldown in cooldowns:
                     for direction_mode in directions:
-                        policy = Policy(risk, model_cfg, q, cooldown, direction_mode)
                         m = metrics(select_trades(events, cooldown, direction_mode))
-                        add_validation(policy, MONTHS[3], m)
-                        stage1.append(policy)
-    stage1.sort(key=lambda p: p.aggregate_score, reverse=True)
-    base_shortlist = stage1[:80]
+                        stage1.append(Policy(risk, model_cfg, q, cooldown, direction_mode, month_score(m), m))
+    stage1.sort(key=lambda p: p.april_score, reverse=True)
+    shortlist = stage1[:24]
 
-    # Stage 2: Expand only the strongest bases with regime/setup filters; validate January.
-    expanded: list[Policy] = []
-    for base in base_shortlist:
-        for regime_mask in regime_masks:
-            for setup_mask in setup_masks:
-                expanded.append(base.clone(regime_mask=regime_mask, setup_mask=setup_mask))
-    evaluate_policy_batch(
-        x, long_data, short_data, expanded,
-        set(MONTHS[:4]), MONTHS[4],
-    )
-    expanded.sort(key=lambda p: p.aggregate_score, reverse=True)
-    active = expanded[:64]
+    # Stage 2: Jan-Apr train, May selection.
+    for policy in shortlist:
+        may_metrics, _ = evaluate_policy(
+            x, long_data, short_data, policy,
+            {MONTHS[0], MONTHS[1], MONTHS[2], MONTHS[3]}, MONTHS[4]
+        )
+        policy.may_metrics = may_metrics
+        policy.may_score = month_score(may_metrics) + 0.20 * policy.april_score
+    shortlist.sort(key=lambda p: p.may_score, reverse=True)
+    selected = shortlist[0]
 
-    # Rolling tournament: each month must remain useful before the next stage.
-    rolling = [
-        (5, set(MONTHS[:5]), 52),
-        (6, set(MONTHS[:6]), 40),
-        (7, set(MONTHS[:7]), 28),
-    ]
-    for eval_idx, train_months, keep in rolling:
-        evaluate_policy_batch(x, long_data, short_data, active, train_months, MONTHS[eval_idx])
-        active.sort(key=lambda p: p.aggregate_score, reverse=True)
-        active = active[:keep]
-
-    # May is the last selection month and uses the exact hard trade-count constraint.
-    evaluate_policy_batch(x, long_data, short_data, active, set(MONTHS[:8]), MONTHS[8], final_month=True)
-    active.sort(key=lambda p: p.aggregate_score, reverse=True)
-    may_qualified = [
-        p for p in active
-        if p.validation_metrics
-        and MIN_TRADES <= p.validation_metrics[MONTHS[8]]["trades"] <= MAX_TRADES
-        and p.validation_metrics[MONTHS[8]]["win_rate"] >= MIN_WIN_RATE
-        and p.validation_metrics[MONTHS[8]]["avg_win_loss_ratio"] >= MIN_RATIO
-    ]
-    selected = (may_qualified or active)[0]
-
-    # June remains completely untouched until the selected policy is frozen.
+    # Stage 3: Jan-May train, June untouched OOS.
     june_metrics, june_trades = evaluate_policy(
         x, long_data, short_data, selected,
-        set(MONTHS[:9]), MONTHS[9],
+        {MONTHS[0], MONTHS[1], MONTHS[2], MONTHS[3], MONTHS[4]}, MONTHS[5]
     )
+    # Recreate May trades for readable output using the selected policy.
     may_metrics, may_trades = evaluate_policy(
         x, long_data, short_data, selected,
-        set(MONTHS[:8]), MONTHS[8],
+        {MONTHS[0], MONTHS[1], MONTHS[2], MONTHS[3]}, MONTHS[4]
     )
 
     qualified = bool(
@@ -970,17 +811,15 @@ def main() -> None:
     )
 
     all_trades = pd.concat([
-        detailed_trades(x, may_trades, selected.risk, MONTHS[8]),
-        detailed_trades(x, june_trades, selected.risk, MONTHS[9]),
+        detailed_trades(x, may_trades, selected.risk, MONTHS[4]),
+        detailed_trades(x, june_trades, selected.risk, MONTHS[5]),
     ], ignore_index=True)
     all_trades.to_csv(RESULTS / "trades.csv", index=False)
 
-    regime_labels = {1: "趋势", 2: "震荡", 4: "高波动", 8: "中性", 15: "全部"}
-    setup_labels = {1: "趋势回踩", 2: "扫单反转", 4: "突破确认", 8: "动量延续", 15: "全部"}
     status = {
         "qualified": qualified,
-        "engine": "BTC 5m regime walk-forward ensemble V6",
-        "method": "Sep-Nov train→Dec prefilter; rolling Jan-Apr validation; May selection; June untouched OOS",
+        "engine": "BTC 5m walk-forward probability filter V5",
+        "method": "Jan-Mar train→April prefilter; Jan-Apr train→May selection; Jan-May train→June untouched OOS",
         "symbol": SYMBOL,
         "interval": INTERVAL,
         "months": list(MONTHS),
@@ -996,16 +835,10 @@ def main() -> None:
             "probability_quantile": selected.quantile,
             "cooldown_bars": selected.cooldown,
             "direction_mode": {0: "双向", 1: "只做多", 2: "只做空"}[selected.direction_mode],
-            "regime_mask": selected.regime_mask,
-            "regime": regime_labels.get(selected.regime_mask, f"组合{selected.regime_mask}"),
-            "setup_mask": selected.setup_mask,
-            "setup": setup_labels.get(selected.setup_mask, f"组合{selected.setup_mask}"),
         },
-        "development_monthly_stats": selected.validation_metrics,
-        "monthly_stats": {MONTHS[8]: may_metrics, MONTHS[9]: june_metrics},
-        "stage1_policies": len(stage1),
-        "expanded_policies": len(expanded),
-        "may_hard_qualified_candidates": len(may_qualified),
+        "april_prefilter": selected.april_metrics,
+        "monthly_stats": {MONTHS[4]: may_metrics, MONTHS[5]: june_metrics},
+        "search_policies": len(stage1),
     }
     (RESULTS / "status.json").write_text(json.dumps(status, ensure_ascii=False, indent=2), encoding="utf-8")
     (RESULTS / "audit.json").write_text(json.dumps(audit, ensure_ascii=False, indent=2), encoding="utf-8")
@@ -1014,57 +847,52 @@ def main() -> None:
     )
 
     top_rows: list[dict[str, Any]] = []
-    for rank, policy in enumerate(active[:20], start=1):
-        row: dict[str, Any] = {
+    for rank, p in enumerate(shortlist[:15], start=1):
+        row = {
             "rank": rank,
-            "aggregate_score": policy.aggregate_score,
-            "rr": policy.risk.rr,
-            "sl_atr": policy.risk.sl_atr,
-            "min_stop_pct": policy.risk.min_stop_pct,
-            "max_hold": policy.risk.max_hold,
-            "quantile": policy.quantile,
-            "cooldown": policy.cooldown,
-            "direction": {0: "双向", 1: "只做多", 2: "只做空"}[policy.direction_mode],
-            "regime_mask": policy.regime_mask,
-            "setup_mask": policy.setup_mask,
+            "april_score": p.april_score,
+            "may_score": p.may_score,
+            "rr": p.risk.rr,
+            "sl_atr": p.risk.sl_atr,
+            "min_stop_pct": p.risk.min_stop_pct,
+            "max_hold": p.risk.max_hold,
+            "quantile": p.quantile,
+            "cooldown": p.cooldown,
+            "direction": {0: "双向", 1: "只做多", 2: "只做空"}[p.direction_mode],
         }
-        for month, value in (policy.validation_metrics or {}).items():
-            for key, metric_value in value.items():
-                row[f"{month}_{key}"] = metric_value
+        if p.may_metrics:
+            row.update({f"may_{k}": v for k, v in p.may_metrics.items()})
         top_rows.append(row)
     pd.DataFrame(top_rows).to_csv(RESULTS / "top_policies.csv", index=False)
 
-    report = f"""# BTCUSDT 5分钟 市场状态 Walk-Forward V6 回测报告
+    report = f"""# BTCUSDT 5分钟 Walk-Forward 概率过滤 V5 回测报告
 
 - 数据：Binance USDⓈ-M 永续官方5分钟K线，{audit['actual_rows']:,}根；缺失{audit['missing_rows']}、重复{audit['duplicate_timestamps']}。
-- 方法：9–11月训练→12月预筛；1–4月逐月滚动验证；5月最终选择；6月完全样本外。
-- 模型：多空独立 HistGradientBoosting；趋势、震荡、高波动、中性状态过滤；四类价格行为机会。
-- 风控：只搜索2.40R–3.00R目标和1–3天持仓窗口，以保护实际平均盈亏比。
+- 方法：1–3月训练→4月预筛；1–4月训练→5月选择；1–5月训练→6月完全样本外。
+- 机会来源：趋势回踩、流动性扫单反转、突破确认、动量延续。
+- 模型：多空分离 HistGradientBoosting 概率过滤；只交易训练分布中的高分位信号。
 - 成本：单边手续费{FEE_RATE*100:.3f}%；每次成交滑点{SLIPPAGE_ABS:.1f} USDT。
 - 最终验收：**{'达标' if qualified else '未达到全部要求'}**。
 
 ## 选择策略
 
 - 方向：{ {0:'双向',1:'只做多',2:'只做空'}[selected.direction_mode] }
-- 市场状态：{regime_labels.get(selected.regime_mask, f'组合{selected.regime_mask}')}
-- 机会结构：{setup_labels.get(selected.setup_mask, f'组合{selected.setup_mask}')}
 - 固定目标：{selected.risk.rr:.2f}R
 - 止损：max({selected.risk.sl_atr:.2f}×ATR, {selected.risk.min_stop_pct*100:.3f}%价格)
 - 最长持仓：{selected.risk.max_hold}根5分钟K线
 - 概率分位：训练候选前{(1-selected.quantile)*100:.2f}%
 - 冷却：{selected.cooldown}根K线
-- 5月硬条件候选数量：{len(may_qualified)}
 
 ## 月度结果
 
 | 月份 | 交易 | 胜率 | 平均盈利/平均亏损 | 盈利因子 | 净R | 最大回撤R |
 |---|---:|---:|---:|---:|---:|---:|
-| {MONTHS[8]} | {may_metrics['trades']} | {may_metrics['win_rate']*100:.2f}% | {may_metrics['avg_win_loss_ratio']:.3f} | {may_metrics['profit_factor']:.3f} | {may_metrics['net_R']:.3f} | {may_metrics['max_drawdown_R']:.3f} |
-| {MONTHS[9]} | {june_metrics['trades']} | {june_metrics['win_rate']*100:.2f}% | {june_metrics['avg_win_loss_ratio']:.3f} | {june_metrics['profit_factor']:.3f} | {june_metrics['net_R']:.3f} | {june_metrics['max_drawdown_R']:.3f} |
+| {MONTHS[4]} | {may_metrics['trades']} | {may_metrics['win_rate']*100:.2f}% | {may_metrics['avg_win_loss_ratio']:.3f} | {may_metrics['profit_factor']:.3f} | {may_metrics['net_R']:.3f} | {may_metrics['max_drawdown_R']:.3f} |
+| {MONTHS[5]} | {june_metrics['trades']} | {june_metrics['win_rate']*100:.2f}% | {june_metrics['avg_win_loss_ratio']:.3f} | {june_metrics['profit_factor']:.3f} | {june_metrics['net_R']:.3f} | {june_metrics['max_drawdown_R']:.3f} |
 
 ## 保守假设
 
-信号在K线收盘后确认，下一根K线开盘成交；同一根K线同时触及止损和止盈时按止损优先；超时按市价退出。6月没有参与模型、阈值、市场状态或结构筛选。
+信号在K线收盘后确认，下一根K线开盘成交；同一根K线同时触及止损和止盈时按止损优先；超时按市价退出。6月结果未参与策略或阈值选择。
 """
     (RESULTS / "report.md").write_text(report, encoding="utf-8")
     print(report)
