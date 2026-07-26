@@ -17,7 +17,7 @@ import pandas as pd
 import requests
 from numba import njit, prange
 
-ROOT = Path(__file__).resolve().parents[1]
+ROOT = Path(__file__).resolve().parent
 CACHE = ROOT / ".cache"
 RESULTS = ROOT / "results"
 CACHE.mkdir(exist_ok=True)
