@@ -1,0 +1,27 @@
+{
+  "risk": {
+    "rr": 1.8,
+    "sl_atr": 1.1,
+    "min_stop_pct": 0.0042,
+    "max_hold": 144,
+    "breakeven_trigger": 0.95,
+    "breakeven_lock": 0.1,
+    "early_bars": 48,
+    "early_cut_r": 0.4
+  },
+  "model": {
+    "max_depth": 2,
+    "learning_rate": 0.025,
+    "max_iter": 260,
+    "l2_regularization": 8.0,
+    "min_samples_leaf": 70
+  },
+  "monthly_candidate_target": 52,
+  "cooldown_bars": 8,
+  "direction_mode": "只做多",
+  "edge_margin": 0.0,
+  "regime_mask": 9,
+  "regime": "组合9",
+  "setup_mask": 12,
+  "setup": "组合12"
+}

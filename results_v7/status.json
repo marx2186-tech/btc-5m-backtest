@@ -1,0 +1,146 @@
+{
+  "qualified": false,
+  "engine": "BTC 5m count-calibrated protected-exit ensemble V7",
+  "method": "Sep-Nov train→Dec prefilter; rolling Jan-Apr validation; May selection; June untouched OOS",
+  "symbol": "BTCUSDT",
+  "interval": "5m",
+  "months": [
+    "2025-09",
+    "2025-10",
+    "2025-11",
+    "2025-12",
+    "2026-01",
+    "2026-02",
+    "2026-03",
+    "2026-04",
+    "2026-05",
+    "2026-06"
+  ],
+  "constraints": {
+    "min_trades": 15,
+    "max_trades": 30,
+    "min_win_rate": 0.7,
+    "min_avg_win_loss_ratio": 1.5
+  },
+  "selected_policy": {
+    "risk": {
+      "rr": 1.8,
+      "sl_atr": 1.1,
+      "min_stop_pct": 0.0042,
+      "max_hold": 144,
+      "breakeven_trigger": 0.95,
+      "breakeven_lock": 0.1,
+      "early_bars": 48,
+      "early_cut_r": 0.4
+    },
+    "model": {
+      "max_depth": 2,
+      "learning_rate": 0.025,
+      "max_iter": 260,
+      "l2_regularization": 8.0,
+      "min_samples_leaf": 70
+    },
+    "monthly_candidate_target": 52,
+    "cooldown_bars": 8,
+    "direction_mode": "只做多",
+    "edge_margin": 0.0,
+    "regime_mask": 9,
+    "regime": "组合9",
+    "setup_mask": 12,
+    "setup": "组合12"
+  },
+  "development_monthly_stats": {
+    "2025-12": {
+      "trades": 13,
+      "wins": 7,
+      "win_rate": 0.5384615384615384,
+      "avg_win_R": 1.3571689408688115,
+      "avg_loss_R": 1.0548912252526463,
+      "avg_win_loss_ratio": 1.2865487060467014,
+      "profit_factor": 1.500973490387818,
+      "net_R": 3.1708352345658026,
+      "max_drawdown_R": 3.7143899506418183
+    },
+    "2026-01": {
+      "trades": 20,
+      "wins": 9,
+      "win_rate": 0.45,
+      "avg_win_R": 1.5604760575522052,
+      "avg_loss_R": 0.9599881305142195,
+      "avg_win_loss_ratio": 1.6255159912407804,
+      "profit_factor": 1.3299676291970022,
+      "net_R": 3.484415082313431,
+      "max_drawdown_R": 3.405834945021585
+    },
+    "2026-02": {
+      "trades": 16,
+      "wins": 2,
+      "win_rate": 0.125,
+      "avg_win_R": 1.5603075345183952,
+      "avg_loss_R": 0.924151909441325,
+      "avg_win_loss_ratio": 1.6883669433325563,
+      "profit_factor": 0.2411952776189366,
+      "net_R": -9.817511663141758,
+      "max_drawdown_R": 11.238959710978293
+    },
+    "2026-03": {
+      "trades": 26,
+      "wins": 5,
+      "win_rate": 0.19230769230769232,
+      "avg_win_R": 1.56030387981976,
+      "avg_loss_R": 0.9241467879876358,
+      "avg_win_loss_ratio": 1.6883723452822683,
+      "profit_factor": 0.4019934155433973,
+      "net_R": -11.605563148641554,
+      "max_drawdown_R": 17.846747673725172
+    },
+    "2026-04": {
+      "trades": 20,
+      "wins": 8,
+      "win_rate": 0.4,
+      "avg_win_R": 1.5603437972795833,
+      "avg_loss_R": 0.5179016415949247,
+      "avg_win_loss_ratio": 3.012818790213455,
+      "profit_factor": 2.0085458601423034,
+      "net_R": 6.267930679097571,
+      "max_drawdown_R": 2.1294526266572342
+    },
+    "2026-05": {
+      "trades": 30,
+      "wins": 6,
+      "win_rate": 0.2,
+      "avg_win_R": 1.3094686656333054,
+      "avg_loss_R": 0.8023769776744913,
+      "avg_win_loss_ratio": 1.631986836696767,
+      "profit_factor": 0.4079967091741917,
+      "net_R": -11.40023547038796,
+      "max_drawdown_R": 15.079863687863716
+    }
+  },
+  "monthly_stats": {
+    "2026-05": {
+      "trades": 30,
+      "wins": 6,
+      "win_rate": 0.2,
+      "avg_win_R": 1.3094686656333054,
+      "avg_loss_R": 0.8023769776744913,
+      "avg_win_loss_ratio": 1.631986836696767,
+      "profit_factor": 0.4079967091741917,
+      "net_R": -11.40023547038796,
+      "max_drawdown_R": 15.079863687863716
+    },
+    "2026-06": {
+      "trades": 20,
+      "wins": 7,
+      "win_rate": 0.35,
+      "avg_win_R": 1.5602659225539628,
+      "avg_loss_R": 0.7309081651625111,
+      "avg_win_loss_ratio": 2.1346948863364403,
+      "profit_factor": 1.1494510926426986,
+      "net_R": 1.4200553107650937,
+      "max_drawdown_R": 2.571559051283063
+    }
+  },
+  "may_hard_qualified_candidates": 0,
+  "search_policies": 12816
+}
