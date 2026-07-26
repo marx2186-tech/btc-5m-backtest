@@ -1,0 +1,60 @@
+name: BTC 5m V4 price action backtest
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - autonomous_backtest_v4.py
+      - request.v4.json
+      - .github/workflows/v4-price-action-backtest.yml
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: btc-v4-price-action
+  cancel-in-progress: false
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run V4 price-action optimizer
+        env:
+          PYTHONHASHSEED: '0'
+          NUMBA_NUM_THREADS: '2'
+          BACKTEST_REQUEST_FILE: request.v4.json
+        run: python autonomous_backtest_v4.py
+
+      - name: Upload V4 results
+        uses: actions/upload-artifact@v4
+        with:
+          name: btc-v4-results-${{ github.run_id }}
+          path: results_v4/
+          retention-days: 30
+
+      - name: Save V4 results
+        run: |
+          stamp="$(date -u +%Y%m%dT%H%M%SZ)-${GITHUB_RUN_ID}"
+          mkdir -p "history_v4/$stamp"
+          cp -R results_v4/. "history_v4/$stamp/"
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add results_v4/ history_v4/ request.v4.json
+          git commit -m "Add V4 price-action result $stamp [skip ci]" || true
+          git pull --rebase origin main
+          git push origin main

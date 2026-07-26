@@ -1,0 +1,19 @@
+BTCUSDT 5分钟价格行为结构 V4
+
+只需一次操作：
+1. 解压本压缩包。
+2. 在 GitHub 仓库根目录点击 Add file → Upload files。
+3. 将 autonomous_backtest_v4.py、request.v4.json 和 .github 文件夹一起拖入上传。
+4. 点击 Commit changes。
+
+提交后工作流会自动运行，不需要再点击 Run workflow。
+结果会保存到 results_v4 和 history_v4。
+
+V4不再继续微调旧版EMA回踩，而是搜索：
+- 多周期趋势回踩
+- 流动性扫单反转
+- 突破后回踩确认
+- 4小时/1小时/15分钟已完成K线过滤
+- MACD动能转向、Choppiness、相对成交量、影线拒绝与VWAP距离
+
+验收：每月15-30笔，胜率≥70%，实际平均盈亏比≥1.5。
