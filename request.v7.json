@@ -1,0 +1,13 @@
+{
+  "symbol": "BTCUSDT",
+  "interval": "5m",
+  "months": ["2026-05", "2026-06"],
+  "fee_rate_per_side": 0.0005,
+  "tick_size": 0.1,
+  "slippage_ticks_per_fill": 2,
+  "min_trades_per_month": 15,
+  "max_trades_per_month": 30,
+  "min_win_rate": 0.70,
+  "min_avg_win_loss_ratio": 1.50,
+  "base_seed": 20260807
+}
