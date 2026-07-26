@@ -5,8 +5,8 @@ import io
 import json
 import math
 import os
-import random
-import re
+import subprocess
+import sys
 import time
 import zipfile
 from dataclasses import asdict, dataclass
@@ -16,7 +16,12 @@ from typing import Any
 import numpy as np
 import pandas as pd
 import requests
-from numba import njit, prange
+from numba import njit
+try:
+    from sklearn.ensemble import HistGradientBoostingClassifier
+except ImportError:  # GitHub runner fallback; keeps deployment to one file.
+    subprocess.check_call([sys.executable, "-m", "pip", "install", "scikit-learn==1.5.1"])
+    from sklearn.ensemble import HistGradientBoostingClassifier
 
 ROOT = Path(__file__).resolve().parent
 CACHE = ROOT / ".cache"
@@ -35,10 +40,7 @@ DEFAULT_REQUEST: dict[str, Any] = {
     "max_trades_per_month": 30,
     "min_win_rate": 0.70,
     "min_avg_win_loss_ratio": 1.50,
-    "search_rounds": 10,
-    "search_batch": 30000,
-    "seed_count": 5,
-    "base_seed": 20260730,
+    "base_seed": 20260731,
 }
 
 
@@ -53,37 +55,25 @@ def load_request() -> dict[str, Any]:
     return req
 
 
-def interval_to_ms(interval: str) -> int:
-    match = re.fullmatch(r"(\d+)([mhd])", interval.strip().lower())
-    if not match:
-        raise ValueError(f"Unsupported interval: {interval}")
-    value, unit = int(match.group(1)), match.group(2)
-    return value * {"m": 60_000, "h": 3_600_000, "d": 86_400_000}[unit]
-
-
 REQUEST = load_request()
 SYMBOL = str(REQUEST["symbol"]).upper()
 INTERVAL = str(REQUEST["interval"]).lower()
-MONTHS = tuple(str(v) for v in REQUEST["months"])
-if len(MONTHS) != 2:
-    raise ValueError("V4 requires exactly two complete calendar months")
-STEP_MS = interval_to_ms(INTERVAL)
-START_TS = pd.Timestamp(f"{MONTHS[0]}-01T00:00:00Z")
-END_EXCLUSIVE_TS = pd.Timestamp(f"{MONTHS[1]}-01T00:00:00Z") + pd.offsets.MonthBegin(1)
-START_MS = int(START_TS.timestamp() * 1000)
-END_EXCLUSIVE_MS = int(END_EXCLUSIVE_TS.timestamp() * 1000)
-EXPECTED = (END_EXCLUSIVE_MS - START_MS) // STEP_MS
+EVAL_MONTHS = tuple(str(x) for x in REQUEST["months"])
+if len(EVAL_MONTHS) != 2:
+    raise ValueError("V5 requires exactly two evaluation months")
+first_eval = pd.Period(EVAL_MONTHS[0], freq="M")
+last_eval = pd.Period(EVAL_MONTHS[1], freq="M")
+if last_eval != first_eval + 1:
+    raise ValueError("Evaluation months must be consecutive")
+MONTHS = tuple(str(first_eval - offset) for offset in range(4, 0, -1)) + EVAL_MONTHS
 FEE_RATE = float(REQUEST["fee_rate_per_side"])
 TICK_SIZE = float(REQUEST["tick_size"])
-SLIPPAGE_TICKS = int(REQUEST["slippage_ticks_per_fill"])
-SLIPPAGE_ABS = TICK_SIZE * SLIPPAGE_TICKS
+SLIPPAGE_ABS = TICK_SIZE * int(REQUEST["slippage_ticks_per_fill"])
 MIN_TRADES = int(REQUEST["min_trades_per_month"])
 MAX_TRADES = int(REQUEST["max_trades_per_month"])
-TARGET_TRADES = (MIN_TRADES + MAX_TRADES) / 2.0
 MIN_WIN_RATE = float(REQUEST["min_win_rate"])
 MIN_RATIO = float(REQUEST["min_avg_win_loss_ratio"])
 BASE_SEED = int(REQUEST["base_seed"])
-SEED_COUNT = int(REQUEST["seed_count"])
 
 COLS = [
     "open_time", "open", "high", "low", "close", "volume", "close_time",
@@ -91,14 +81,24 @@ COLS = [
 ]
 
 
+def interval_to_ms(interval: str) -> int:
+    units = {"m": 60_000, "h": 3_600_000, "d": 86_400_000}
+    value, unit = int(interval[:-1]), interval[-1]
+    if unit not in units:
+        raise ValueError(f"Unsupported interval: {interval}")
+    return value * units[unit]
+
+
+STEP_MS = interval_to_ms(INTERVAL)
+
+
 def download(url: str, path: Path, attempts: int = 6) -> bytes:
     if path.exists() and path.stat().st_size > 0:
         return path.read_bytes()
     last: Exception | None = None
-    headers = {"User-Agent": "btc-price-action-v4/1.0"}
     for attempt in range(attempts):
         try:
-            response = requests.get(url, timeout=90, headers=headers)
+            response = requests.get(url, timeout=90, headers={"User-Agent": "btc-walkforward-v5/1.0"})
             response.raise_for_status()
             path.write_bytes(response.content)
             return response.content
@@ -137,13 +137,17 @@ def load_official_data() -> tuple[pd.DataFrame, dict[str, Any]]:
         data[col] = pd.to_numeric(data[col], errors="coerce")
     data = data.sort_values("open_time").reset_index(drop=True)
 
-    expected_times = np.arange(START_MS, END_EXCLUSIVE_MS, STEP_MS, dtype=np.int64)
+    start = pd.Timestamp(f"{MONTHS[0]}-01T00:00:00Z")
+    end = pd.Timestamp(f"{MONTHS[-1]}-01T00:00:00Z") + pd.offsets.MonthBegin(1)
+    start_ms = int(start.timestamp() * 1000)
+    end_ms = int(end.timestamp() * 1000)
+    expected_times = np.arange(start_ms, end_ms, STEP_MS, dtype=np.int64)
     times = data["open_time"].astype("int64").to_numpy()
     unique_times = np.unique(times)
     duplicated = int(pd.Series(times).duplicated().sum())
     missing = np.setdiff1d(expected_times, unique_times)
     extra = np.setdiff1d(unique_times, expected_times)
-    off_grid = int(np.sum((times - START_MS) % STEP_MS != 0))
+    off_grid = int(np.sum((times - start_ms) % STEP_MS != 0))
     bad_close = int(np.sum(data["close_time"].astype("int64").to_numpy() != times + STEP_MS - 1))
     o = data["open"].to_numpy(float)
     h = data["high"].to_numpy(float)
@@ -151,14 +155,13 @@ def load_official_data() -> tuple[pd.DataFrame, dict[str, Any]]:
     c = data["close"].to_numpy(float)
     finite = np.isfinite(o) & np.isfinite(h) & np.isfinite(l) & np.isfinite(c)
     valid_ohlc = finite & (h >= np.maximum.reduce([o, c, l])) & (l <= np.minimum.reduce([o, c, h]))
-    invalid_ohlc = int(np.sum(~valid_ohlc))
     audit = {
         "source": "Binance USDⓈ-M Futures official monthly klines",
         "symbol": SYMBOL,
         "interval": INTERVAL,
-        "start_utc": START_TS.isoformat(),
-        "end_utc": pd.to_datetime(END_EXCLUSIVE_MS - STEP_MS, unit="ms", utc=True).isoformat(),
-        "expected_rows": int(EXPECTED),
+        "start_utc": start.isoformat(),
+        "end_utc": pd.to_datetime(end_ms - STEP_MS, unit="ms", utc=True).isoformat(),
+        "expected_rows": int(len(expected_times)),
         "actual_rows": int(len(data)),
         "unique_rows": int(len(unique_times)),
         "duplicate_timestamps": duplicated,
@@ -166,20 +169,18 @@ def load_official_data() -> tuple[pd.DataFrame, dict[str, Any]]:
         "extra_rows": int(len(extra)),
         "off_grid_rows": off_grid,
         "invalid_close_time_rows": bad_close,
-        "invalid_ohlc_rows": invalid_ohlc,
+        "invalid_ohlc_rows": int(np.sum(~valid_ohlc)),
         "files": files,
     }
     audit["passed"] = bool(
-        len(data) == EXPECTED
-        and len(unique_times) == EXPECTED
+        len(data) == len(expected_times)
+        and len(unique_times) == len(expected_times)
         and duplicated == 0
         and len(missing) == 0
         and len(extra) == 0
         and off_grid == 0
         and bad_close == 0
-        and invalid_ohlc == 0
-        and times[0] == START_MS
-        and times[-1] == END_EXCLUSIVE_MS - STEP_MS
+        and np.all(valid_ohlc)
     )
     if not audit["passed"]:
         raise RuntimeError("Data audit failed: " + json.dumps(audit, ensure_ascii=False, indent=2))
@@ -190,7 +191,13 @@ def rma(series: pd.Series, length: int) -> pd.Series:
     return series.ewm(alpha=1 / length, adjust=False, min_periods=length).mean()
 
 
-def add_indicators(data: pd.DataFrame) -> pd.DataFrame:
+def zscore(series: pd.Series, length: int) -> pd.Series:
+    mean = series.rolling(length).mean()
+    std = series.rolling(length).std(ddof=0).replace(0, np.nan)
+    return (series - mean) / std
+
+
+def add_features(data: pd.DataFrame) -> pd.DataFrame:
     x = data.copy()
     x.index = pd.to_datetime(x["open_time"], unit="ms", utc=True)
     o, h, l, c, v = (x[k].astype(float) for k in ("open", "high", "low", "close", "volume"))
@@ -200,7 +207,6 @@ def add_indicators(data: pd.DataFrame) -> pd.DataFrame:
 
     prev = c.shift(1)
     tr = pd.concat([(h - l), (h - prev).abs(), (l - prev).abs()], axis=1).max(axis=1)
-    x["tr"] = tr
     x["atr"] = rma(tr, 14)
     x["atr_pct"] = x["atr"] / c
     x["atr_rank"] = x["atr_pct"].rolling(288).rank(pct=True)
@@ -212,34 +218,43 @@ def add_indicators(data: pd.DataFrame) -> pd.DataFrame:
     plus_di = 100 * rma(plus_dm, 14) / x["atr"].replace(0, np.nan)
     minus_di = 100 * rma(minus_dm, 14) / x["atr"].replace(0, np.nan)
     dx = 100 * (plus_di - minus_di).abs() / (plus_di + minus_di).replace(0, np.nan)
-    x["plus_di"], x["minus_di"], x["adx"] = plus_di, minus_di, rma(dx, 14)
+    x["plus_di"] = plus_di
+    x["minus_di"] = minus_di
+    x["di_gap"] = (plus_di - minus_di) / 100.0
+    x["adx"] = rma(dx, 14)
 
     change = c.diff()
     gain, loss = change.clip(lower=0), -change.clip(upper=0)
     rs = rma(gain, 14) / rma(loss, 14).replace(0, np.nan)
     x["rsi"] = 100 - 100 / (1 + rs)
+
     fast = c.ewm(span=12, adjust=False).mean()
     slow = c.ewm(span=26, adjust=False).mean()
     macd = fast - slow
-    x["macd_hist"] = macd - macd.ewm(span=9, adjust=False).mean()
-    x["macd_slope"] = x["macd_hist"].diff()
+    macd_hist = macd - macd.ewm(span=9, adjust=False).mean()
+    x["macd_hist_atr"] = macd_hist / x["atr"].replace(0, np.nan)
+    x["macd_slope_atr"] = macd_hist.diff() / x["atr"].replace(0, np.nan)
 
     basis = c.rolling(20).mean()
     sd = c.rolling(20).std(ddof=0)
     lower, upper = basis - 2 * sd, basis + 2 * sd
     x["bb_pos"] = (c - lower) / (upper - lower).replace(0, np.nan)
-    x["bb_width"] = (upper - lower) / basis.replace(0, np.nan)
-    x["bb_rank"] = x["bb_width"].rolling(288).rank(pct=True)
+    width = (upper - lower) / basis.replace(0, np.nan)
+    x["bb_rank"] = width.rolling(288).rank(pct=True)
 
     utc_day = x.index.floor("D")
     typical = (h + l + c) / 3
     x["vwap"] = (typical * v).groupby(utc_day).cumsum() / v.groupby(utc_day).cumsum().replace(0, np.nan)
     x["vwap_dev"] = (c - x["vwap"]) / x["atr"].replace(0, np.nan)
+
     x["rel_vol"] = v / v.rolling(48).mean().replace(0, np.nan)
+    x["vol_z"] = zscore(v, 48)
+    x["trade_z"] = zscore(x["trade_count"].astype(float), 48)
+    x["taker_ratio"] = x["taker_buy_volume"].astype(float) / v.replace(0, np.nan)
+    x["taker_z"] = zscore(x["taker_ratio"], 48)
 
     candle_range = (h - l).replace(0, np.nan)
-    body_abs = (c - o).abs()
-    x["body"] = body_abs / candle_range
+    x["body"] = (c - o).abs() / candle_range
     x["close_loc"] = (c - l) / candle_range
     x["upper_wick"] = (h - np.maximum(o, c)) / candle_range
     x["lower_wick"] = (np.minimum(o, c) - l) / candle_range
@@ -251,745 +266,560 @@ def add_indicators(data: pd.DataFrame) -> pd.DataFrame:
     for n in (12, 24):
         x[f"eff{n}"] = (c - c.shift(n)).abs() / abs_change.rolling(n).sum().replace(0, np.nan)
 
-    hh14 = h.rolling(14).max()
-    ll14 = l.rolling(14).min()
+    hh14, ll14 = h.rolling(14).max(), l.rolling(14).min()
     x["chop"] = 100 * np.log10(tr.rolling(14).sum() / (hh14 - ll14).replace(0, np.nan)) / math.log10(14)
 
-    windows = (6, 12, 24)
-    for wi, window in enumerate(windows):
-        prev_high = h.shift(1).rolling(window).max()
-        prev_low = l.shift(1).rolling(window).min()
-        x[f"don{window}h"] = prev_high
-        x[f"don{window}l"] = prev_low
-        x[f"sweep_l_{wi}"] = (l < prev_low) & (c > prev_low) & (c > o)
-        x[f"sweep_s_{wi}"] = (h > prev_high) & (c < prev_high) & (c < o)
+    for length in (8, 21, 55, 200):
+        x[f"ema{length}_gap"] = (c - x[f"ema{length}"]) / x["atr"].replace(0, np.nan)
 
-    def htf_features(rule: str, prefix: str) -> None:
-        bars = x[["open", "high", "low", "close", "volume"]].resample(rule, label="right", closed="left").agg(
-            {"open": "first", "high": "max", "low": "min", "close": "last", "volume": "sum"}
-        ).dropna()
+    for window in (6, 12, 24):
+        x[f"don{window}h"] = h.shift(1).rolling(window).max()
+        x[f"don{window}l"] = l.shift(1).rolling(window).min()
+
+    def htf(rule: str, prefix: str) -> None:
+        bars = x[["open", "high", "low", "close", "volume"]].resample(
+            rule, label="right", closed="left"
+        ).agg({"open": "first", "high": "max", "low": "min", "close": "last", "volume": "sum"}).dropna()
         e20 = bars["close"].ewm(span=20, adjust=False).mean()
         e50 = bars["close"].ewm(span=50, adjust=False).mean()
-        long_regime = (bars["close"] > e20) & (e20 > e50) & (e50 > e50.shift(2))
-        short_regime = (bars["close"] < e20) & (e20 < e50) & (e50 < e50.shift(2))
-        x[f"{prefix}_long"] = long_regime.shift(1).reindex(x.index, method="ffill").fillna(False)
-        x[f"{prefix}_short"] = short_regime.shift(1).reindex(x.index, method="ffill").fillna(False)
+        trend = np.where((bars["close"] > e20) & (e20 > e50), 1.0,
+                         np.where((bars["close"] < e20) & (e20 < e50), -1.0, 0.0))
+        gap = (e20 - e50) / bars["close"].replace(0, np.nan)
+        trend_s = pd.Series(trend, index=bars.index).shift(1)
+        gap_s = gap.shift(1)
+        x[f"{prefix}_trend"] = trend_s.reindex(x.index, method="ffill")
+        x[f"{prefix}_gap"] = gap_s.reindex(x.index, method="ffill")
 
-    htf_features("15min", "m15")
-    htf_features("60min", "h1")
-    htf_features("240min", "h4")
+    htf("15min", "m15")
+    htf("60min", "h1")
+    htf("240min", "h4")
 
-    pull_tols = (0.15, 0.30, 0.50)
-    pull_bars = (3, 6, 12)
-    for ti, tol in enumerate(pull_tols):
-        touch_l = (l <= x["ema21"] + tol * x["atr"]) & (l >= x["ema55"] - x["atr"])
-        touch_s = (h >= x["ema21"] - tol * x["atr"]) & (h <= x["ema55"] + x["atr"])
-        for bi, bars in enumerate(pull_bars):
-            x[f"pl_{ti}_{bi}"] = touch_l.rolling(bars).max().fillna(0).astype(bool) & (c > x["ema8"])
-            x[f"ps_{ti}_{bi}"] = touch_s.rolling(bars).max().fillna(0).astype(bool) & (c < x["ema8"])
+    pull_long = (
+        (x["h1_trend"] >= 0) & (x["m15_trend"] > 0)
+        & (l <= x["ema21"] + 0.35 * x["atr"]) & (c > x["ema8"])
+        & (c > o) & (x["macd_slope_atr"] > 0)
+    )
+    pull_short = (
+        (x["h1_trend"] <= 0) & (x["m15_trend"] < 0)
+        & (h >= x["ema21"] - 0.35 * x["atr"]) & (c < x["ema8"])
+        & (c < o) & (x["macd_slope_atr"] < 0)
+    )
+    sweep_long = (
+        (l < x["don12l"]) & (c > x["don12l"]) & (c > o)
+        & (x["lower_wick"] >= 0.28) & (x["taker_ratio"] >= 0.48)
+    )
+    sweep_short = (
+        (h > x["don12h"]) & (c < x["don12h"]) & (c < o)
+        & (x["upper_wick"] >= 0.28) & (x["taker_ratio"] <= 0.52)
+    )
+    breakout_long = (
+        (c > x["don12h"]) & (c > x["ema55"]) & (x["h1_trend"] >= 0)
+        & (x["body"] >= 0.42) & (x["close_loc"] >= 0.65) & (x["rel_vol"] >= 0.85)
+    )
+    breakout_short = (
+        (c < x["don12l"]) & (c < x["ema55"]) & (x["h1_trend"] <= 0)
+        & (x["body"] >= 0.42) & (x["close_loc"] <= 0.35) & (x["rel_vol"] >= 0.85)
+    )
+    momentum_long = (
+        (x["h1_trend"] > 0) & (x["m15_trend"] > 0) & (c > x["don6h"])
+        & (x["taker_ratio"] >= 0.53) & (x["range_exp"] >= 1.0)
+    )
+    momentum_short = (
+        (x["h1_trend"] < 0) & (x["m15_trend"] < 0) & (c < x["don6l"])
+        & (x["taker_ratio"] <= 0.47) & (x["range_exp"] >= 1.0)
+    )
 
-    retest_windows = (12, 24)
-    retest_bars = (3, 6, 12)
-    retest_tols = (0.10, 0.25, 0.40)
-    for wi, window in enumerate(retest_windows):
-        high_level = h.shift(1).rolling(window).max()
-        low_level = l.shift(1).rolling(window).min()
-        break_l = c > high_level
-        break_s = c < low_level
-        for bi, bars in enumerate(retest_bars):
-            last_high = high_level.where(break_l).shift(1).ffill(limit=bars)
-            last_low = low_level.where(break_s).shift(1).ffill(limit=bars)
-            for ti, tol in enumerate(retest_tols):
-                idx = wi * 9 + bi * 3 + ti
-                x[f"retest_l_{idx}"] = (
-                    last_high.notna() & (l <= last_high + tol * x["atr"]) & (c > last_high) & (c > o)
-                )
-                x[f"retest_s_{idx}"] = (
-                    last_low.notna() & (h >= last_low - tol * x["atr"]) & (c < last_low) & (c < o)
-                )
+    x["setup_pull_long"] = pull_long.astype(float)
+    x["setup_pull_short"] = pull_short.astype(float)
+    x["setup_sweep_long"] = sweep_long.astype(float)
+    x["setup_sweep_short"] = sweep_short.astype(float)
+    x["setup_break_long"] = breakout_long.astype(float)
+    x["setup_break_short"] = breakout_short.astype(float)
+    x["setup_mom_long"] = momentum_long.astype(float)
+    x["setup_mom_short"] = momentum_short.astype(float)
+    x["candidate_long"] = pull_long | sweep_long | breakout_long | momentum_long
+    x["candidate_short"] = pull_short | sweep_short | breakout_short | momentum_short
+
+    hours = x.index.hour + x.index.minute / 60.0
+    x["hour_sin"] = np.sin(2 * np.pi * hours / 24.0)
+    x["hour_cos"] = np.cos(2 * np.pi * hours / 24.0)
+    x["weekday"] = x.index.weekday.astype(float)
+    x["month"] = x.index.to_period("M").astype(str)
 
     return x.replace([np.inf, -np.inf], np.nan).dropna().copy()
 
 
-@dataclass
-class Config:
-    family_mask: int
-    direction: int
+FEATURES = [
+    "ret1", "ret3", "ret6", "ret12", "ret24",
+    "ema8_gap", "ema21_gap", "ema55_gap", "ema200_gap",
+    "atr_pct", "atr_rank", "rsi", "adx", "di_gap",
+    "macd_hist_atr", "macd_slope_atr", "bb_pos", "bb_rank", "vwap_dev",
+    "rel_vol", "vol_z", "trade_z", "taker_ratio", "taker_z",
+    "body", "close_loc", "upper_wick", "lower_wick", "range_exp",
+    "eff12", "eff24", "chop",
+    "m15_trend", "h1_trend", "h4_trend", "m15_gap", "h1_gap", "h4_gap",
+    "hour_sin", "hour_cos", "weekday",
+    "setup_pull_long", "setup_pull_short", "setup_sweep_long", "setup_sweep_short",
+    "setup_break_long", "setup_break_short", "setup_mom_long", "setup_mom_short",
+]
+
+
+@dataclass(frozen=True)
+class RiskConfig:
     rr: float
     sl_atr: float
     min_stop_pct: float
     max_hold: int
+
+
+@dataclass(frozen=True)
+class ModelConfig:
+    max_depth: int
+    learning_rate: float
+    max_iter: int
+    l2_regularization: float
+    min_samples_leaf: int
+
+
+@dataclass
+class Policy:
+    risk: RiskConfig
+    model: ModelConfig
+    quantile: float
     cooldown: int
-    session_start: int
-    session_end: int
-    weekday_mask: int
-    htf_mode: int
-    adx_min: float
-    rsi_long_min: float
-    rsi_long_max: float
-    relvol_min: float
-    body_min: float
-    close_loc_min: float
-    wick_min: float
-    eff_min: float
-    chop_max: float
-    atr_rank_min: float
-    vwap_dev_max: float
-    pull_idx: int
-    sweep_idx: int
-    retest_idx: int
-    trail_trigger: float
-    trail_lock: float
+    direction_mode: int  # 0 both, 1 long, 2 short
+    april_score: float
+    april_metrics: dict[str, float]
+    may_score: float = -1e12
+    may_metrics: dict[str, float] | None = None
 
 
-FAMILY_NAMES = {
-    1: "多周期趋势回踩",
-    2: "流动性扫单反转",
-    3: "趋势回踩+流动性扫单",
-    4: "突破回踩确认",
-    5: "趋势回踩+突破回踩",
-    6: "扫单反转+突破回踩",
-    7: "三结构组合",
-}
+@njit(cache=True)
+def compute_outcomes(
+    indices: np.ndarray,
+    direction: int,
+    open_: np.ndarray,
+    high: np.ndarray,
+    low: np.ndarray,
+    close: np.ndarray,
+    atr: np.ndarray,
+    rr: float,
+    sl_atr: float,
+    min_stop_pct: float,
+    max_hold: int,
+    fee_rate: float,
+    slippage_abs: float,
+) -> tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]:
+    n = len(indices)
+    labels = np.full(n, -1, dtype=np.int8)
+    exits = np.full(n, -1, dtype=np.int64)
+    net_r = np.zeros(n, dtype=np.float64)
+    reasons = np.zeros(n, dtype=np.int8)  # 1 TP, 2 SL, 3 TIME
+    for k in range(n):
+        signal_i = indices[k]
+        entry_i = signal_i + 1
+        if entry_i >= len(close):
+            continue
+        entry = open_[entry_i] + direction * slippage_abs
+        risk = max(atr[signal_i] * sl_atr, close[signal_i] * min_stop_pct)
+        stop = entry - direction * risk
+        target = entry + direction * risk * rr
+        end_i = min(len(close) - 1, entry_i + max_hold)
+        exit_price = close[end_i] - direction * slippage_abs
+        reason = 3
+        exit_i = end_i
+        for j in range(entry_i, end_i + 1):
+            if direction > 0:
+                if low[j] <= stop:
+                    exit_price = stop - slippage_abs
+                    reason = 2
+                    exit_i = j
+                    break
+                if high[j] >= target:
+                    exit_price = target - slippage_abs
+                    reason = 1
+                    exit_i = j
+                    break
+            else:
+                if high[j] >= stop:
+                    exit_price = stop + slippage_abs
+                    reason = 2
+                    exit_i = j
+                    break
+                if low[j] <= target:
+                    exit_price = target + slippage_abs
+                    reason = 1
+                    exit_i = j
+                    break
+        gross = (exit_price - entry) * direction
+        fees = fee_rate * (entry + exit_price)
+        value = (gross - fees) / risk
+        labels[k] = 1 if reason == 1 else (0 if reason == 2 else -1)
+        exits[k] = exit_i
+        net_r[k] = value
+        reasons[k] = reason
+    return labels, exits, net_r, reasons
 
 
-def random_config(rng: random.Random) -> Config:
-    if rng.random() < 0.58:
-        start, end = 0, 24
-    else:
-        start = rng.randrange(0, 17)
-        end = min(24, start + rng.randrange(6, 13))
-    rr = rng.choice((2.0, 2.2, 2.4, 2.6, 2.8, 3.0))
-    trigger = rng.uniform(1.70, min(2.45, rr - 0.10))
-    lock_hi = max(1.56, min(trigger - 0.05, rr - 0.15))
-    lock = rng.uniform(1.50, lock_hi)
-    return Config(
-        family_mask=rng.choices((1, 2, 3, 4, 5, 6, 7), weights=(7, 7, 9, 7, 10, 8, 6))[0],
-        direction=rng.choices((0, 1, 2), weights=(8, 3, 3))[0],
-        rr=rr,
-        sl_atr=rng.uniform(0.80, 2.40),
-        min_stop_pct=rng.uniform(0.0025, 0.0080),
-        max_hold=rng.choice((216, 288, 432, 576)),
-        cooldown=rng.randrange(6, 61),
-        session_start=start,
-        session_end=end,
-        weekday_mask=rng.choice((127, 127, 31, 62, 124)),
-        htf_mode=rng.randrange(3),
-        adx_min=rng.uniform(15, 38),
-        rsi_long_min=rng.uniform(42, 56),
-        rsi_long_max=rng.uniform(58, 74),
-        relvol_min=rng.uniform(0.75, 1.80),
-        body_min=rng.uniform(0.25, 0.72),
-        close_loc_min=rng.uniform(0.58, 0.90),
-        wick_min=rng.uniform(0.25, 0.70),
-        eff_min=rng.uniform(0.16, 0.62),
-        chop_max=rng.uniform(45, 66),
-        atr_rank_min=rng.uniform(0.10, 0.75),
-        vwap_dev_max=rng.uniform(0.60, 3.00),
-        pull_idx=rng.randrange(9),
-        sweep_idx=rng.randrange(3),
-        retest_idx=rng.randrange(18),
-        trail_trigger=trigger,
-        trail_lock=lock,
+def balanced_weights(y: np.ndarray) -> np.ndarray:
+    positives = max(1, int(np.sum(y == 1)))
+    negatives = max(1, int(np.sum(y == 0)))
+    total = positives + negatives
+    w_pos = total / (2.0 * positives)
+    w_neg = total / (2.0 * negatives)
+    return np.where(y == 1, w_pos, w_neg)
+
+
+def fit_models(
+    x: pd.DataFrame,
+    long_data: dict[str, np.ndarray],
+    short_data: dict[str, np.ndarray],
+    risk: RiskConfig,
+    model_cfg: ModelConfig,
+    train_months: set[str],
+) -> tuple[HistGradientBoostingClassifier | None, HistGradientBoostingClassifier | None, float, float]:
+    models: list[HistGradientBoostingClassifier | None] = []
+    thresholds: list[float] = []
+    for side_data in (long_data, short_data):
+        idx = side_data["idx"]
+        labels, _, _, _ = compute_outcomes(
+            idx, int(side_data["direction"]),
+            x["open"].to_numpy(float), x["high"].to_numpy(float), x["low"].to_numpy(float),
+            x["close"].to_numpy(float), x["atr"].to_numpy(float),
+            risk.rr, risk.sl_atr, risk.min_stop_pct, risk.max_hold, FEE_RATE, SLIPPAGE_ABS,
+        )
+        months = x["month"].to_numpy()[idx]
+        mask = np.isin(months, list(train_months)) & (labels >= 0)
+        y = labels[mask].astype(int)
+        if len(y) < 120 or len(np.unique(y)) < 2 or min(np.sum(y == 0), np.sum(y == 1)) < 25:
+            models.append(None)
+            thresholds.append(float("nan"))
+            continue
+        X = x.iloc[idx[mask]][FEATURES].to_numpy(np.float64)
+        model = HistGradientBoostingClassifier(
+            max_depth=model_cfg.max_depth,
+            learning_rate=model_cfg.learning_rate,
+            max_iter=model_cfg.max_iter,
+            l2_regularization=model_cfg.l2_regularization,
+            min_samples_leaf=model_cfg.min_samples_leaf,
+            early_stopping=True,
+            validation_fraction=0.15,
+            n_iter_no_change=15,
+            random_state=BASE_SEED,
+        )
+        model.fit(X, y, sample_weight=balanced_weights(y))
+        train_prob = model.predict_proba(X)[:, 1]
+        models.append(model)
+        thresholds.append(float(np.nanmedian(train_prob)))
+    return models[0], models[1], thresholds[0], thresholds[1]
+
+
+def make_side_data(x: pd.DataFrame, column: str, direction: int) -> dict[str, np.ndarray]:
+    idx = np.flatnonzero(x[column].to_numpy(bool)).astype(np.int64)
+    return {"idx": idx, "direction": np.array(direction, dtype=np.int64)}
+
+
+
+def build_prediction_bundle(
+    x: pd.DataFrame,
+    side_data: dict[str, np.ndarray],
+    model: HistGradientBoostingClassifier | None,
+    risk: RiskConfig,
+    train_months: set[str],
+) -> dict[str, Any] | None:
+    if model is None:
+        return None
+    idx = side_data["idx"]
+    direction = int(side_data["direction"])
+    labels, exits, net_r, reasons = compute_outcomes(
+        idx, direction,
+        x["open"].to_numpy(float), x["high"].to_numpy(float), x["low"].to_numpy(float),
+        x["close"].to_numpy(float), x["atr"].to_numpy(float),
+        risk.rr, risk.sl_atr, risk.min_stop_pct, risk.max_hold, FEE_RATE, SLIPPAGE_ABS,
     )
+    prob = model.predict_proba(x.iloc[idx][FEATURES].to_numpy(np.float64))[:, 1]
+    months = x["month"].to_numpy()[idx]
+    train_mask = np.isin(months, list(train_months)) & (labels >= 0)
+    train_prob = prob[train_mask]
+    if len(train_prob) < 50:
+        return None
+    return {
+        "idx": idx, "direction": direction, "labels": labels, "exits": exits,
+        "net_r": net_r, "reasons": reasons, "prob": prob, "months": months,
+        "train_prob": train_prob,
+    }
 
 
-def build_arrays(x: pd.DataFrame) -> dict[str, np.ndarray]:
-    keys = [
-        "open", "high", "low", "close", "atr", "ema8", "ema21", "ema55", "ema200",
-        "vwap", "vwap_dev", "plus_di", "minus_di", "adx", "rsi", "macd_hist", "macd_slope",
-        "rel_vol", "body", "close_loc", "upper_wick", "lower_wick", "range_exp",
-        "ret1", "ret3", "ret12", "eff12", "eff24", "chop", "atr_rank",
+def events_from_bundle(bundle: dict[str, Any] | None, eval_month: str, quantile: float) -> list[dict[str, Any]]:
+    if bundle is None:
+        return []
+    threshold = float(np.quantile(bundle["train_prob"], quantile))
+    mask = (bundle["months"] == eval_month) & (bundle["prob"] >= threshold) & (bundle["exits"] >= 0)
+    events: list[dict[str, Any]] = []
+    for k in np.flatnonzero(mask):
+        events.append({
+            "signal_i": int(bundle["idx"][k]),
+            "exit_i": int(bundle["exits"][k]),
+            "direction": int(bundle["direction"]),
+            "prob": float(bundle["prob"][k]),
+            "net_r": float(bundle["net_r"][k]),
+            "reason": int(bundle["reasons"][k]),
+        })
+    return events
+
+def predict_events(
+    x: pd.DataFrame,
+    side_data: dict[str, np.ndarray],
+    model: HistGradientBoostingClassifier | None,
+    risk: RiskConfig,
+    eval_month: str,
+    train_months: set[str],
+    quantile: float,
+) -> list[dict[str, Any]]:
+    if model is None:
+        return []
+    idx = side_data["idx"]
+    direction = int(side_data["direction"])
+    labels, exits, net_r, reasons = compute_outcomes(
+        idx, direction,
+        x["open"].to_numpy(float), x["high"].to_numpy(float), x["low"].to_numpy(float),
+        x["close"].to_numpy(float), x["atr"].to_numpy(float),
+        risk.rr, risk.sl_atr, risk.min_stop_pct, risk.max_hold, FEE_RATE, SLIPPAGE_ABS,
+    )
+    X = x.iloc[idx][FEATURES].to_numpy(np.float64)
+    prob = model.predict_proba(X)[:, 1]
+    months = x["month"].to_numpy()[idx]
+    train_prob = prob[np.isin(months, list(train_months)) & (labels >= 0)]
+    if len(train_prob) < 50:
+        return []
+    threshold = float(np.quantile(train_prob, quantile))
+    mask = (months == eval_month) & (prob >= threshold)
+    events: list[dict[str, Any]] = []
+    for k in np.flatnonzero(mask):
+        if exits[k] < 0:
+            continue
+        events.append({
+            "signal_i": int(idx[k]),
+            "exit_i": int(exits[k]),
+            "direction": direction,
+            "prob": float(prob[k]),
+            "net_r": float(net_r[k]),
+            "reason": int(reasons[k]),
+        })
+    return events
+
+
+def select_trades(events: list[dict[str, Any]], cooldown: int, direction_mode: int) -> list[dict[str, Any]]:
+    if direction_mode == 1:
+        events = [e for e in events if e["direction"] > 0]
+    elif direction_mode == 2:
+        events = [e for e in events if e["direction"] < 0]
+    events = sorted(events, key=lambda e: (e["signal_i"], -e["prob"]))
+    selected: list[dict[str, Any]] = []
+    last_exit = -10**9
+    i = 0
+    while i < len(events):
+        signal_i = events[i]["signal_i"]
+        same: list[dict[str, Any]] = []
+        while i < len(events) and events[i]["signal_i"] == signal_i:
+            same.append(events[i])
+            i += 1
+        best = max(same, key=lambda e: e["prob"])
+        if signal_i <= last_exit + cooldown:
+            continue
+        selected.append(best)
+        last_exit = best["exit_i"]
+    return selected
+
+
+def metrics(trades: list[dict[str, Any]]) -> dict[str, float]:
+    values = np.array([t["net_r"] for t in trades], dtype=float)
+    count = int(len(values))
+    wins = values[values > 0]
+    losses = -values[values <= 0]
+    wr = float(len(wins) / count) if count else 0.0
+    avg_win = float(wins.mean()) if len(wins) else 0.0
+    avg_loss = float(losses.mean()) if len(losses) else 0.0
+    ratio = avg_win / avg_loss if avg_win > 0 and avg_loss > 0 else 0.0
+    pf = float(wins.sum() / losses.sum()) if len(losses) and losses.sum() > 0 else 0.0
+    net = float(values.sum()) if count else 0.0
+    cum = np.cumsum(values) if count else np.array([0.0])
+    peak = np.maximum.accumulate(np.r_[0.0, cum])
+    dd = peak[1:] - cum if count else np.array([0.0])
+    return {
+        "trades": count,
+        "wins": int(len(wins)),
+        "win_rate": wr,
+        "avg_win_R": avg_win,
+        "avg_loss_R": avg_loss,
+        "avg_win_loss_ratio": ratio,
+        "profit_factor": pf,
+        "net_R": net,
+        "max_drawdown_R": float(dd.max()) if len(dd) else 0.0,
+    }
+
+
+def month_score(m: dict[str, float]) -> float:
+    count = int(m["trades"])
+    count_error = abs(count - (MIN_TRADES + MAX_TRADES) / 2)
+    score = (
+        m["win_rate"] * 900.0
+        + min(m["avg_win_loss_ratio"], 4.0) * 180.0
+        + min(m["profit_factor"], 8.0) * 40.0
+        + m["net_R"] * 8.0
+        - m["max_drawdown_R"] * 4.0
+        - count_error * 12.0
+    )
+    if count < MIN_TRADES or count > MAX_TRADES:
+        score -= 5000.0 + abs(count - np.clip(count, MIN_TRADES, MAX_TRADES)) * 300.0
+    if m["win_rate"] < MIN_WIN_RATE:
+        score -= (MIN_WIN_RATE - m["win_rate"]) * 6000.0
+    if m["avg_win_loss_ratio"] < MIN_RATIO:
+        score -= (MIN_RATIO - m["avg_win_loss_ratio"]) * 2500.0
+    return float(score)
+
+
+def evaluate_policy(
+    x: pd.DataFrame,
+    long_data: dict[str, np.ndarray],
+    short_data: dict[str, np.ndarray],
+    policy: Policy,
+    train_months: set[str],
+    eval_month: str,
+) -> tuple[dict[str, float], list[dict[str, Any]]]:
+    long_model, short_model, _, _ = fit_models(x, long_data, short_data, policy.risk, policy.model, train_months)
+    events = predict_events(x, long_data, long_model, policy.risk, eval_month, train_months, policy.quantile)
+    events += predict_events(x, short_data, short_model, policy.risk, eval_month, train_months, policy.quantile)
+    selected = select_trades(events, policy.cooldown, policy.direction_mode)
+    return metrics(selected), selected
+
+
+def setup_name(x: pd.DataFrame, signal_i: int, direction: int) -> str:
+    suffix = "long" if direction > 0 else "short"
+    names = [
+        (f"setup_pull_{suffix}", "趋势回踩"),
+        (f"setup_sweep_{suffix}", "流动性扫单反转"),
+        (f"setup_break_{suffix}", "突破确认"),
+        (f"setup_mom_{suffix}", "动量延续"),
     ]
-    arrays = {key: x[key].to_numpy(np.float64) for key in keys}
-    for key in ("m15_long", "m15_short", "h1_long", "h1_short", "h4_long", "h4_short"):
-        arrays[key] = x[key].to_numpy(np.bool_)
-    arrays["pull_l"] = np.column_stack([x[f"pl_{ti}_{bi}"].to_numpy(np.bool_) for ti in range(3) for bi in range(3)])
-    arrays["pull_s"] = np.column_stack([x[f"ps_{ti}_{bi}"].to_numpy(np.bool_) for ti in range(3) for bi in range(3)])
-    arrays["sweep_l"] = np.column_stack([x[f"sweep_l_{i}"].to_numpy(np.bool_) for i in range(3)])
-    arrays["sweep_s"] = np.column_stack([x[f"sweep_s_{i}"].to_numpy(np.bool_) for i in range(3)])
-    arrays["retest_l"] = np.column_stack([x[f"retest_l_{i}"].to_numpy(np.bool_) for i in range(18)])
-    arrays["retest_s"] = np.column_stack([x[f"retest_s_{i}"].to_numpy(np.bool_) for i in range(18)])
-    index = x.index
-    period_codes = index.to_period("M").astype(str)
-    arrays["period"] = np.where(period_codes == MONTHS[0], 0, 1).astype(np.int16)
-    arrays["hour"] = index.hour.to_numpy(np.int16)
-    arrays["weekday"] = index.weekday.to_numpy(np.int16)
-    arrays["day"] = index.day.to_numpy(np.int16)
-    arrays["timestamp"] = (index.view("int64") // 1_000_000).astype(np.int64)
-    return arrays
+    active = [label for col, label in names if x.iloc[signal_i][col] > 0.5]
+    return "+".join(active) if active else "候选信号"
 
 
-def pack_configs(configs: list[Config]) -> np.ndarray:
-    p = np.zeros((len(configs), 27), dtype=np.float64)
-    for i, cfg in enumerate(configs):
-        p[i] = [
-            cfg.family_mask, cfg.direction, cfg.rr, cfg.sl_atr, cfg.min_stop_pct,
-            cfg.max_hold, cfg.cooldown, cfg.session_start, cfg.session_end, cfg.weekday_mask,
-            cfg.htf_mode, cfg.adx_min, cfg.rsi_long_min, cfg.rsi_long_max, cfg.relvol_min,
-            cfg.body_min, cfg.close_loc_min, cfg.wick_min, cfg.eff_min, cfg.chop_max,
-            cfg.atr_rank_min, cfg.vwap_dev_max, cfg.pull_idx, cfg.sweep_idx, cfg.retest_idx,
-            cfg.trail_trigger, cfg.trail_lock,
-        ]
-    return p
-
-
-@njit(cache=True)
-def allowed_time(hour: int, weekday: int, start: int, end: int, mask: int) -> bool:
-    if ((mask >> weekday) & 1) == 0:
-        return False
-    if start == 0 and end == 24:
-        return True
-    return start <= hour < end
-
-
-@njit(cache=True)
-def htf_ok(long_side, mode, m15_long, m15_short, h1_long, h1_short, h4_long, h4_short, i):
-    if long_side:
-        if mode == 0:
-            return h1_long[i] and m15_long[i] and not h4_short[i]
-        if mode == 1:
-            return h4_long[i] and h1_long[i]
-        return h4_long[i] and h1_long[i] and m15_long[i]
-    if mode == 0:
-        return h1_short[i] and m15_short[i] and not h4_long[i]
-    if mode == 1:
-        return h4_short[i] and h1_short[i]
-    return h4_short[i] and h1_short[i] and m15_short[i]
-
-
-@njit(cache=True)
-def family_signal(
-    i, long_side, p, o, h, l, c, atr, ema8, ema21, ema55, ema200, vwap, vwap_dev,
-    plus_di, minus_di, adx, rsi, macd_hist, macd_slope, rel_vol, body, close_loc,
-    upper_wick, lower_wick, range_exp, ret1, ret3, ret12, eff12, eff24, chop, atr_rank,
-    m15_long, m15_short, h1_long, h1_short, h4_long, h4_short,
-    pull_l, pull_s, sweep_l, sweep_s, retest_l, retest_s,
-):
-    mask = int(p[0])
-    mode = int(p[10])
-    adx_min = p[11]
-    rsi_lo = p[12]
-    rsi_hi = p[13]
-    rv_min = p[14]
-    body_min = p[15]
-    loc_min = p[16]
-    wick_min = p[17]
-    eff_min = p[18]
-    chop_max = p[19]
-    atr_min = p[20]
-    vwap_max = p[21]
-    pull_idx = int(p[22])
-    sweep_idx = int(p[23])
-    retest_idx = int(p[24])
-
-    trend_ok = htf_ok(long_side, mode, m15_long, m15_short, h1_long, h1_short, h4_long, h4_short, i)
-    trend_sig = False
-    sweep_sig = False
-    retest_sig = False
-
-    if long_side:
-        candle_ok = c[i] > o[i] and body[i] >= body_min and close_loc[i] >= loc_min
-        trend_sig = (
-            (mask & 1) != 0 and trend_ok and pull_l[i, pull_idx]
-            and c[i] > ema8[i] and ema8[i] > ema21[i] and ema21[i] > ema55[i] and c[i] > ema200[i]
-            and adx[i] >= adx_min and plus_di[i] > minus_di[i]
-            and rsi[i] >= rsi_lo and rsi[i] <= rsi_hi
-            and macd_hist[i] > 0 and macd_slope[i] > 0
-            and eff12[i] >= eff_min and chop[i] <= chop_max
-            and rel_vol[i] >= rv_min and atr_rank[i] >= atr_min
-            and vwap_dev[i] >= -0.30 and vwap_dev[i] <= vwap_max
-            and candle_ok
-        )
-        sweep_sig = (
-            (mask & 2) != 0 and sweep_l[i, sweep_idx]
-            and not h4_short[i] and not h1_short[i]
-            and lower_wick[i] >= wick_min and close_loc[i] >= loc_min
-            and rsi[i] <= min(54.0, rsi_lo + 8.0) and rsi[i] > rsi[i - 1]
-            and macd_slope[i] > 0 and rel_vol[i] >= rv_min * 0.80
-            and range_exp[i] >= 0.90 and abs(vwap_dev[i]) <= vwap_max
-        )
-        retest_sig = (
-            (mask & 4) != 0 and trend_ok and retest_l[i, retest_idx]
-            and c[i] > ema21[i] and ema21[i] > ema55[i] and c[i] > ema200[i]
-            and adx[i] >= adx_min * 0.85 and plus_di[i] > minus_di[i]
-            and rsi[i] >= max(48.0, rsi_lo - 4.0) and rsi[i] <= rsi_hi + 4.0
-            and macd_hist[i] > 0 and eff24[i] >= eff_min * 0.85
-            and rel_vol[i] >= rv_min * 0.85 and candle_ok
-        )
-    else:
-        candle_ok = c[i] < o[i] and body[i] >= body_min and close_loc[i] <= 1.0 - loc_min
-        trend_sig = (
-            (mask & 1) != 0 and trend_ok and pull_s[i, pull_idx]
-            and c[i] < ema8[i] and ema8[i] < ema21[i] and ema21[i] < ema55[i] and c[i] < ema200[i]
-            and adx[i] >= adx_min and minus_di[i] > plus_di[i]
-            and rsi[i] <= 100.0 - rsi_lo and rsi[i] >= 100.0 - rsi_hi
-            and macd_hist[i] < 0 and macd_slope[i] < 0
-            and eff12[i] >= eff_min and chop[i] <= chop_max
-            and rel_vol[i] >= rv_min and atr_rank[i] >= atr_min
-            and vwap_dev[i] <= 0.30 and vwap_dev[i] >= -vwap_max
-            and candle_ok
-        )
-        sweep_sig = (
-            (mask & 2) != 0 and sweep_s[i, sweep_idx]
-            and not h4_long[i] and not h1_long[i]
-            and upper_wick[i] >= wick_min and close_loc[i] <= 1.0 - loc_min
-            and rsi[i] >= max(46.0, 92.0 - rsi_lo) and rsi[i] < rsi[i - 1]
-            and macd_slope[i] < 0 and rel_vol[i] >= rv_min * 0.80
-            and range_exp[i] >= 0.90 and abs(vwap_dev[i]) <= vwap_max
-        )
-        retest_sig = (
-            (mask & 4) != 0 and trend_ok and retest_s[i, retest_idx]
-            and c[i] < ema21[i] and ema21[i] < ema55[i] and c[i] < ema200[i]
-            and adx[i] >= adx_min * 0.85 and minus_di[i] > plus_di[i]
-            and rsi[i] <= min(52.0, 104.0 - rsi_lo) and rsi[i] >= 96.0 - rsi_hi
-            and macd_hist[i] < 0 and eff24[i] >= eff_min * 0.85
-            and rel_vol[i] >= rv_min * 0.85 and candle_ok
-        )
-
-    if trend_sig:
-        return 1
-    if sweep_sig:
-        return 2
-    if retest_sig:
-        return 3
-    return 0
-
-
-@njit(parallel=True, cache=True)
-def evaluate_many(
-    params, o, h, l, c, atr, ema8, ema21, ema55, ema200, vwap, vwap_dev,
-    plus_di, minus_di, adx, rsi, macd_hist, macd_slope, rel_vol, body, close_loc,
-    upper_wick, lower_wick, range_exp, ret1, ret3, ret12, eff12, eff24, chop, atr_rank,
-    m15_long, m15_short, h1_long, h1_short, h4_long, h4_short,
-    pull_l, pull_s, sweep_l, sweep_s, retest_l, retest_s, period, hour, weekday, day,
-):
-    ncfg = params.shape[0]
-    out = np.zeros((ncfg, 26), dtype=np.float64)
-    n = len(c)
-    for q in prange(ncfg):
-        p = params[q]
-        pos = 0
-        entry = stop = target = risk = 0.0
-        entry_i = last_exit = -100000
-        entry_period = 0
-        trail_armed = False
-
-        count0 = wins0 = count1 = wins1 = 0
-        win_sum0 = loss_sum0 = win_sum1 = loss_sum1 = 0.0
-        win_n0 = loss_n0 = win_n1 = loss_n1 = 0
-        half_count_a = half_count_b = half_wins_a = half_wins_b = 0
-        half_win_sum_a = half_loss_sum_a = half_win_sum_b = half_loss_sum_b = 0.0
-        half_win_n_a = half_loss_n_a = half_win_n_b = half_loss_n_b = 0
-        half_net_a = half_net_b = 0.0
-        total_r = 0.0
-        train_cum = train_peak = train_max_dd = 0.0
-        long_count = short_count = 0
-
-        for i in range(1200, n):
-            if pos != 0:
-                exit_price = 0.0
-                done = False
-                if pos > 0:
-                    if l[i] <= stop:
-                        exit_price, done = stop - SLIPPAGE_ABS, True
-                    elif h[i] >= target:
-                        exit_price, done = target - SLIPPAGE_ABS, True
-                else:
-                    if h[i] >= stop:
-                        exit_price, done = stop + SLIPPAGE_ABS, True
-                    elif l[i] <= target:
-                        exit_price, done = target + SLIPPAGE_ABS, True
-                if not done and i - entry_i >= int(p[5]):
-                    exit_price = c[i] - SLIPPAGE_ABS if pos > 0 else c[i] + SLIPPAGE_ABS
-                    done = True
-
-                if done:
-                    gross = (exit_price - entry) * pos
-                    fees = FEE_RATE * (entry + exit_price)
-                    net_r = (gross - fees) / risk
-                    total_r += net_r
-                    if entry_period == 0:
-                        train_cum += net_r
-                        train_peak = max(train_peak, train_cum)
-                        train_max_dd = max(train_max_dd, train_peak - train_cum)
-                        count0 += 1
-                        first_half = day[entry_i] <= 15
-                        if first_half:
-                            half_count_a += 1
-                            half_net_a += net_r
-                        else:
-                            half_count_b += 1
-                            half_net_b += net_r
-                        if net_r > 0:
-                            wins0 += 1
-                            win_sum0 += net_r
-                            win_n0 += 1
-                            if first_half:
-                                half_wins_a += 1
-                                half_win_sum_a += net_r
-                                half_win_n_a += 1
-                            else:
-                                half_wins_b += 1
-                                half_win_sum_b += net_r
-                                half_win_n_b += 1
-                        else:
-                            loss_sum0 += -net_r
-                            loss_n0 += 1
-                            if first_half:
-                                half_loss_sum_a += -net_r
-                                half_loss_n_a += 1
-                            else:
-                                half_loss_sum_b += -net_r
-                                half_loss_n_b += 1
-                    else:
-                        count1 += 1
-                        if net_r > 0:
-                            wins1 += 1
-                            win_sum1 += net_r
-                            win_n1 += 1
-                        else:
-                            loss_sum1 += -net_r
-                            loss_n1 += 1
-                    pos = 0
-                    last_exit = i
-                    trail_armed = False
-                else:
-                    if not trail_armed:
-                        favorable = h[i] - entry if pos > 0 else entry - l[i]
-                        if favorable >= p[25] * risk:
-                            trail_armed = True
-                    if trail_armed:
-                        locked = entry + p[26] * risk if pos > 0 else entry - p[26] * risk
-                        if pos > 0:
-                            stop = max(stop, locked)
-                        else:
-                            stop = min(stop, locked)
-                continue
-
-            if i - last_exit < int(p[6]):
-                continue
-            if not allowed_time(int(hour[i]), int(weekday[i]), int(p[7]), int(p[8]), int(p[9])):
-                continue
-
-            direction = int(p[1])
-            long_family = 0
-            short_family = 0
-            if direction != 2:
-                long_family = family_signal(
-                    i, True, p, o, h, l, c, atr, ema8, ema21, ema55, ema200, vwap, vwap_dev,
-                    plus_di, minus_di, adx, rsi, macd_hist, macd_slope, rel_vol, body, close_loc,
-                    upper_wick, lower_wick, range_exp, ret1, ret3, ret12, eff12, eff24, chop, atr_rank,
-                    m15_long, m15_short, h1_long, h1_short, h4_long, h4_short,
-                    pull_l, pull_s, sweep_l, sweep_s, retest_l, retest_s,
-                )
-            if direction != 1:
-                short_family = family_signal(
-                    i, False, p, o, h, l, c, atr, ema8, ema21, ema55, ema200, vwap, vwap_dev,
-                    plus_di, minus_di, adx, rsi, macd_hist, macd_slope, rel_vol, body, close_loc,
-                    upper_wick, lower_wick, range_exp, ret1, ret3, ret12, eff12, eff24, chop, atr_rank,
-                    m15_long, m15_short, h1_long, h1_short, h4_long, h4_short,
-                    pull_l, pull_s, sweep_l, sweep_s, retest_l, retest_s,
-                )
-            if (long_family > 0) == (short_family > 0):
-                continue
-
-            pos = 1 if long_family > 0 else -1
-            entry = c[i] + SLIPPAGE_ABS if pos > 0 else c[i] - SLIPPAGE_ABS
-            risk = max(atr[i] * p[3], c[i] * p[4])
-            stop = entry - risk if pos > 0 else entry + risk
-            target = entry + risk * p[2] if pos > 0 else entry - risk * p[2]
-            entry_i = i
-            entry_period = int(period[i])
-            trail_armed = False
-            if entry_period == 0:
-                if pos > 0:
-                    long_count += 1
-                else:
-                    short_count += 1
-
-        wr0 = wins0 / count0 if count0 else 0.0
-        wr1 = wins1 / count1 if count1 else 0.0
-        ratio0 = (win_sum0 / win_n0) / (loss_sum0 / loss_n0) if win_n0 and loss_n0 else 0.0
-        ratio1 = (win_sum1 / win_n1) / (loss_sum1 / loss_n1) if win_n1 and loss_n1 else 0.0
-        pf0 = win_sum0 / loss_sum0 if loss_sum0 > 0 else 0.0
-        pf1 = win_sum1 / loss_sum1 if loss_sum1 > 0 else 0.0
-        half_wr_a = half_wins_a / half_count_a if half_count_a else 0.0
-        half_wr_b = half_wins_b / half_count_b if half_count_b else 0.0
-        half_ratio_a = (half_win_sum_a / half_win_n_a) / (half_loss_sum_a / half_loss_n_a) if half_win_n_a and half_loss_n_a else 0.0
-        half_ratio_b = (half_win_sum_b / half_win_n_b) / (half_loss_sum_b / half_loss_n_b) if half_win_n_b and half_loss_n_b else 0.0
-        train_net = win_sum0 - loss_sum0
-
-        qualified = (
-            MIN_TRADES <= count0 <= MAX_TRADES
-            and MIN_TRADES <= count1 <= MAX_TRADES
-            and wr0 >= MIN_WIN_RATE and wr1 >= MIN_WIN_RATE
-            and ratio0 >= MIN_RATIO and ratio1 >= MIN_RATIO
-        )
-
-        count_error = abs(count0 - TARGET_TRADES)
-        if count0 < MIN_TRADES or count0 > MAX_TRADES:
-            score = -100000.0 - count_error * 1000.0
-        else:
-            min_half_wr = min(half_wr_a, half_wr_b)
-            min_half_ratio = min(half_ratio_a, half_ratio_b)
-            score = (
-                wr0 * 800.0
-                + min_half_wr * 900.0
-                + min(ratio0, 4.0) * 150.0
-                + min(min_half_ratio, 4.0) * 110.0
-                + min(pf0, 8.0) * 30.0
-                + train_net * 5.0
-                - train_max_dd * 1.5
-                - count_error * 7.0
-            )
-            if wr0 < MIN_WIN_RATE:
-                score -= (MIN_WIN_RATE - wr0) * 4200.0
-            if ratio0 < MIN_RATIO:
-                score -= (MIN_RATIO - ratio0) * 1500.0
-            half_min_count = max(5, MIN_TRADES // 3)
-            if half_count_a < half_min_count or half_count_b < half_min_count:
-                score -= 2000.0
-            if half_net_a <= 0 or half_net_b <= 0:
-                score -= 1600.0
-            if min_half_wr < 0.60:
-                score -= (0.60 - min_half_wr) * 3600.0
-            if min_half_ratio < 1.20:
-                score -= (1.20 - min_half_ratio) * 1200.0
-            total_entries = long_count + short_count
-            if int(p[1]) == 0 and total_entries > 0:
-                concentration = max(long_count, short_count) / total_entries
-                if concentration > 0.82:
-                    score -= (concentration - 0.82) * 1800.0
-
-        out[q, 0] = score
-        out[q, 1] = 1.0 if qualified else 0.0
-        out[q, 2] = count0
-        out[q, 3] = wr0
-        out[q, 4] = ratio0
-        out[q, 5] = pf0
-        out[q, 6] = count1
-        out[q, 7] = wr1
-        out[q, 8] = ratio1
-        out[q, 9] = pf1
-        out[q, 10] = total_r
-        out[q, 11] = train_max_dd
-        out[q, 12] = wins0
-        out[q, 13] = wins1
-        out[q, 14] = half_count_a
-        out[q, 15] = half_wr_a
-        out[q, 16] = half_ratio_a
-        out[q, 17] = half_net_a
-        out[q, 18] = half_count_b
-        out[q, 19] = half_wr_b
-        out[q, 20] = half_ratio_b
-        out[q, 21] = half_net_b
-        out[q, 22] = long_count
-        out[q, 23] = short_count
-        out[q, 24] = train_net
-        out[q, 25] = min(half_wr_a, half_wr_b)
-    return out
-
-
-def run_signal(cfg: Config, i: int, long_side: bool, a: dict[str, np.ndarray]) -> int:
-    p = pack_configs([cfg])[0]
-    return int(family_signal(
-        i, long_side, p, a["open"], a["high"], a["low"], a["close"], a["atr"],
-        a["ema8"], a["ema21"], a["ema55"], a["ema200"], a["vwap"], a["vwap_dev"],
-        a["plus_di"], a["minus_di"], a["adx"], a["rsi"], a["macd_hist"], a["macd_slope"],
-        a["rel_vol"], a["body"], a["close_loc"], a["upper_wick"], a["lower_wick"],
-        a["range_exp"], a["ret1"], a["ret3"], a["ret12"], a["eff12"], a["eff24"],
-        a["chop"], a["atr_rank"], a["m15_long"], a["m15_short"], a["h1_long"],
-        a["h1_short"], a["h4_long"], a["h4_short"], a["pull_l"], a["pull_s"],
-        a["sweep_l"], a["sweep_s"], a["retest_l"], a["retest_s"],
-    ))
-
-
-def simulate_detail(cfg: Config, a: dict[str, np.ndarray], x: pd.DataFrame) -> list[dict[str, Any]]:
-    trades: list[dict[str, Any]] = []
-    pos = 0
-    family = 0
-    entry = stop = target = risk = 0.0
-    entry_i = last_exit = -100000
-    entry_period = 0
-    trail_armed = False
-    n = len(a["close"])
-    for i in range(1200, n):
-        if pos:
-            exit_price: float | None = None
-            reason = ""
-            if pos > 0:
-                if a["low"][i] <= stop:
-                    exit_price, reason = stop - SLIPPAGE_ABS, "TRAIL" if trail_armed else "SL"
-                elif a["high"][i] >= target:
-                    exit_price, reason = target - SLIPPAGE_ABS, "TP"
-            else:
-                if a["high"][i] >= stop:
-                    exit_price, reason = stop + SLIPPAGE_ABS, "TRAIL" if trail_armed else "SL"
-                elif a["low"][i] <= target:
-                    exit_price, reason = target + SLIPPAGE_ABS, "TP"
-            if exit_price is None and i - entry_i >= cfg.max_hold:
-                exit_price = a["close"][i] - SLIPPAGE_ABS if pos > 0 else a["close"][i] + SLIPPAGE_ABS
-                reason = "TIME"
-            if exit_price is not None:
-                net_r = (((exit_price - entry) * pos) - FEE_RATE * (entry + exit_price)) / risk
-                trades.append({
-                    "entry_time_utc": x.index[entry_i].isoformat(),
-                    "exit_time_utc": x.index[i].isoformat(),
-                    "month": MONTHS[entry_period],
-                    "direction": "LONG" if pos > 0 else "SHORT",
-                    "family": ("多周期趋势回踩", "流动性扫单反转", "突破回踩确认")[family - 1],
-                    "entry": entry,
-                    "exit": exit_price,
-                    "stop": stop,
-                    "target": target,
-                    "risk_abs": risk,
-                    "net_R": net_r,
-                    "win": bool(net_r > 0),
-                    "exit_reason": reason,
-                    "bars": i - entry_i,
-                })
-                pos = 0
-                last_exit = i
-                trail_armed = False
-            else:
-                if not trail_armed:
-                    favorable = a["high"][i] - entry if pos > 0 else entry - a["low"][i]
-                    if favorable >= cfg.trail_trigger * risk:
-                        trail_armed = True
-                if trail_armed:
-                    locked = entry + cfg.trail_lock * risk if pos > 0 else entry - cfg.trail_lock * risk
-                    stop = max(stop, locked) if pos > 0 else min(stop, locked)
-            continue
-
-        if i - last_exit < cfg.cooldown:
-            continue
-        if not allowed_time(int(a["hour"][i]), int(a["weekday"][i]), cfg.session_start, cfg.session_end, cfg.weekday_mask):
-            continue
-        long_family = run_signal(cfg, i, True, a) if cfg.direction != 2 else 0
-        short_family = run_signal(cfg, i, False, a) if cfg.direction != 1 else 0
-        if (long_family > 0) == (short_family > 0):
-            continue
-        pos = 1 if long_family > 0 else -1
-        family = long_family if long_family > 0 else short_family
-        entry = a["close"][i] + SLIPPAGE_ABS if pos > 0 else a["close"][i] - SLIPPAGE_ABS
-        risk = max(a["atr"][i] * cfg.sl_atr, a["close"][i] * cfg.min_stop_pct)
-        stop = entry - risk if pos > 0 else entry + risk
-        target = entry + risk * cfg.rr if pos > 0 else entry - risk * cfg.rr
-        entry_i = i
-        entry_period = int(a["period"][i])
-        trail_armed = False
-    return trades
-
-
-def monthly_stats(trades: pd.DataFrame) -> dict[str, dict[str, float]]:
-    result: dict[str, dict[str, float]] = {}
-    for month in MONTHS:
-        z = trades[trades["month"] == month] if not trades.empty else trades
-        wins = z[z["net_R"] > 0]["net_R"] if not z.empty else pd.Series(dtype=float)
-        losses = -z[z["net_R"] <= 0]["net_R"] if not z.empty else pd.Series(dtype=float)
-        result[month] = {
-            "trades": int(len(z)),
-            "wins": int((z["net_R"] > 0).sum()) if not z.empty else 0,
-            "win_rate": float((z["net_R"] > 0).mean()) if len(z) else 0.0,
-            "avg_win_R": float(wins.mean()) if len(wins) else 0.0,
-            "avg_loss_R": float(losses.mean()) if len(losses) else 0.0,
-            "avg_win_loss_ratio": float(wins.mean() / losses.mean()) if len(wins) and len(losses) else 0.0,
-            "profit_factor": float(wins.sum() / losses.sum()) if losses.sum() > 0 else 0.0,
-            "net_R": float(z["net_R"].sum()) if len(z) else 0.0,
-        }
-    return result
-
-
-def call_evaluator(params: np.ndarray, a: dict[str, np.ndarray]) -> np.ndarray:
-    return evaluate_many(
-        params, a["open"], a["high"], a["low"], a["close"], a["atr"], a["ema8"],
-        a["ema21"], a["ema55"], a["ema200"], a["vwap"], a["vwap_dev"], a["plus_di"],
-        a["minus_di"], a["adx"], a["rsi"], a["macd_hist"], a["macd_slope"], a["rel_vol"],
-        a["body"], a["close_loc"], a["upper_wick"], a["lower_wick"], a["range_exp"],
-        a["ret1"], a["ret3"], a["ret12"], a["eff12"], a["eff24"], a["chop"], a["atr_rank"],
-        a["m15_long"], a["m15_short"], a["h1_long"], a["h1_short"], a["h4_long"], a["h4_short"],
-        a["pull_l"], a["pull_s"], a["sweep_l"], a["sweep_s"], a["retest_l"], a["retest_s"],
-        a["period"], a["hour"], a["weekday"], a["day"],
-    )
+def detailed_trades(x: pd.DataFrame, trades: list[dict[str, Any]], risk: RiskConfig, month: str) -> pd.DataFrame:
+    rows: list[dict[str, Any]] = []
+    for t in trades:
+        i = int(t["signal_i"])
+        entry_i = i + 1
+        direction = int(t["direction"])
+        entry = float(x.iloc[entry_i]["open"] + direction * SLIPPAGE_ABS)
+        risk_abs = max(float(x.iloc[i]["atr"]) * risk.sl_atr, float(x.iloc[i]["close"]) * risk.min_stop_pct)
+        exit_i = int(t["exit_i"])
+        reason = {1: "TP", 2: "SL", 3: "TIME"}.get(int(t["reason"]), "UNKNOWN")
+        rows.append({
+            "signal_time_utc": x.index[i].isoformat(),
+            "entry_time_utc": x.index[entry_i].isoformat(),
+            "exit_time_utc": x.index[exit_i].isoformat(),
+            "month": month,
+            "direction": "LONG" if direction > 0 else "SHORT",
+            "setup": setup_name(x, i, direction),
+            "probability": float(t["prob"]),
+            "entry": entry,
+            "risk_abs": risk_abs,
+            "target_R": risk.rr,
+            "net_R": float(t["net_r"]),
+            "win": bool(t["net_r"] > 0),
+            "exit_reason": reason,
+            "bars": exit_i - entry_i,
+        })
+    return pd.DataFrame(rows)
 
 
 def main() -> None:
     raw, audit = load_official_data()
-    x = add_indicators(raw)
-    a = build_arrays(x)
-    rounds = int(os.environ.get("SEARCH_ROUNDS", str(REQUEST["search_rounds"])))
-    batch = int(os.environ.get("SEARCH_BATCH", str(REQUEST["search_batch"])))
+    x = add_features(raw)
+    long_data = make_side_data(x, "candidate_long", 1)
+    short_data = make_side_data(x, "candidate_short", -1)
 
-    all_configs: list[Config] = []
-    all_metrics: list[np.ndarray] = []
-    for seed_index in range(SEED_COUNT):
-        seed = BASE_SEED + seed_index * 100003
-        rng = random.Random(seed)
-        for round_index in range(rounds):
-            configs = [random_config(rng) for _ in range(batch)]
-            metrics = call_evaluator(pack_configs(configs), a)
-            keep_n = min(700, len(configs))
-            keep = np.argsort(metrics[:, 0])[-keep_n:]
-            all_configs.extend(configs[int(i)] for i in keep)
-            all_metrics.extend(metrics[int(i)].copy() for i in keep)
-            print(
-                f"seed {seed_index + 1}/{SEED_COUNT}, round {round_index + 1}/{rounds}, "
-                f"best={metrics[keep[-1], 0]:.3f}, qualified={int(metrics[:, 1].sum())}"
+    risk_grid = [
+        RiskConfig(rr, sl, min_stop, hold)
+        for rr in (2.0, 2.2, 2.4)
+        for sl in (1.2, 1.6, 2.0)
+        for min_stop in (0.0030, 0.0045)
+        for hold in (72, 144)
+    ]
+    model_grid = [
+        ModelConfig(2, 0.05, 140, 1.0, 35),
+        ModelConfig(3, 0.04, 170, 3.0, 45),
+        ModelConfig(4, 0.03, 190, 6.0, 55),
+    ]
+    quantiles = (0.90, 0.93, 0.95, 0.965, 0.975, 0.982, 0.988, 0.992, 0.995)
+    cooldowns = (3, 6, 12)
+    directions = (0, 1, 2)
+
+    # Stage 1: Jan-Mar train, April prefilter.
+    stage1: list[Policy] = []
+    for risk in risk_grid:
+        for model_cfg in model_grid:
+            long_model, short_model, _, _ = fit_models(
+                x, long_data, short_data, risk, model_cfg, {MONTHS[0], MONTHS[1], MONTHS[2]}
             )
+            if long_model is None and short_model is None:
+                continue
+            train_stage1 = {MONTHS[0], MONTHS[1], MONTHS[2]}
+            long_bundle = build_prediction_bundle(x, long_data, long_model, risk, train_stage1)
+            short_bundle = build_prediction_bundle(x, short_data, short_model, risk, train_stage1)
+            for q in quantiles:
+                events = events_from_bundle(long_bundle, MONTHS[3], q)
+                events += events_from_bundle(short_bundle, MONTHS[3], q)
+                for cooldown in cooldowns:
+                    for direction_mode in directions:
+                        m = metrics(select_trades(events, cooldown, direction_mode))
+                        stage1.append(Policy(risk, model_cfg, q, cooldown, direction_mode, month_score(m), m))
+    stage1.sort(key=lambda p: p.april_score, reverse=True)
+    shortlist = stage1[:24]
 
-    matrix = np.vstack(all_metrics)
-    order = np.argsort(matrix[:, 0])[::-1]
-    best_idx = int(order[0])
-    cfg = all_configs[best_idx]
-    trades = pd.DataFrame(simulate_detail(cfg, a, x))
-    stats = monthly_stats(trades)
-    qualified = all(
-        MIN_TRADES <= stats[m]["trades"] <= MAX_TRADES
-        and stats[m]["win_rate"] >= MIN_WIN_RATE
-        and stats[m]["avg_win_loss_ratio"] >= MIN_RATIO
-        for m in MONTHS
+    # Stage 2: Jan-Apr train, May selection.
+    for policy in shortlist:
+        may_metrics, _ = evaluate_policy(
+            x, long_data, short_data, policy,
+            {MONTHS[0], MONTHS[1], MONTHS[2], MONTHS[3]}, MONTHS[4]
+        )
+        policy.may_metrics = may_metrics
+        policy.may_score = month_score(may_metrics) + 0.20 * policy.april_score
+    shortlist.sort(key=lambda p: p.may_score, reverse=True)
+    selected = shortlist[0]
+
+    # Stage 3: Jan-May train, June untouched OOS.
+    june_metrics, june_trades = evaluate_policy(
+        x, long_data, short_data, selected,
+        {MONTHS[0], MONTHS[1], MONTHS[2], MONTHS[3], MONTHS[4]}, MONTHS[5]
+    )
+    # Recreate May trades for readable output using the selected policy.
+    may_metrics, may_trades = evaluate_policy(
+        x, long_data, short_data, selected,
+        {MONTHS[0], MONTHS[1], MONTHS[2], MONTHS[3]}, MONTHS[4]
     )
 
-    (RESULTS / "request.json").write_text(json.dumps(REQUEST, indent=2, ensure_ascii=False), encoding="utf-8")
-    (RESULTS / "audit.json").write_text(json.dumps(audit, indent=2, ensure_ascii=False), encoding="utf-8")
-    (RESULTS / "best_config.json").write_text(json.dumps(asdict(cfg), indent=2, ensure_ascii=False), encoding="utf-8")
-    trades.to_csv(RESULTS / "trades.csv", index=False)
+    qualified = bool(
+        MIN_TRADES <= may_metrics["trades"] <= MAX_TRADES
+        and MIN_TRADES <= june_metrics["trades"] <= MAX_TRADES
+        and may_metrics["win_rate"] >= MIN_WIN_RATE
+        and june_metrics["win_rate"] >= MIN_WIN_RATE
+        and may_metrics["avg_win_loss_ratio"] >= MIN_RATIO
+        and june_metrics["avg_win_loss_ratio"] >= MIN_RATIO
+    )
 
-    rows = []
-    for rank, ix in enumerate(order[:200], 1):
-        metric = matrix[int(ix)]
-        c0 = all_configs[int(ix)]
-        rows.append({
-            "rank": rank,
-            "score_train_only": metric[0],
-            "diagnostic_qualified": bool(metric[1]),
-            "family": FAMILY_NAMES[c0.family_mask],
-            "direction": ("双向", "只做多", "只做空")[c0.direction],
-            "may_trades": metric[2],
-            "may_win_rate": metric[3],
-            "may_ratio": metric[4],
-            "june_trades": metric[6],
-            "june_win_rate": metric[7],
-            "june_ratio": metric[8],
-            "total_net_R": metric[10],
-            "may_max_drawdown_R": metric[11],
-            "first_half_trades": metric[14],
-            "first_half_win_rate": metric[15],
-            "first_half_ratio": metric[16],
-            "first_half_net_R": metric[17],
-            "second_half_trades": metric[18],
-            "second_half_win_rate": metric[19],
-            "second_half_ratio": metric[20],
-            "second_half_net_R": metric[21],
-            "config": json.dumps(asdict(c0), ensure_ascii=False),
-        })
-    pd.DataFrame(rows).to_csv(RESULTS / "top_candidates.csv", index=False)
+    all_trades = pd.concat([
+        detailed_trades(x, may_trades, selected.risk, MONTHS[4]),
+        detailed_trades(x, june_trades, selected.risk, MONTHS[5]),
+    ], ignore_index=True)
+    all_trades.to_csv(RESULTS / "trades.csv", index=False)
 
     status = {
         "qualified": qualified,
-        "engine": "BTC 5m price-action structure V4",
-        "selected_by": f"{MONTHS[0]} only, with half-month stability; {MONTHS[1]} untouched OOS",
+        "engine": "BTC 5m walk-forward probability filter V5",
+        "method": "Jan-Mar train→April prefilter; Jan-Apr train→May selection; Jan-May train→June untouched OOS",
         "symbol": SYMBOL,
         "interval": INTERVAL,
         "months": list(MONTHS),
@@ -999,51 +829,73 @@ def main() -> None:
             "min_win_rate": MIN_WIN_RATE,
             "min_avg_win_loss_ratio": MIN_RATIO,
         },
-        "family": FAMILY_NAMES[cfg.family_mask],
-        "direction": ("双向", "只做多", "只做空")[cfg.direction],
-        "monthly_stats": stats,
-        "search_size": rounds * batch * SEED_COUNT,
-        "config": asdict(cfg),
+        "selected_policy": {
+            "risk": asdict(selected.risk),
+            "model": asdict(selected.model),
+            "probability_quantile": selected.quantile,
+            "cooldown_bars": selected.cooldown,
+            "direction_mode": {0: "双向", 1: "只做多", 2: "只做空"}[selected.direction_mode],
+        },
+        "april_prefilter": selected.april_metrics,
+        "monthly_stats": {MONTHS[4]: may_metrics, MONTHS[5]: june_metrics},
+        "search_policies": len(stage1),
     }
-    (RESULTS / "status.json").write_text(json.dumps(status, indent=2, ensure_ascii=False), encoding="utf-8")
+    (RESULTS / "status.json").write_text(json.dumps(status, ensure_ascii=False, indent=2), encoding="utf-8")
+    (RESULTS / "audit.json").write_text(json.dumps(audit, ensure_ascii=False, indent=2), encoding="utf-8")
+    (RESULTS / "selected_policy.json").write_text(
+        json.dumps(status["selected_policy"], ensure_ascii=False, indent=2), encoding="utf-8"
+    )
 
-    report = [
-        "# BTCUSDT 5m 价格行为结构 V4 回测报告",
-        "",
-        "- 引擎：多周期趋势回踩、流动性扫单反转、突破回踩确认。",
-        f"- 数据审计：{'通过' if audit['passed'] else '失败'}，{audit['actual_rows']:,}根，缺失{audit['missing_rows']}，重复{audit['duplicate_timestamps']}。",
-        f"- 搜索规模：{rounds * batch * SEED_COUNT:,}组可复现参数。",
-        f"- 选择方法：只使用{MONTHS[0]}及其前后半月稳定性；{MONTHS[1]}保持样本外。",
-        f"- 成本：单边手续费{FEE_RATE * 100:.3f}%；每次成交滑点{SLIPPAGE_ABS:.1f} USDT。",
-        f"- 最终验收：**{'达到全部要求' if qualified else '未达到全部要求'}**。",
-        "",
-        "## 策略结构",
-        "",
-        f"- 启用结构：{FAMILY_NAMES[cfg.family_mask]}",
-        f"- 交易方向：{('双向', '只做多', '只做空')[cfg.direction]}",
-        f"- 固定目标：{cfg.rr:.2f}R；达到{cfg.trail_trigger:.2f}R后锁定{cfg.trail_lock:.2f}R。",
-        "",
-        "## 月度结果",
-        "",
-        "| 月份 | 交易 | 胜率 | 平均盈利/平均亏损 | 盈利因子 | 净R |",
-        "|---|---:|---:|---:|---:|---:|",
-    ]
-    for month in MONTHS:
-        s = stats[month]
-        report.append(
-            f"| {month} | {s['trades']} | {s['win_rate'] * 100:.2f}% | "
-            f"{s['avg_win_loss_ratio']:.3f} | {s['profit_factor']:.3f} | {s['net_R']:.3f} |"
-        )
-    report += [
-        "",
-        "## 说明",
-        "",
-        "回测只使用当前及历史K线；15分钟、1小时和4小时过滤均读取上一根已完成K线。",
-        "同一根K线同时触及止损和止盈时按止损优先；移动止损在触发后的下一根K线生效。",
-        "参数排名不使用样本外月份。历史通过不代表未来收益保证。",
-    ]
-    (RESULTS / "report.md").write_text("\n".join(report), encoding="utf-8")
-    print(json.dumps(status, indent=2, ensure_ascii=False))
+    top_rows: list[dict[str, Any]] = []
+    for rank, p in enumerate(shortlist[:15], start=1):
+        row = {
+            "rank": rank,
+            "april_score": p.april_score,
+            "may_score": p.may_score,
+            "rr": p.risk.rr,
+            "sl_atr": p.risk.sl_atr,
+            "min_stop_pct": p.risk.min_stop_pct,
+            "max_hold": p.risk.max_hold,
+            "quantile": p.quantile,
+            "cooldown": p.cooldown,
+            "direction": {0: "双向", 1: "只做多", 2: "只做空"}[p.direction_mode],
+        }
+        if p.may_metrics:
+            row.update({f"may_{k}": v for k, v in p.may_metrics.items()})
+        top_rows.append(row)
+    pd.DataFrame(top_rows).to_csv(RESULTS / "top_policies.csv", index=False)
+
+    report = f"""# BTCUSDT 5分钟 Walk-Forward 概率过滤 V5 回测报告
+
+- 数据：Binance USDⓈ-M 永续官方5分钟K线，{audit['actual_rows']:,}根；缺失{audit['missing_rows']}、重复{audit['duplicate_timestamps']}。
+- 方法：1–3月训练→4月预筛；1–4月训练→5月选择；1–5月训练→6月完全样本外。
+- 机会来源：趋势回踩、流动性扫单反转、突破确认、动量延续。
+- 模型：多空分离 HistGradientBoosting 概率过滤；只交易训练分布中的高分位信号。
+- 成本：单边手续费{FEE_RATE*100:.3f}%；每次成交滑点{SLIPPAGE_ABS:.1f} USDT。
+- 最终验收：**{'达标' if qualified else '未达到全部要求'}**。
+
+## 选择策略
+
+- 方向：{ {0:'双向',1:'只做多',2:'只做空'}[selected.direction_mode] }
+- 固定目标：{selected.risk.rr:.2f}R
+- 止损：max({selected.risk.sl_atr:.2f}×ATR, {selected.risk.min_stop_pct*100:.3f}%价格)
+- 最长持仓：{selected.risk.max_hold}根5分钟K线
+- 概率分位：训练候选前{(1-selected.quantile)*100:.2f}%
+- 冷却：{selected.cooldown}根K线
+
+## 月度结果
+
+| 月份 | 交易 | 胜率 | 平均盈利/平均亏损 | 盈利因子 | 净R | 最大回撤R |
+|---|---:|---:|---:|---:|---:|---:|
+| {MONTHS[4]} | {may_metrics['trades']} | {may_metrics['win_rate']*100:.2f}% | {may_metrics['avg_win_loss_ratio']:.3f} | {may_metrics['profit_factor']:.3f} | {may_metrics['net_R']:.3f} | {may_metrics['max_drawdown_R']:.3f} |
+| {MONTHS[5]} | {june_metrics['trades']} | {june_metrics['win_rate']*100:.2f}% | {june_metrics['avg_win_loss_ratio']:.3f} | {june_metrics['profit_factor']:.3f} | {june_metrics['net_R']:.3f} | {june_metrics['max_drawdown_R']:.3f} |
+
+## 保守假设
+
+信号在K线收盘后确认，下一根K线开盘成交；同一根K线同时触及止损和止盈时按止损优先；超时按市价退出。6月结果未参与策略或阈值选择。
+"""
+    (RESULTS / "report.md").write_text(report, encoding="utf-8")
+    print(report)
 
 
 if __name__ == "__main__":
