@@ -1,0 +1,348 @@
+{
+  "symbol": "BTCUSDT",
+  "interval": "5m",
+  "months": [
+    "2026-05",
+    "2026-06"
+  ],
+  "historical_start": "2025-01",
+  "development_start": "2025-05",
+  "fee_rate_per_side": 0.0005,
+  "tick_size": 0.1,
+  "slippage_ticks_per_fill": 2,
+  "final_target": {
+    "min_trades": 15,
+    "max_trades": 30,
+    "min_win_rate": 0.7,
+    "min_avg_win_loss_ratio": 1.5
+  },
+  "research_stage": {
+    "min_trades": 6,
+    "max_trades": 12,
+    "min_win_rate": 0.6,
+    "min_avg_win_loss_ratio": 1.5,
+    "min_profit_factor": 1.5,
+    "max_drawdown_r": 3.0,
+    "min_active_experts": 3,
+    "max_single_expert_trade_share": 0.4
+  },
+  "candidate_gate": {
+    "min_total_trades": 3,
+    "min_active_months": 2,
+    "min_profit_factor": 1.15,
+    "min_avg_win_loss_ratio": 1.3,
+    "min_net_r": 0.0,
+    "max_worst_month_loss_r": 1.8,
+    "max_trades_per_month": 4
+  },
+  "watch_gate": {
+    "min_total_trades": 8,
+    "min_active_months": 3,
+    "min_valid_blocks": 2,
+    "min_shrunk_win_rate": 0.52,
+    "min_wilson_lower": 0.35,
+    "min_profit_factor": 1.3,
+    "min_avg_win_loss_ratio": 1.3,
+    "min_net_r": 0.0,
+    "max_drawdown_r": 3.5,
+    "max_worst_month_loss_r": 1.6,
+    "min_best_trade_removed_net_r": 0.0,
+    "min_loo_month_positive_share": 0.75,
+    "max_single_trade_profit_share": 0.5,
+    "max_single_month_profit_share": 0.6,
+    "max_trades_per_month": 4,
+    "require_cluster_robust": true,
+    "min_positive_expectancy_blocks": 2,
+    "min_high_win_rate_blocks": 1
+  },
+  "qualified_gate": {
+    "min_total_trades": 15,
+    "max_total_trades": 48,
+    "min_active_months": 6,
+    "min_valid_blocks": 3,
+    "min_raw_win_rate": 0.6,
+    "min_shrunk_win_rate": 0.56,
+    "min_wilson_lower": 0.45,
+    "min_profit_factor": 1.5,
+    "min_avg_win_loss_ratio": 1.5,
+    "min_net_r": 0.0,
+    "max_drawdown_r": 2.5,
+    "max_worst_month_loss_r": 1.5,
+    "min_best_trade_removed_net_r": 0.0,
+    "min_loo_month_positive_share": 0.8,
+    "min_loo_month_net_r": -0.5,
+    "max_single_trade_profit_share": 0.35,
+    "max_single_month_profit_share": 0.45,
+    "max_trades_per_month": 4,
+    "require_cluster_robust": true,
+    "min_positive_expectancy_blocks": 2,
+    "min_high_win_rate_blocks": 2
+  },
+  "portfolio": {
+    "research_min_experts": 1,
+    "qualified_min_experts": 3,
+    "max_experts": 8,
+    "max_pair_signal_overlap": 0.35,
+    "max_pair_loss_overlap": 0.4,
+    "max_pair_return_correlation": 0.6,
+    "dedup_window_bars": 1,
+    "direction_conflict_score_margin": 0.08,
+    "max_trades_per_day": 2,
+    "max_trades_per_expert_day": 1,
+    "max_trades_per_setup_day": 1,
+    "max_consecutive_losses_expert_day": 2,
+    "candidate_shadow_only": true,
+    "watch_and_qualified_only_in_research": true
+  },
+  "model": {
+    "calibration_min_rows": 12,
+    "calibration_min_class": 2,
+    "online_rank_window": 600,
+    "online_rank_min_history": 18,
+    "probability_shrinkage": 0.15,
+    "stability_prior_trades": 8,
+    "meta_blend_weight": 0.25,
+    "meta_hard_reject_probability": 0.3,
+    "meta_support_probability": 0.52,
+    "meta_support_micro": 0.42,
+    "minimum_router_confidence": 0.34,
+    "hard_negative_utility_r": -0.1,
+    "utility_uncertainty_penalty": 0.1,
+    "base_seed": 20260964,
+    "sample_uncertainty_penalty": 0.55,
+    "watch_neutral_min_meta": 0.44,
+    "watch_neutral_min_utility_r": 0.08,
+    "qualified_neutral_min_meta": 0.4,
+    "qualified_neutral_min_utility_r": 0.02,
+    "candidate_support_min_meta": 0.58,
+    "candidate_support_min_utility_r": 0.12,
+    "candidate_support_min_percentile": 0.9
+  },
+  "search": {
+    "online_percentiles": [
+      0.8,
+      0.88
+    ],
+    "monthly_targets": [
+      1,
+      2,
+      3
+    ],
+    "minimum_expected_utility_r": [
+      0.02,
+      0.08
+    ],
+    "top_policies_per_expert": 6,
+    "portfolio_beam_width": 200
+  },
+  "robustness": {
+    "seed_expert_id": 21,
+    "minimum_policy_neighbors": 3,
+    "minimum_positive_neighbor_share": 0.5,
+    "leave_one_active_month_out": true,
+    "candidate_support_only_is_experimental": true
+  },
+  "evidence_selection": {
+    "seed_expert_id": 21,
+    "preferred_seed_policy_keys": [
+      "fca571982b7c88a0",
+      "9a19b379445c8be4"
+    ],
+    "protect_mature_policy": true,
+    "minimum_mature_trades": 6,
+    "minimum_active_months_for_protection": 3,
+    "evidence_trade_cap": 12,
+    "cluster_size": 6,
+    "cluster_min_positive_share": 0.6,
+    "cluster_min_mature_share": 0.0,
+    "cluster_min_median_trades": 2.0,
+    "cluster_min_signal_consensus": 0.15,
+    "prefer_historical_anchor": true
+  },
+  "statistical_validation": {
+    "monthly_valid_min_trades": 5,
+    "monthly_low_confidence_min_trades": 3,
+    "block_months": 3,
+    "block_min_trades": 3,
+    "beta_prior_wins": 4.0,
+    "beta_prior_losses": 4.0,
+    "wilson_z": 1.96,
+    "blind_min_calendar_months_watch": 3,
+    "blind_min_trades_watch": 5,
+    "blind_min_calendar_months_qualified": 3,
+    "blind_min_trades_qualified": 8
+  },
+  "snapshot_reproduction": {
+    "seed_expert_id": 21,
+    "historical_policy_key": "fca571982b7c88a0",
+    "expected_v961": {
+      "trades": 7,
+      "wins": 5,
+      "win_rate": 0.7142857142857143,
+      "net_R": 6.862194858172823
+    },
+    "require_exact_current_snapshot_replay": true,
+    "reference_request_file": "request.v9_6_1_reference.runtime.json"
+  },
+  "legacy_v961_reference_request": {
+    "symbol": "BTCUSDT",
+    "interval": "5m",
+    "months": [
+      "2026-05",
+      "2026-06"
+    ],
+    "historical_start": "2025-01",
+    "development_start": "2025-05",
+    "fee_rate_per_side": 0.0005,
+    "tick_size": 0.1,
+    "slippage_ticks_per_fill": 2,
+    "final_target": {
+      "min_trades": 15,
+      "max_trades": 30,
+      "min_win_rate": 0.7,
+      "min_avg_win_loss_ratio": 1.5
+    },
+    "research_stage": {
+      "min_trades": 6,
+      "max_trades": 12,
+      "min_win_rate": 0.6,
+      "min_avg_win_loss_ratio": 1.5,
+      "min_profit_factor": 1.5,
+      "max_drawdown_r": 3.0,
+      "min_active_experts": 3,
+      "max_single_expert_trade_share": 0.4
+    },
+    "candidate_gate": {
+      "min_total_trades": 3,
+      "min_active_months": 2,
+      "min_profit_factor": 1.15,
+      "min_avg_win_loss_ratio": 1.3,
+      "min_net_r": 0.0,
+      "max_worst_month_loss_r": 1.8,
+      "max_trades_per_month": 4
+    },
+    "watch_gate": {
+      "min_total_trades": 6,
+      "min_active_months": 3,
+      "min_positive_months": 2,
+      "min_shrunk_win_rate": 0.52,
+      "min_profit_factor": 1.3,
+      "min_avg_win_loss_ratio": 1.3,
+      "min_net_r": 0.0,
+      "max_drawdown_r": 3.5,
+      "max_worst_month_loss_r": 1.6,
+      "max_single_month_profit_share": 0.75,
+      "max_trades_per_month": 4
+    },
+    "qualified_gate": {
+      "min_total_trades": 10,
+      "max_total_trades": 36,
+      "min_active_months": 4,
+      "min_positive_months": 3,
+      "min_raw_win_rate": 0.6,
+      "min_shrunk_win_rate": 0.56,
+      "min_wilson_lower": 0.45,
+      "min_profit_factor": 1.5,
+      "min_avg_win_loss_ratio": 1.5,
+      "min_net_r": 0.0,
+      "max_drawdown_r": 2.5,
+      "max_worst_month_loss_r": 1.5,
+      "max_single_month_profit_share": 0.6,
+      "max_trades_per_month": 4
+    },
+    "portfolio": {
+      "research_min_experts": 2,
+      "qualified_min_experts": 3,
+      "max_experts": 8,
+      "max_pair_signal_overlap": 0.35,
+      "max_pair_loss_overlap": 0.4,
+      "max_pair_return_correlation": 0.6,
+      "dedup_window_bars": 1,
+      "direction_conflict_score_margin": 0.08,
+      "max_trades_per_day": 2,
+      "max_trades_per_expert_day": 1,
+      "max_trades_per_setup_day": 1,
+      "max_consecutive_losses_expert_day": 2
+    },
+    "model": {
+      "calibration_min_rows": 12,
+      "calibration_min_class": 2,
+      "online_rank_window": 600,
+      "online_rank_min_history": 18,
+      "probability_shrinkage": 0.15,
+      "stability_prior_trades": 8,
+      "meta_blend_weight": 0.25,
+      "meta_hard_reject_probability": 0.3,
+      "meta_support_probability": 0.52,
+      "meta_support_micro": 0.42,
+      "minimum_router_confidence": 0.34,
+      "hard_negative_utility_r": -0.1,
+      "utility_uncertainty_penalty": 0.1,
+      "base_seed": 20260961
+    },
+    "search": {
+      "online_percentiles": [
+        0.8,
+        0.88
+      ],
+      "monthly_targets": [
+        1,
+        2,
+        3
+      ],
+      "minimum_expected_utility_r": [
+        0.02,
+        0.08
+      ],
+      "top_policies_per_expert": 3,
+      "portfolio_beam_width": 200
+    }
+  },
+  "block_validation": {
+    "positive_expectancy_min_profit_factor": 1.0,
+    "positive_expectancy_min_expectancy_r": 0.0,
+    "high_win_rate_min": 0.6,
+    "high_win_rate_min_wins": 2
+  },
+  "evidence_shrinkage_lane": {
+    "evidence_prior_rows": 24.0,
+    "calibration_weight_floor": 0.65,
+    "brier_penalty_reference": 0.1,
+    "minimum_evidence_utility_r": 0.0,
+    "strong_min_percentile": 0.92,
+    "strong_min_meta_probability": 0.52,
+    "strong_min_evidence_utility_r": 0.08,
+    "strong_monthly_safety_cap": 4,
+    "neutral_monthly_cap": 2,
+    "strong_daily_cap": 1,
+    "neutral_daily_cap": 1,
+    "total_daily_cap": 2,
+    "market_cluster_window_bars": 6,
+    "online_allocation_is_chronological": true,
+    "strong_signals_bypass_neutral_quota": true,
+    "sample_uncertainty_mode": "multiplicative_shrinkage_to_zero",
+    "fixed_sample_penalty_r": 0.0
+  },
+  "triple_track_validation": {
+    "lanes": [
+      "V9.6.1_REFERENCE",
+      "V9.6.4_FIXED_PENALTY",
+      "V9.6.6_EVIDENCE_SHRINKAGE"
+    ],
+    "seed_expert_id": 21,
+    "historical_policy_key": "fca571982b7c88a0",
+    "attribution_months": [
+      "2025-12",
+      "2026-01",
+      "2026-04",
+      "2026-05",
+      "2026-06"
+    ],
+    "focus_month": "2026-01",
+    "winner_selection_enabled": false,
+    "seen_oos_must_not_select_winner": true,
+    "report_all_raw_candidates": true,
+    "future_blind_min_calendar_months": 3,
+    "future_blind_min_trades_per_lane": 5
+  }
+}
