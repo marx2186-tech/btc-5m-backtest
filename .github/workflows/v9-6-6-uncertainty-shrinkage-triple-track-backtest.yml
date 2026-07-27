@@ -1,0 +1,152 @@
+name: BTC 5m V9.6.6 uncertainty shrinkage triple-track validation
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "autonomous_backtest_v9_6_6.py"
+      - "_v966_strategy_core.py"
+      - "_v961_reference_strategy.py"
+      - "_v966_base_engine.py"
+      - "request.v9_6_6.json"
+      - ".github/workflows/v9-6-6-uncertainty-shrinkage-triple-track-backtest.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: btc-5m-v9-6-6-uncertainty-shrinkage-triple-track
+  cancel-in-progress: false
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 420
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install numpy==1.26.4 pandas==2.2.2 requests==2.32.3 numba==0.60.0 scikit-learn==1.5.1 pyyaml==6.0.2
+
+      - name: Verify exact V9.6.6 files
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f autonomous_backtest_v9_6_6.py
+          test -f _v966_strategy_core.py
+          test -f _v961_reference_strategy.py
+          test -f _v966_base_engine.py
+          test -f request.v9_6_6.json
+          test "$(sha256sum autonomous_backtest_v9_6_6.py | awk '{print $1}')" = "c0e67c9522353ffa6ae42ad0ce6d57064d61ab920a0d5517f82da246a4f7317a"
+          test "$(sha256sum _v966_strategy_core.py | awk '{print $1}')" = "df77b795ff7dcdbe20052befd99ca503c8d116d2b8bd22f0399575567ebffb10"
+          test "$(sha256sum _v961_reference_strategy.py | awk '{print $1}')" = "d3dcbc398c23563209a5aad46279bccd7215988273daedf032a7bebacd7740d3"
+          test "$(sha256sum _v966_base_engine.py | awk '{print $1}')" = "3054c5ac297b41c930a0b3321c54b04527d8f9a1fa190eb859d1ab21347bfde9"
+          test "$(sha256sum request.v9_6_6.json | awk '{print $1}')" = "1e642c5ac4a3f58da5920a5433fcf56e9cc7419c0cbe0fa8027d302212e6f077"
+          grep -F 'V9.6.6_EVIDENCE_SHRINKAGE' autonomous_backtest_v9_6_6.py
+          grep -F 'multiplicative_shrinkage_to_zero' request.v9_6_6.json
+          grep -F 'NO_WINNER_SELECTION_FROM_SEEN_OOS' autonomous_backtest_v9_6_6.py
+
+      - name: Syntax and offline tests
+        shell: bash
+        env:
+          BACKTEST_REQUEST_FILE: request.v9_6_6.json
+        run: |
+          set -euo pipefail
+          python -m py_compile autonomous_backtest_v9_6_6.py _v966_strategy_core.py _v961_reference_strategy.py _v966_base_engine.py
+          python autonomous_backtest_v9_6_6.py --self-test 2>&1 | tee v9-6-6-self-test.log
+          python autonomous_backtest_v9_6_6.py --pipeline-smoke 2>&1 | tee v9-6-6-pipeline-smoke.log
+          python - <<'PYCODE'
+          import json
+          from pathlib import Path
+          import yaml
+          r=json.loads(Path('request.v9_6_6.json').read_text(encoding='utf-8'))
+          assert r['model']['base_seed']==20260964
+          assert r['evidence_shrinkage_lane']['fixed_sample_penalty_r']==0.0
+          assert r['evidence_shrinkage_lane']['strong_signals_bypass_neutral_quota'] is True
+          assert r['evidence_shrinkage_lane']['online_allocation_is_chronological'] is True
+          assert r['triple_track_validation']['winner_selection_enabled'] is False
+          assert r['triple_track_validation']['seen_oos_must_not_select_winner'] is True
+          assert len(r['triple_track_validation']['lanes'])==3
+          y=yaml.safe_load(Path('.github/workflows/v9-6-6-uncertainty-shrinkage-triple-track-backtest.yml').read_text(encoding='utf-8'))
+          assert 'backtest' in y['jobs']
+          print('V966_CONFIG_AND_YAML_OK')
+          PYCODE
+
+      - name: Run V9.6.6 real backtest
+        shell: bash
+        env:
+          BACKTEST_REQUEST_FILE: request.v9_6_6.json
+          PYTHONUNBUFFERED: "1"
+        run: |
+          set -o pipefail
+          python autonomous_backtest_v9_6_6.py 2>&1 | tee v9-6-6-run.log
+
+      - name: Upload failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: btc-5m-v9-6-6-failure-diagnostics
+          path: |
+            v9-6-6-self-test.log
+            v9-6-6-pipeline-smoke.log
+            v9-6-6-run.log
+            results_v9_6_6/
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Verify V9.6.6 outputs
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          for f in status.json report.md run_identity.txt expert_tier_audit.csv expert_shadow_trades.csv monthly_sample_validity.csv time_block_validation.csv block_quality_validation.csv bayesian_win_rate_audit.csv best_trade_removal_audit.csv leave_one_month_out_audit.csv profit_concentration_audit.csv blind_evidence_progress.json strategy_snapshot.json snapshot_replay_audit.json v961_reference_reproduction.json v961_vs_v964_signal_diff.csv signal_stage_attribution.csv v961_vs_v964_candidate_diff.csv january_signal_case_study.csv filter_impact_summary.csv triple_track_development_trades.csv triple_track_oos_shadow.csv triple_track_validation.json triple_lane_candidate_diff.csv evidence_shrinkage_attribution.csv quota_allocation_audit.csv cluster_dedup_audit.csv selection_rule_delta.json watch_portfolio_trades.csv research_portfolio_trades.csv qualified_portfolio_trades.csv candidate_shadow_trades.csv candidate_support_only_trades.csv sparse_expert_leaderboard.csv parameter_cluster_audit.csv policy_selection_comparison.csv seed_policy_comparison.csv signal_funnel.csv soft_meta_audit.csv selected_policy.json data_audit.json; do
+            test -f "results_v9_6_6/$f"
+          done
+          python - <<'PYCODE'
+          import json
+          from pathlib import Path
+          s=json.loads(Path('results_v9_6_6/status.json').read_text(encoding='utf-8'))
+          t=json.loads(Path('results_v9_6_6/triple_track_validation.json').read_text(encoding='utf-8'))
+          r=json.loads(Path('results_v9_6_6/snapshot_replay_audit.json').read_text(encoding='utf-8'))
+          assert s['engine']=='BTC 5m uncertainty shrinkage and triple-track blind validation V9.6.6'
+          assert s['qualified'] is False and s['not_for_live_trading'] is True
+          assert s['triple_track_validation_enabled'] is True
+          assert s['evidence_shrinkage_lane_enabled'] is True
+          assert s['winner_selection_enabled'] is False
+          assert s['fixed_stage_trace_exact'] is True
+          assert s['reference_stage_trace_exact'] is True
+          assert s['shrinkage_stage_trace_exact'] is True
+          assert t['winner_decision']=='NO_WINNER_SELECTION_FROM_SEEN_OOS'
+          assert len(t['lanes'])==3
+          assert r['exact_match'] is True
+          assert sum(s['tier_counts'].values())==40
+          print(json.dumps({'tiers':s['tier_counts'],'lanes':list(t['lanes']),'winner_decision':t['winner_decision']},ensure_ascii=False,indent=2))
+          PYCODE
+
+      - name: Upload V9.6.6 results
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: btc-5m-v9-6-6-results
+          path: results_v9_6_6/
+          retention-days: 30
+
+      - name: Commit readable V9.6.6 results
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add results_v9_6_6
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Add V9.6.6 triple-track result $(date -u +%Y%m%dT%H%M%SZ)-${{ github.run_id }} [skip ci]"
+          git push
