@@ -1,0 +1,66 @@
+{
+  "趋势空头": {
+    "expert_id": 1,
+    "policy_key": "6ea041c58377e730",
+    "minimum_calibrated_probability": 0.38,
+    "minimum_online_rank_percentile": 0.7,
+    "monthly_candidate_target": 6,
+    "cooldown_bars": 1,
+    "quality_protection": {
+      "max_trades_per_expert_per_day": 2,
+      "max_trades_per_setup_per_day": 1,
+      "max_consecutive_losses_per_expert_day": 2,
+      "loss_reentry_min_bars": 12,
+      "require_new_structure_cycle_after_loss": true
+    },
+    "risk": {
+      "rr": 2.0,
+      "sl_atr": 1.25,
+      "min_stop_pct": 0.0034,
+      "max_hold": 216,
+      "breakeven_trigger": 1.0,
+      "breakeven_lock": 0.12,
+      "early_bars": 60,
+      "early_cut_r": 0.38
+    },
+    "model": {
+      "max_depth": 2,
+      "learning_rate": 0.035,
+      "max_iter": 220,
+      "l2_regularization": 5.0,
+      "min_samples_leaf": 38
+    }
+  },
+  "震荡多头反转": {
+    "expert_id": 2,
+    "policy_key": "4fc73ef7fc8d2428",
+    "minimum_calibrated_probability": 0.38,
+    "minimum_online_rank_percentile": 0.82,
+    "monthly_candidate_target": 6,
+    "cooldown_bars": 2,
+    "quality_protection": {
+      "max_trades_per_expert_per_day": 2,
+      "max_trades_per_setup_per_day": 1,
+      "max_consecutive_losses_per_expert_day": 2,
+      "loss_reentry_min_bars": 12,
+      "require_new_structure_cycle_after_loss": true
+    },
+    "risk": {
+      "rr": 1.8,
+      "sl_atr": 1.05,
+      "min_stop_pct": 0.003,
+      "max_hold": 144,
+      "breakeven_trigger": 0.85,
+      "breakeven_lock": 0.08,
+      "early_bars": 42,
+      "early_cut_r": 0.32
+    },
+    "model": {
+      "max_depth": 3,
+      "learning_rate": 0.025,
+      "max_iter": 260,
+      "l2_regularization": 8.0,
+      "min_samples_leaf": 42
+    }
+  }
+}
