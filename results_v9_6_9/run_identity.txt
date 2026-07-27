@@ -1,0 +1,17 @@
+BTC 5m unified rating source and dual risk-budget validation V9.6.9
+output=results_v9_6_9
+oos=2026-06
+snapshot_replay_exact=True
+v961_reference_exact=True
+fixed_stage_trace_exact=True
+reference_stage_trace_exact=True
+shrinkage_stage_trace_exact=True
+no_monthly_budget_stage_trace_exact=True
+signal_selection_independent_of_tier=True
+rating_source=V9.6.7_NO_MONTHLY_BUDGET_ORIGINAL
+rating_source_matches_no_budget=True
+rating_ignores_execution_budget=True
+monthly_cap_enabled=False
+cross_trade_cluster_dedup=False
+risk_budget_winner_selection_enabled=False
+winner_selection_enabled=False

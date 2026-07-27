@@ -1,0 +1,34 @@
+{
+  "signal_selection_independent_of_tier": true,
+  "gate_fingerprints": {
+    "CANDIDATE": "9220c4e1effecd565f24e43cdda7f2b7d74b7ec89b91ef64863143d91137a20d",
+    "WATCH": "9220c4e1effecd565f24e43cdda7f2b7d74b7ec89b91ef64863143d91137a20d",
+    "QUALIFIED": "9220c4e1effecd565f24e43cdda7f2b7d74b7ec89b91ef64863143d91137a20d"
+  },
+  "seed_development_tier": "CANDIDATE",
+  "seed_risk_multiplier": 0.0,
+  "seed_execution_mode": "PURE_SHADOW",
+  "candidate_enters_portfolio": false,
+  "formal_gate_open": false,
+  "signal_selection_rules": {
+    "source_engine": "V9.6.1_REFERENCE",
+    "sample_uncertainty_changes_signal_selection": false,
+    "sample_uncertainty_applies_at_expert_gate_only": true,
+    "online_rank_definition": "original_brier_adjusted_utility",
+    "monthly_cap_enabled": false,
+    "max_trades_per_day": 1,
+    "max_consecutive_losses_per_day": 1,
+    "same_bar_dedup": true,
+    "position_overlap_block": true,
+    "allow_new_signal_after_exit": true,
+    "cross_trade_cluster_dedup": false,
+    "minimum_utility_uses_original_policy": true
+  },
+  "final_rating_source": "V9.6.7_NO_MONTHLY_BUDGET_ORIGINAL",
+  "rating_source_matches_no_budget_lane": true,
+  "rating_metrics_match_no_budget_lane": true,
+  "rating_ignores_execution_budget": true,
+  "rating_gate_ignored_fields": [
+    "max_trades_per_month"
+  ]
+}
