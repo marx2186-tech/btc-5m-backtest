@@ -447,18 +447,45 @@ def build_unified_rating_shadow(
         eid = int(row["expert_id"])
         expert_name = str(row["expert"])
         policy_key = str(row["policy_key"])
-        rexp = ref.EXPERT_BY_ID[eid]
-        matches = [p for p in ref.policy_grid(rexp) if str(p.key) == policy_key]
-        if not matches:
-            missing.append(f"{eid}:{policy_key}")
+
+        # V9.6.1 froze experts 0-31. Experts 32-39 were added later and
+        # must be replayed with the current core while preserving the same
+        # frozen original probability/rank/meta/utility rules. Using a
+        # per-expert source module keeps historical experts exact and gives
+        # complete rating coverage to all 40 selected experts.
+        if eid in ref.EXPERT_BY_ID:
+            source_mod = ref
+            source_engine = "V9.6.1_REFERENCE"
+            found_in_v961_reference = True
+        elif eid in core.EXPERT_BY_ID:
+            source_mod = core
+            source_engine = "V9.6.8_EXTENDED_ORIGINAL"
+            found_in_v961_reference = False
+        else:
+            missing.append(f"{eid}:{policy_key}:EXPERT_NOT_FOUND")
             coverage.append({
                 "expert_id": eid, "expert": expert_name, "policy_key": policy_key,
-                "policy_found_in_reference": False, "raw_candidates": 0,
+                "rating_engine": "MISSING", "found_in_v961_reference": False,
+                "policy_found_in_rating_engine": False, "raw_candidates": 0,
                 "selected_trades": 0, "signal_fingerprint": ""
             })
             continue
+
+        rexp = source_mod.EXPERT_BY_ID[eid]
+        matches = [p for p in source_mod.policy_grid(rexp) if str(p.key) == policy_key]
+        if not matches:
+            missing.append(f"{eid}:{policy_key}:POLICY_NOT_FOUND")
+            coverage.append({
+                "expert_id": eid, "expert": expert_name, "policy_key": policy_key,
+                "rating_engine": source_engine,
+                "found_in_v961_reference": found_in_v961_reference,
+                "policy_found_in_rating_engine": False, "raw_candidates": 0,
+                "selected_trades": 0, "signal_fingerprint": ""
+            })
+            continue
+
         policy = matches[0]
-        trace, selected = trace_no_monthly_budget_lane(ref, rx, rexp, policy, months)
+        trace, selected = trace_no_monthly_budget_lane(source_mod, rx, rexp, policy, months)
         if not selected.empty:
             selected = selected.copy()
             selected["expert_id"] = eid
@@ -466,10 +493,13 @@ def build_unified_rating_shadow(
             selected["family"] = str(getattr(rexp, "family", row.get("family", "")))
             selected["setup_group"] = str(getattr(rexp, "setup_group", getattr(rexp, "family", "")))
             selected["rating_source_lane"] = str(RATING_SOURCE["source_lane"])
+            selected["rating_engine"] = source_engine
             selected_frames.append(selected)
         coverage.append({
             "expert_id": eid, "expert": expert_name, "policy_key": policy_key,
-            "policy_found_in_reference": True, "raw_candidates": int(len(trace)),
+            "rating_engine": source_engine,
+            "found_in_v961_reference": found_in_v961_reference,
+            "policy_found_in_rating_engine": True, "raw_candidates": int(len(trace)),
             "selected_trades": int(len(selected)),
             "signal_fingerprint": event_fingerprint(selected)
         })
@@ -831,6 +861,13 @@ def rating_source_self_test() -> None:
     assert "max_trades_per_month" in set(GATE["rating_gate_ignored_fields"])
     assert RATING_SOURCE["forbid_core_fixed_penalty_shadow_for_final_tier"] is True
     assert RISK_BUDGET["winner_selection_enabled"] is False
+    # Regression for the production failure: V9.6.1 contains IDs 0-31,
+    # while the current sparse-expert universe contains IDs 0-39.
+    reference_ids = set(range(32))
+    current_ids = set(core.EXPERT_BY_ID)
+    resolved = {eid: ("V961" if eid in reference_ids else "EXTENDED") for eid in current_ids}
+    assert set(resolved) == set(range(40))
+    assert all(resolved[eid] == "EXTENDED" for eid in range(32, 40))
     print("V968_UNIFIED_RATING_SOURCE_AND_DUAL_BUDGET_OK")
 
 def main()->None:
@@ -1191,7 +1228,7 @@ def main()->None:
         "final_rating_source":str(RATING_SOURCE["source_lane"]),
         "core_fixed_penalty_shadow_for_final_tier":False,
         "all_selected_experts_replayed":bool(RATING_SOURCE["all_selected_experts_replayed"]),
-        "policy_coverage_complete":bool(coverage_df["policy_found_in_reference"].all()) if not coverage_df.empty else False,
+        "policy_coverage_complete":bool(coverage_df["policy_found_in_rating_engine"].all()) if not coverage_df.empty else False,
         "rating_gate_ignored_fields":list(GATE.get("rating_gate_ignored_fields",[])),
         "rating_ignores_execution_budget":bool(GATE["rating_ignores_execution_budget"]),
         "seed_rating_source_matches_no_budget_lane":rating_source_matches_no_budget,
@@ -1257,7 +1294,7 @@ def main()->None:
         "expert_level_gating_enabled": True,
         "rating_data_source_unified": True,
         "rating_source_lane": str(RATING_SOURCE["source_lane"]),
-        "rating_source_policy_coverage_complete": bool(coverage_df["policy_found_in_reference"].all()) if not coverage_df.empty else False,
+        "rating_source_policy_coverage_complete": bool(coverage_df["policy_found_in_rating_engine"].all()) if not coverage_df.empty else False,
         "rating_source_matches_no_budget_lane": rating_source_matches_no_budget,
         "rating_metrics_match_no_budget_lane": rating_metrics_match_no_budget,
         "rating_ignores_execution_budget": bool(GATE["rating_ignores_execution_budget"]),
