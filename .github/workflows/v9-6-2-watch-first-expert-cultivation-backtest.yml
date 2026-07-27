@@ -1,0 +1,152 @@
+name: BTC 5m V9.6.2 watch-first expert cultivation backtest
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "autonomous_backtest_v9_6_2.py"
+      - "request.v9_6_2.json"
+      - "_v962_base_engine.py"
+      - ".github/workflows/v9-6-2-watch-first-expert-cultivation-backtest.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: btc-5m-v9-6-2-watch-first-expert-cultivation
+  cancel-in-progress: false
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install numpy==1.26.4 pandas==2.2.2 requests==2.32.3 numba==0.60.0 scikit-learn==1.5.1 pyyaml==6.0.2
+
+      - name: Verify exact V9.6.2 files
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f autonomous_backtest_v9_6_2.py
+          test -f request.v9_6_2.json
+          test -f _v962_base_engine.py
+          test -f .github/workflows/v9-6-2-watch-first-expert-cultivation-backtest.yml
+          test "$(sha256sum autonomous_backtest_v9_6_2.py | awk '{print $1}')" = "848c3d8f49498759d3716ecee34e3e15595812f4126583a52a776d82c832a341"
+          test "$(sha256sum request.v9_6_2.json | awk '{print $1}')" = "7b64717c6c3079180dafcb531263d8e151ea0cbf2585f1d9ea0271f0236aa4d1"
+          test "$(sha256sum _v962_base_engine.py | awk '{print $1}')" = "4eeb5f3ca6269b8aff0ed3f419d35b009795a49cef136db1492de507981b81d6"
+          grep -F 'ENGINE_VERSION = "V9.6.2"' autonomous_backtest_v9_6_2.py
+          grep -F 'RESULTS = ROOT / "results_v9_6_2"' autonomous_backtest_v9_6_2.py
+          grep -F 'SparseExpert(39' autonomous_backtest_v9_6_2.py
+          grep -F 'candidate_support_events' autonomous_backtest_v9_6_2.py
+          grep -F 'candidate_shadow_only' autonomous_backtest_v9_6_2.py
+          grep -F 'watch_portfolio_trades.csv' autonomous_backtest_v9_6_2.py
+          grep -F 'seed_robustness_audit.csv' autonomous_backtest_v9_6_2.py
+
+      - name: Syntax and offline architecture tests
+        shell: bash
+        env:
+          BACKTEST_REQUEST_FILE: request.v9_6_2.json
+        run: |
+          set -euo pipefail
+          python -m py_compile autonomous_backtest_v9_6_2.py _v962_base_engine.py
+          python autonomous_backtest_v9_6_2.py --self-test 2>&1 | tee v9-6-2-self-test.log
+          python - <<'PYCODE'
+          import json
+          from pathlib import Path
+          import yaml
+          request=json.loads(Path('request.v9_6_2.json').read_text(encoding='utf-8'))
+          assert request['historical_start']=='2025-01'
+          assert request['development_start']=='2025-05'
+          assert request['portfolio']['candidate_shadow_only'] is True
+          assert request['portfolio']['watch_and_qualified_only_in_research'] is True
+          assert request['model']['candidate_support_min_meta']==0.58
+          assert request['model']['sample_uncertainty_penalty']==0.55
+          assert request['robustness']['seed_expert_id']==21
+          assert request['qualified_gate']['min_total_trades']==10
+          assert request['watch_gate']['min_total_trades']==6
+          parsed=yaml.safe_load(Path('.github/workflows/v9-6-2-watch-first-expert-cultivation-backtest.yml').read_text(encoding='utf-8'))
+          assert 'jobs' in parsed and 'backtest' in parsed['jobs']
+          print('V962_CONFIG_AND_YAML_OK')
+          PYCODE
+
+      - name: Run V9.6.2 real backtest
+        shell: bash
+        env:
+          BACKTEST_REQUEST_FILE: request.v9_6_2.json
+          PYTHONUNBUFFERED: "1"
+        run: |
+          set -o pipefail
+          python autonomous_backtest_v9_6_2.py 2>&1 | tee v9-6-2-run.log
+
+      - name: Upload failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: btc-5m-v9-6-2-failure-diagnostics
+          path: |
+            v9-6-2-self-test.log
+            v9-6-2-run.log
+            results_v9_6_2/
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Verify V9.6.2 outputs
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          for f in status.json report.md watch_portfolio_trades.csv research_portfolio_trades.csv qualified_portfolio_trades.csv candidate_shadow_trades.csv candidate_support_only_trades.csv portfolio_trades.csv trades.csv expert_shadow_trades.csv sparse_expert_leaderboard.csv expert_monthly_stats.csv expert_overlap.csv opportunity_coverage.csv selection_audit.csv expert_tier_audit.csv seed_robustness_audit.csv signal_funnel.csv soft_meta_audit.csv cross_month_score_drift.csv signal_deduplication.csv signal_conflicts.csv selected_policy.json data_audit.json run_identity.txt; do
+            test -f "results_v9_6_2/$f"
+          done
+          grep -F 'BTC 5m watch-first expert cultivation pool V9.6.2' results_v9_6_2/run_identity.txt
+          grep -F 'oos=2026-06' results_v9_6_2/run_identity.txt
+          python - <<'PYCODE'
+          import json
+          from pathlib import Path
+          s=json.loads(Path('results_v9_6_2/status.json').read_text(encoding='utf-8'))
+          assert s['engine']=='BTC 5m watch-first expert cultivation pool V9.6.2'
+          assert s['qualified'] is False
+          assert s['not_for_live_trading'] is True
+          assert s['fresh_blind_month_required'] is True
+          assert s['searched_experts']==40
+          assert len(s['development_months'])==13
+          assert s['candidate_experts_excluded_from_research'] is True
+          assert s['oos_isolation']['used_for_training'] is False
+          assert s['oos_isolation']['used_for_expert_selection'] is False
+          assert s['selection_status'] in {'QUALIFIED_EXPERT_POOL_AVAILABLE','WATCH_EXPERT_POOL_AVAILABLE','NO_WATCH_OR_QUALIFIED_EXPERTS'}
+          assert sum(s['tier_counts'].values())==40
+          selected=s['selected_experts']['research_watch_and_qualified_only']
+          assert all(v['tier'] in {'WATCH','QUALIFIED'} for v in selected.values())
+          print(json.dumps({'tiers':s['tier_counts'],'watch':s['watch_portfolio_monthly_stats'],'candidate_support':s['candidate_support_only_monthly_stats'],'qualified':s['qualified_portfolio_monthly_stats']},ensure_ascii=False,indent=2))
+          PYCODE
+
+      - name: Upload V9.6.2 results
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: btc-5m-v9-6-2-results
+          path: results_v9_6_2/
+          retention-days: 30
+
+      - name: Commit readable V9.6.2 results
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add results_v9_6_2
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Add V9.6.2 watch-first expert result $(date -u +%Y%m%dT%H%M%SZ)-${{ github.run_id }} [skip ci]"
+          git push
