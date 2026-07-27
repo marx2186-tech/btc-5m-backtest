@@ -1,0 +1,153 @@
+name: BTC 5m V9 expert-specific backtest
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "autonomous_backtest_v9.py"
+      - "request.v9.json"
+      - ".github/workflows/v9-expert-specific-backtest.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: btc-5m-v9-expert-specific
+  cancel-in-progress: false
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install numpy==1.26.4 pandas==2.2.2 requests==2.32.3 numba==0.60.0 scikit-learn==1.5.1 pyyaml==6.0.2
+
+      - name: Verify exact V9 source and request
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f autonomous_backtest_v9.py
+          test -f request.v9.json
+          test -f .github/workflows/v9-expert-specific-backtest.yml
+          script_actual="$(sha256sum autonomous_backtest_v9.py | awk '{print $1}')"
+          request_actual="$(sha256sum request.v9.json | awk '{print $1}')"
+          script_expected="6edd6c6819efa144ff8e29f52226827d6bfcc391746f193ac71b84cfc1c2bdc5"
+          request_expected="c20c53bd06e6238ac2b613d00c8ed71d9e51bafcf96a77a94a5f46c16fa6689f"
+          echo "script_sha256=$script_actual"
+          echo "request_sha256=$request_actual"
+          test "$script_actual" = "$script_expected"
+          test "$request_actual" = "$request_expected"
+          grep -F 'ENGINE_VERSION = "V9.0"' autonomous_backtest_v9.py
+          grep -F 'RESULTS = ROOT / "results_v9"' autonomous_backtest_v9.py
+          grep -F 'OOS_MONTH = "2026-06"' autonomous_backtest_v9.py
+          grep -F 'load_auxiliary_kline("ETHUSDT", "klines")' autonomous_backtest_v9.py
+          grep -F 'load_funding_rate()' autonomous_backtest_v9.py
+          grep -F 'expert_candidate_leaderboard.csv' autonomous_backtest_v9.py
+          grep -F 'assert_oos_isolation' autonomous_backtest_v9.py
+
+      - name: Python syntax and offline regression tests
+        shell: bash
+        env:
+          BACKTEST_REQUEST_FILE: request.v9.json
+        run: |
+          set -euo pipefail
+          python -m py_compile autonomous_backtest_v9.py
+          python autonomous_backtest_v9.py --self-test 2>&1 | tee v9-self-test.log
+          python - <<'PY'
+          from pathlib import Path
+          import yaml
+          workflow = Path('.github/workflows/v9-expert-specific-backtest.yml')
+          parsed = yaml.safe_load(workflow.read_text(encoding='utf-8'))
+          assert isinstance(parsed, dict)
+          assert 'jobs' in parsed and 'backtest' in parsed['jobs']
+          print('YAML_PARSE_OK')
+          PY
+
+      - name: Run V9 backtest
+        shell: bash
+        env:
+          BACKTEST_REQUEST_FILE: request.v9.json
+        run: |
+          set -o pipefail
+          python autonomous_backtest_v9.py 2>&1 | tee v9-run.log
+
+      - name: Upload failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: btc-5m-v9-failure-diagnostics
+          path: |
+            v9-self-test.log
+            v9-run.log
+            results_v9/
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Verify V9 outputs
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f results_v9/status.json
+          test -f results_v9/report.md
+          test -f results_v9/trades.csv
+          test -f results_v9/candidate_leaderboard.csv
+          test -f results_v9/expert_candidate_leaderboard.csv
+          test -f results_v9/selected_policy.json
+          test -f results_v9/data_audit.json
+          test -f results_v9/run_identity.txt
+          grep -F 'BTC 5m expert-specific walk-forward ensemble V9.0' results_v9/run_identity.txt
+          grep -F 'oos=2026-06' results_v9/run_identity.txt
+          grep -F 'output=results_v9' results_v9/run_identity.txt
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          status = json.loads(Path('results_v9/status.json').read_text(encoding='utf-8'))
+          assert status['engine'] == 'BTC 5m expert-specific walk-forward ensemble V9.0'
+          assert status['oos_month'] == '2026-06'
+          isolation = status['oos_isolation']
+          assert isolation['used_for_training'] is False
+          assert isolation['used_for_thresholds'] is False
+          assert isolation['used_for_expert_elimination'] is False
+          assert isolation['used_for_combination_selection'] is False
+          assert isolation['evaluation_occurs_after_policy_freeze'] is True
+          assert status['constraints']['fee_rate_per_side'] == 0.0005
+          assert status['constraints']['slippage_per_fill_usdt'] == 0.2
+          assert set(status['expert_stats']) == {'2026-05', '2026-06'}
+          print(json.dumps(status['monthly_stats'], ensure_ascii=False, indent=2))
+          PY
+
+      - name: Upload V9 result artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: btc-5m-v9-results
+          path: results_v9/
+          retention-days: 30
+
+      - name: Commit readable V9 results
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add results_v9
+          if git diff --cached --quiet; then
+            echo "No result changes"
+            exit 0
+          fi
+          git commit -m "Add V9 expert-specific result $(date -u +%Y%m%dT%H%M%SZ)-${{ github.run_id }} [skip ci]"
+          git push
