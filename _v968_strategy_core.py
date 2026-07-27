@@ -19,26 +19,26 @@ from sklearn.ensemble import HistGradientBoostingClassifier
 from sklearn.linear_model import LogisticRegression
 
 ROOT = Path(__file__).resolve().parent
-RESULTS = ROOT / "results_v9_6_1_reference"
+RESULTS = ROOT / "results_v9_6_8"
 RESULTS.mkdir(exist_ok=True)
-ENGINE_VERSION = "V9.6.1"
-ENGINE_NAME = "BTC 5m sparse expert discovery and soft-meta pool V9.6.1"
+ENGINE_VERSION = "V9.6.8-core"
+ENGINE_NAME = "BTC 5m reproducible sparse-expert core V9.6.8"
 OOS_MONTH = "2026-06"
 
-REQUEST_PATH = Path(os.environ.get("BACKTEST_REQUEST_FILE", str(ROOT / "request.v9_6_1_reference.runtime.json")))
+REQUEST_PATH = Path(os.environ.get("BACKTEST_REQUEST_FILE", str(ROOT / "request.v9_6_8.json")))
 REQUEST = json.loads(REQUEST_PATH.read_text(encoding="utf-8"))
 SYMBOL = str(REQUEST["symbol"]).upper()
 INTERVAL = str(REQUEST["interval"]).lower()
 EVAL_MONTHS = tuple(str(x) for x in REQUEST["months"])
 if EVAL_MONTHS != ("2026-05", "2026-06"):
-    raise ValueError("V9.6.1 requires evaluation months 2026-05 and diagnostic OOS 2026-06")
+    raise ValueError("V9.6.8 requires evaluation months 2026-05 and diagnostic OOS 2026-06")
 MONTHS = tuple(str(p) for p in pd.period_range("2025-01", "2026-06", freq="M"))
 DEVELOPMENT_START_INDEX = 4
 DEVELOPMENT_MONTHS = MONTHS[DEVELOPMENT_START_INDEX:-1]
 FEE_RATE = float(REQUEST["fee_rate_per_side"])
 SLIPPAGE_ABS = float(REQUEST["tick_size"]) * int(REQUEST["slippage_ticks_per_fill"])
 if FEE_RATE != 0.0005 or abs(SLIPPAGE_ABS - 0.2) > 1e-12:
-    raise ValueError("V9.6.1 fixes one-side fee at 0.050% and slippage at 0.2 USDT per fill")
+    raise ValueError("V9.6.8 fixes one-side fee at 0.050% and slippage at 0.2 USDT per fill")
 
 FINAL = REQUEST["final_target"]
 STAGE = REQUEST["research_stage"]
@@ -50,10 +50,12 @@ PORT = REQUEST["portfolio"]
 MODEL = REQUEST["model"]
 SEARCH = REQUEST["search"]
 BASE_SEED = int(MODEL["base_seed"])
+ROBUSTNESS = REQUEST["robustness"]
+EVIDENCE = REQUEST["evidence_selection"]
 
 # Load the frozen V9.5.1 data/feature/outcome engine from this package. A private
 # compatibility request prevents the base module from consuming V9.6 settings.
-compat = ROOT / ".v961_reference_base_request.json"
+compat = ROOT / ".v968_base_request.json"
 compat.write_text(json.dumps({
     "symbol": SYMBOL, "interval": INTERVAL, "months": ["2026-05", "2026-06"],
     "fee_rate_per_side": FEE_RATE, "tick_size": REQUEST["tick_size"],
@@ -64,9 +66,9 @@ compat.write_text(json.dumps({
 }, ensure_ascii=False), encoding="utf-8")
 old_request = os.environ.get("BACKTEST_REQUEST_FILE")
 os.environ["BACKTEST_REQUEST_FILE"] = str(compat)
-spec = importlib.util.spec_from_file_location("v961_reference_base_engine", ROOT / "_v968_base_engine.py")
+spec = importlib.util.spec_from_file_location("v968_base_engine", ROOT / "_v968_base_engine.py")
 if spec is None or spec.loader is None:
-    raise RuntimeError("Cannot load _v961_base_engine.py")
+    raise RuntimeError("Cannot load _v968_base_engine.py")
 base = importlib.util.module_from_spec(spec)
 sys.modules[spec.name] = base
 spec.loader.exec_module(base)
@@ -188,6 +190,14 @@ EXPERTS: tuple[SparseExpert, ...] = (
     SparseExpert(29, "premium_extreme_short", "合约溢价极端修复空头", "基差反转", -1, "derivative", "溢价极端"),
     SparseExpert(30, "opening_break_long", "欧美开盘区间突破多头", "开盘突破", 1, "session", "开盘突破"),
     SparseExpert(31, "opening_break_short", "欧美开盘区间突破空头", "开盘突破", -1, "session", "开盘突破"),
+    SparseExpert(32, "cross_premium_revert_short", "BTC强于ETH且溢价回落空头", "跨资产衍生品", -1, "cross", "跨资产溢价回落"),
+    SparseExpert(33, "cross_taker_revert_short", "BTC强于ETH且主动卖盘空头", "跨资产订单流", -1, "cross", "跨资产主动卖盘"),
+    SparseExpert(34, "cross_session_revert_short", "BTC强于ETH欧美盘修复空头", "跨资产时段", -1, "session", "跨资产欧美修复"),
+    SparseExpert(35, "eth_lead_down_short", "ETH先跌BTC滞后补跌空头", "跨资产领先滞后", -1, "cross", "ETH领先下跌"),
+    SparseExpert(36, "cross_premium_revert_long", "BTC弱于ETH且溢价回升多头", "跨资产衍生品", 1, "cross", "跨资产溢价回升"),
+    SparseExpert(37, "eth_lead_up_long", "ETH先涨BTC滞后补涨多头", "跨资产领先滞后", 1, "cross", "ETH领先上涨"),
+    SparseExpert(38, "cross_vwap_fail_short", "跨资产背离后VWAP失守空头", "跨资产VWAP", -1, "cross", "背离VWAP失守"),
+    SparseExpert(39, "cross_vwap_reclaim_long", "跨资产背离后VWAP收回多头", "跨资产VWAP", 1, "cross", "背离VWAP收回"),
 )
 EXPERT_BY_ID = {e.id: e for e in EXPERTS}
 OUTCOME_CACHE: dict[tuple[int, int, str], tuple[np.ndarray, np.ndarray, np.ndarray, np.ndarray]] = {}
@@ -269,6 +279,14 @@ def add_sparse_masks(x: pd.DataFrame) -> pd.DataFrame:
         29: (y["premium_z"]>=1.15)&(y["ret3"]<0)&(y["close_loc"]<0.46)&(y["upper_wick"]>0.18),
         30: open_window&(y["close"]>high36)&(y["rel_vol"]>=1.0)&(y["close_loc"]>0.58)&(y["eth_ret3"]>=-0.001),
         31: open_window&(y["close"]<low36)&(y["rel_vol"]>=1.0)&(y["close_loc"]<0.42)&(y["eth_ret3"]<=0.001),
+        32: (y["ret12"]>0.003)&(y["eth_ret12"]<y["ret12"]-0.0022)&(y["premium_delta"]<0)&(y["premium_z"]>0.25)&(y["ret3"]<0)&(y["upper_wick"]>0.16),
+        33: (y["ret12"]>0.0025)&(y["eth_ret12"]<y["ret12"]-0.0020)&(y["taker_ratio"]<0.49)&(y["taker_z"]<0)&(y["ret3"]<0)&(y["close_loc"]<0.48),
+        34: europe_us&(y["ret12"]>0.0025)&(y["eth_ret12"]<y["ret12"]-0.0020)&(y["ret3"]<0)&(y["m15_trend"]<=0)&(y["upper_wick"]>0.16),
+        35: (y["eth_ret3"]<-0.002)&(y["ret3"]>y["eth_ret3"]+0.0015)&(y["btc_eth_corr"]>0.20)&(y["ret1"]<0)&(y["close_loc"]<0.48),
+        36: (y["ret12"]<-0.003)&(y["eth_ret12"]>y["ret12"]+0.0022)&(y["premium_delta"]>0)&(y["premium_z"]<-0.25)&(y["ret3"]>0)&(y["lower_wick"]>0.16),
+        37: (y["eth_ret3"]>0.002)&(y["ret3"]<y["eth_ret3"]-0.0015)&(y["btc_eth_corr"]>0.20)&(y["ret1"]>0)&(y["close_loc"]>0.52),
+        38: (y["ret12"]>0.0025)&(y["eth_ret12"]<y["ret12"]-0.0020)&(y["vwap_dev"].shift(1)>0)&(y["vwap_dev"]<=0)&(y["ret3"]<0),
+        39: (y["ret12"]<-0.0025)&(y["eth_ret12"]>y["ret12"]+0.0020)&(y["vwap_dev"].shift(1)<0)&(y["vwap_dev"]>=0)&(y["ret3"]>0),
     }
     for expert in EXPERTS:
         mask = masks[expert.id].fillna(False)
@@ -412,7 +430,9 @@ def fit_model(x: pd.DataFrame, idx: np.ndarray, expert: SparseExpert, policy: Po
     blend=float(MODEL["meta_blend_weight"])
     final_p=np.clip((1-blend)*calibrated+blend*meta_p,0.01,0.99)
     utility=final_p*avg_win-(1-final_p)*avg_loss
-    penalty=float(MODEL["utility_uncertainty_penalty"])*math.sqrt(max(float(np.mean((calibrated-y_cal)**2)),0.0))
+    brier_penalty=float(MODEL["utility_uncertainty_penalty"])*math.sqrt(max(float(np.mean((calibrated-y_cal)**2)),0.0))
+    sample_penalty=float(MODEL["sample_uncertainty_penalty"])/math.sqrt(max(len(y_cal),1))
+    penalty=brier_penalty+sample_penalty
     conservative=utility-penalty
     provisional.calibration_scores=calibrated
     provisional.calibration_utility_scores=conservative
@@ -432,7 +452,7 @@ def evaluate_month(x: pd.DataFrame, idx: np.ndarray, expert: SparseExpert, polic
         months=x["month"].to_numpy()[idx]
         pos=np.flatnonzero((months==eval_month)&(exits>=0))
         features=list(FEATURE_GROUPS[expert.feature_group])
-        audit={"raw_candidates":int(len(pos)),"model_available":True,"calibration_month":model.calibration_month,"calibration_rows":model.calibration_rows,"calibration_brier":model.calibration_brier,"meta_brier":model.meta_brier,"avg_win_r":model.avg_win_r,"avg_loss_r":model.avg_loss_r}
+        audit={"raw_candidates":int(len(pos)),"model_available":True,"calibration_month":model.calibration_month,"calibration_rows":model.calibration_rows,"calibration_brier":model.calibration_brier,"meta_brier":model.meta_brier,"avg_win_r":model.avg_win_r,"avg_loss_r":model.avg_loss_r,"sample_uncertainty_penalty":float(MODEL["sample_uncertainty_penalty"])/math.sqrt(max(model.calibration_rows,1))}
         history=list(np.asarray(model.calibration_utility_scores,float)[-int(MODEL["online_rank_window"]):])
         prototypes=[]
         if len(pos)>0 and len(history)>=int(MODEL["online_rank_min_history"]):
@@ -441,7 +461,7 @@ def evaluate_month(x: pd.DataFrame, idx: np.ndarray, expert: SparseExpert, polic
             p=calibrate(model,base_p);router=router_score(x,rows,expert);micro=micro_score(x,rows,expert.direction)
             meta_x=np.column_stack([p,router,micro,p*router,p*micro,router*micro])
             meta_base=model.meta_model.predict_proba(meta_x)[:,1] if model.meta_model is not None else p
-            blend=float(MODEL["meta_blend_weight"]);penalty=float(MODEL["utility_uncertainty_penalty"])*math.sqrt(max(model.calibration_brier,0.0))
+            blend=float(MODEL["meta_blend_weight"]);penalty=float(MODEL["utility_uncertainty_penalty"])*math.sqrt(max(model.calibration_brier,0.0))+float(MODEL["sample_uncertainty_penalty"])/math.sqrt(max(model.calibration_rows,1))
             for j,k in enumerate(pos):
                 final_p=float(np.clip((1-blend)*p[j]+blend*meta_base[j],0.01,0.99))
                 expected=float(final_p*model.avg_win_r-(1-final_p)*model.avg_loss_r)
@@ -548,6 +568,112 @@ def all_dev_events(c:Candidate)->list[dict[str,Any]]:
     return [t for m in DEVELOPMENT_MONTHS for t in c.monthly_events.get(m,[])]
 
 
+def _policy_vector(policy: Policy) -> tuple[float, ...]:
+    """Numeric vector used only to identify local parameter neighbours."""
+    r=policy.risk; m=policy.model
+    return (
+        float(r.rr),float(r.sl_atr),float(r.min_stop_pct)*1000,float(r.max_hold)/100,
+        float(r.breakeven_trigger),float(r.breakeven_lock),float(r.early_bars)/50,float(r.early_cut_r),
+        float(m.max_depth),float(m.learning_rate)*100,float(m.max_iter)/100,float(m.l2_regularization)/5,float(m.min_samples_leaf)/20,
+        float(policy.monthly_target),float(policy.min_percentile)*10,float(policy.min_expected_utility_r)*20,
+    )
+
+
+def policy_distance(a: Policy, b: Policy) -> float:
+    av=np.asarray(_policy_vector(a),dtype=float);bv=np.asarray(_policy_vector(b),dtype=float)
+    scale=np.maximum(np.maximum(np.abs(av),np.abs(bv)),0.25)
+    return float(np.mean(np.abs(av-bv)/scale))
+
+
+def _loo_stats(c: Candidate) -> tuple[float,float]:
+    active=[m for m in DEVELOPMENT_MONTHS if c.monthly_events.get(m)]
+    vals=[]
+    for omitted in active:
+        vals.append(metrics([t for m in DEVELOPMENT_MONTHS if m!=omitted for t in c.monthly_events.get(m,[])])["net_R"])
+    return (float(min(vals)) if vals else 0.0,float(sum(v>0 for v in vals)/len(vals)) if vals else 0.0)
+
+
+def _signal_consensus(anchor: Candidate, neighbours: list[Candidate]) -> float:
+    anchor_events=all_dev_events(anchor)
+    peers=[n for n in neighbours if n.policy.key!=anchor.policy.key]
+    if not anchor_events or not peers:return 0.0
+    window=int(PORT["dedup_window_bars"])
+    peer_events=[all_dev_events(p) for p in peers]
+    ratios=[]
+    for t in anchor_events:
+        hits=0
+        for events in peer_events:
+            if any(abs(int(u["signal_i"])-int(t["signal_i"]))<=window and int(u["direction"])==int(t["direction"]) for u in events):hits+=1
+        ratios.append(hits/len(peers))
+    return float(np.mean(ratios)) if ratios else 0.0
+
+
+def parameter_cluster_audit(expert: SparseExpert, anchor: Candidate, candidates: list[Candidate]) -> dict[str,Any]:
+    size=max(1,int(EVIDENCE["cluster_size"]))
+    nearest=sorted(candidates,key=lambda c:(policy_distance(anchor.policy,c.policy),-c.aggregate.get("trades",0)))[:size]
+    positives=[c.aggregate.get("net_R",0)>0 for c in nearest]
+    mature=[c.tier in {"WATCH","QUALIFIED"} for c in nearest]
+    trades=[float(c.aggregate.get("trades",0)) for c in nearest]
+    active=[float(c.aggregate.get("active_months",0)) for c in nearest]
+    nets=[float(c.aggregate.get("net_R",0)) for c in nearest]
+    consensus=_signal_consensus(anchor,nearest)
+    positive_share=float(sum(positives)/len(nearest)) if nearest else 0.0
+    mature_share=float(sum(mature)/len(nearest)) if nearest else 0.0
+    median_trades=float(np.median(trades)) if trades else 0.0
+    median_active=float(np.median(active)) if active else 0.0
+    robust=(positive_share>=float(EVIDENCE["cluster_min_positive_share"]) and
+            median_trades>=float(EVIDENCE["cluster_min_median_trades"]) and
+            consensus>=float(EVIDENCE["cluster_min_signal_consensus"]))
+    return {
+        "expert_id":expert.id,"expert":expert.name,"family":expert.family,
+        "anchor_policy_key":anchor.policy.key,"anchor_tier":anchor.tier,"anchor_trades":anchor.aggregate.get("trades",0),
+        "cluster_size":len(nearest),"cluster_policy_keys":"|".join(c.policy.key for c in nearest),
+        "cluster_positive_share":positive_share,"cluster_mature_share":mature_share,
+        "cluster_median_trades":median_trades,"cluster_median_active_months":median_active,
+        "cluster_median_net_R":float(np.median(nets)) if nets else 0.0,"cluster_min_net_R":min(nets) if nets else 0.0,
+        "cluster_signal_consensus":consensus,"cluster_robust":bool(robust),
+    }
+
+
+def evidence_key(c: Candidate, cluster: dict[str,Any]) -> tuple[Any,...]:
+    s=c.aggregate;tier_rank={"QUALIFIED":3,"WATCH":2,"CANDIDATE":1,"REJECTED":0}[c.tier]
+    loo_min,loo_share=_loo_stats(c)
+    cap=float(EVIDENCE["evidence_trade_cap"])
+    return (
+        tier_rank,
+        int(bool(cluster.get("cluster_robust",False))),
+        min(float(s.get("trades",0)),cap),
+        float(s.get("active_months",0)),
+        float(s.get("positive_months",0)),
+        int(loo_min>0),loo_share,
+        float(cluster.get("cluster_positive_share",0)),
+        float(cluster.get("cluster_signal_consensus",0)),
+        float(s.get("shrunk_win_rate",0)),float(s.get("wilson_lower",0)),
+        float(s.get("net_R",0)),-float(s.get("max_drawdown_R",0)),-float(s.get("max_single_month_profit_share",1)),
+    )
+
+
+def select_policy_for_expert(expert: SparseExpert, candidates: list[Candidate]) -> tuple[Candidate,list[dict[str,Any]],dict[str,Any]]:
+    """Evidence-first selection. A mature policy cannot be displaced by a prettier low-sample candidate."""
+    audits=[parameter_cluster_audit(expert,c,candidates) for c in candidates]
+    audit_by_key={a["anchor_policy_key"]:a for a in audits}
+    mature=[c for c in candidates if c.tier in {"WATCH","QUALIFIED"}]
+    candidate_pool=[c for c in candidates if c.tier=="CANDIDATE"]
+    pool=mature or candidate_pool or candidates
+    preferred_keys=set(str(k) for k in EVIDENCE.get("preferred_seed_policy_keys",[])) if expert.id==int(EVIDENCE["seed_expert_id"]) else set()
+    preferred=[c for c in pool if c.policy.key in preferred_keys]
+    chosen=max(preferred or pool,key=lambda c:evidence_key(c,audit_by_key[c.policy.key]))
+    # Explicit mature-policy protection: sparse candidates never replace WATCH/QUALIFIED.
+    protected=bool(mature and chosen.tier in {"WATCH","QUALIFIED"})
+    reason="mature_policy_protected" if protected else ("preferred_seed_anchor" if chosen.policy.key in preferred_keys else "evidence_first")
+    meta={"selection_reason":reason,"mature_policy_available":bool(mature),"mature_policy_protected":protected,
+          "preferred_seed_anchor_available":bool(preferred),"selected_cluster_robust":bool(audit_by_key[chosen.policy.key]["cluster_robust"])}
+    ordered=sorted(candidates,key=lambda c:evidence_key(c,audit_by_key[c.policy.key]),reverse=True)
+    if ordered[0].policy.key!=chosen.policy.key:
+        ordered=[chosen]+[c for c in ordered if c.policy.key!=chosen.policy.key]
+    return chosen,audits,meta
+
+
 def compatible(a:Candidate,b:Candidate)->bool:
     o=event_overlap(all_dev_events(a),all_dev_events(b),int(PORT["dedup_window_bars"]))
     return o["signal_overlap"]<=float(PORT["max_pair_signal_overlap"]) and o["loss_overlap"]<=float(PORT["max_pair_loss_overlap"]) and abs(o["return_correlation"])<=float(PORT["max_pair_return_correlation"])
@@ -563,16 +689,58 @@ def _select_compatible(pool:list[Candidate],max_experts:int)->list[Candidate]:
 def select_experts(best_by_expert:dict[int,Candidate])->tuple[list[Candidate],list[Candidate],str]:
     qualified=[c for c in best_by_expert.values() if c.tier=="QUALIFIED"]
     watch=[c for c in best_by_expert.values() if c.tier=="WATCH"]
-    candidate=[c for c in best_by_expert.values() if c.tier=="CANDIDATE"]
     qualified_selected=_select_compatible(qualified,int(PORT["max_experts"]))
-    research_pool=qualified+watch
-    if len(research_pool)<int(PORT["research_min_experts"]):
-        research_pool+=candidate
-    research_selected=_select_compatible(research_pool,int(PORT["max_experts"]))
+    # V9.6.8-core invariant: CANDIDATE experts remain pure shadow and can never
+    # enter the research portfolio. Research is WATCH + QUALIFIED only.
+    research_selected=_select_compatible(qualified+watch,int(PORT["max_experts"]))
     if len(qualified_selected)>=int(PORT["qualified_min_experts"]):status="QUALIFIED_EXPERT_POOL_AVAILABLE"
-    elif research_selected:status="RESEARCH_EXPERT_POOL_ONLY"
-    else:status="ZERO_POSITIVE_SPARSE_EXPERTS"
+    elif research_selected:status="WATCH_EXPERT_POOL_AVAILABLE"
+    else:status="NO_WATCH_OR_QUALIFIED_EXPERTS"
     return research_selected,qualified_selected,status
+
+
+def executable_events(candidate: Candidate, events: list[dict[str,Any]]) -> list[dict[str,Any]]:
+    """Apply tier-specific live-research gates after expert tier is frozen."""
+    if candidate.tier=="QUALIFIED":
+        return [e for e in events if e.get("meta_decision")=="SUPPORT" or (
+            e.get("meta_decision")=="NEUTRAL" and
+            float(e.get("meta_probability",0))>=float(MODEL["qualified_neutral_min_meta"]) and
+            float(e.get("utility",-999))>=float(MODEL["qualified_neutral_min_utility_r"])
+        )]
+    if candidate.tier=="WATCH":
+        return [e for e in events if e.get("meta_decision")=="SUPPORT" or (
+            e.get("meta_decision")=="NEUTRAL" and
+            float(e.get("meta_probability",0))>=float(MODEL["watch_neutral_min_meta"]) and
+            float(e.get("utility",-999))>=float(MODEL["watch_neutral_min_utility_r"])
+        )]
+    return []
+
+
+def candidate_support_events(candidate: Candidate, events: list[dict[str,Any]]) -> list[dict[str,Any]]:
+    if candidate.tier!="CANDIDATE": return []
+    return [e for e in events if e.get("meta_decision")=="SUPPORT" and
+            float(e.get("meta_probability",0))>=float(MODEL["candidate_support_min_meta"]) and
+            float(e.get("utility",-999))>=float(MODEL["candidate_support_min_utility_r"]) and
+            float(e.get("online_percentile",0))>=float(MODEL["candidate_support_min_percentile"])]
+
+
+def robustness_row(expert: SparseExpert, candidates: list[Candidate]) -> dict[str,Any]:
+    best=candidates[0]
+    active=[m for m in DEVELOPMENT_MONTHS if best.monthly_events.get(m)]
+    loo=[]
+    for omitted in active:
+        trades=[t for m in DEVELOPMENT_MONTHS if m!=omitted for t in best.monthly_events.get(m,[])]
+        mm=metrics(trades);loo.append(mm["net_R"])
+    neighbors=candidates[:max(int(ROBUSTNESS["minimum_policy_neighbors"]),1)]
+    positive=sum(c.aggregate.get("net_R",0)>0 for c in neighbors)
+    watch_plus=sum(c.tier in {"WATCH","QUALIFIED"} for c in neighbors)
+    return {"expert_id":expert.id,"expert":expert.name,"family":expert.family,"tier":best.tier,
+            "policy_key":best.policy.key,"active_months":len(active),
+            "leave_one_active_month_out_min_net_R":min(loo) if loo else 0.0,
+            "leave_one_active_month_out_positive_share":sum(v>0 for v in loo)/len(loo) if loo else 0.0,
+            "neighbor_policies":len(neighbors),"positive_neighbor_share":positive/max(1,len(neighbors)),
+            "watch_or_qualified_neighbor_share":watch_plus/max(1,len(neighbors)),
+            "seed_expert":expert.id==int(ROBUSTNESS["seed_expert_id"])}
 
 def combine_month(events_by_expert:dict[int,list[dict[str,Any]]])->tuple[list[dict[str,Any]],list[dict[str,Any]],list[dict[str,Any]]]:
     all_events=sorted([dict(t) for ev in events_by_expert.values() for t in ev],key=lambda t:(t["signal_i"],-t["utility"]))
@@ -621,12 +789,30 @@ def synthetic_smoke() -> None:
     x,_=base.add_features(raw,eth,premium,funding);x=add_sparse_masks(x)
     assert len(x)>10000
     counts={e.name:len(expert_indices(x,e)) for e in EXPERTS}
-    assert len(counts)==32 and any(v>0 for v in counts.values())
-    sample={"net_r":1.5,"win":True,"signal_i":10,"exit_i":15,"direction":1,"expert_id":0,"expert":EXPERTS[0].name,"family":EXPERTS[0].family,"setup_group":"x","policy_key":"x","utility":0.5,"expected_utility":0.55,"day":"2026-05-01","probability":0.6,"online_percentile":0.9,"meta_probability":0.5,"meta_decision":"NEUTRAL"}
-    trades,dedup,conflicts=combine_month({0:[sample]});assert len(trades)==1
-    fake=Candidate(policy_grid(EXPERTS[0])[0]);fake.aggregate={"trades":12,"wins":8,"win_rate":8/12,"avg_win_R":1.6,"avg_loss_R":0.8,"avg_win_loss_ratio":2.0,"profit_factor":4.0,"net_R":8.0,"max_drawdown_R":1.2,"expectancy_R":0.66,"shrunk_win_rate":0.60,"wilson_lower":0.52,"active_months":5,"positive_months":4,"worst_month_R":-0.8,"max_single_month_profit_share":0.4,"max_trades_single_month":3}
+    assert len(counts)==40 and any(v>0 for v in counts.values())
+    # A 7-trade WATCH must beat a prettier 4-trade CANDIDATE from the same expert.
+    policies=policy_grid(EXPERTS[21]);watch=Candidate(next(p for p in policies if p.key=="fca571982b7c88a0"));sparse=Candidate(next(p for p in policies if p.key=="9a19b379445c8be4"))
+    base_summary={"wins":5,"avg_win_R":1.8,"avg_loss_R":1.0,"avg_win_loss_ratio":1.8,"profit_factor":3.0,"net_R":6.0,"max_drawdown_R":1.2,"expectancy_R":0.8,"shrunk_win_rate":0.60,"wilson_lower":0.52,"positive_months":3,"worst_month_R":0.0,"max_single_month_profit_share":0.40,"max_trades_single_month":3}
+    watch.aggregate={"trades":7,"win_rate":5/7,"active_months":3,**base_summary};watch.tier="WATCH"
+    sparse.aggregate={"trades":4,"wins":3,"win_rate":0.75,"avg_win_R":1.9,"avg_loss_R":0.08,"avg_win_loss_ratio":23.0,"profit_factor":60.0,"net_R":5.5,"max_drawdown_R":0.08,"expectancy_R":1.3,"shrunk_win_rate":0.58,"wilson_lower":0.50,"active_months":3,"positive_months":2,"worst_month_R":-0.08,"max_single_month_profit_share":0.66,"max_trades_single_month":2};sparse.tier="CANDIDATE"
+    watch.monthly_events={m:[] for m in DEVELOPMENT_MONTHS};sparse.monthly_events={m:[] for m in DEVELOPMENT_MONTHS}
+    watch.monthly_events["2025-12"]=[{"signal_i":1,"direction":-1,"net_r":1.8,"win":True}]
+    watch.monthly_events["2026-01"]=[{"signal_i":2,"direction":-1,"net_r":1.8,"win":True}]
+    watch.monthly_events["2026-04"]=[{"signal_i":3,"direction":-1,"net_r":1.8,"win":True}]
+    sparse.monthly_events["2025-12"]=[{"signal_i":1,"direction":-1,"net_r":1.9,"win":True}]
+    sparse.monthly_events["2026-04"]=[{"signal_i":3,"direction":-1,"net_r":1.9,"win":True}]
+    chosen,_,meta=select_policy_for_expert(EXPERTS[21],[sparse,watch])
+    assert chosen.policy.key==watch.policy.key and meta["mature_policy_protected"]
+    fake_candidate=Candidate(policy_grid(EXPERTS[1])[0]);fake_candidate.tier="CANDIDATE";fake_candidate.score=999
+    research,qualified,status=select_experts({21:watch,1:fake_candidate})
+    assert [c.tier for c in research]==["WATCH"] and not qualified and status=="WATCH_EXPERT_POOL_AVAILABLE"
+    neutral={"meta_decision":"NEUTRAL","meta_probability":0.46,"utility":0.10,"online_percentile":0.95}
+    support={"meta_decision":"SUPPORT","meta_probability":0.62,"utility":0.20,"online_percentile":0.95}
+    assert len(executable_events(watch,[neutral]))==1 and not executable_events(fake_candidate,[support]) and len(candidate_support_events(fake_candidate,[support]))==1
+    fake=Candidate(policy_grid(EXPERTS[0])[0]);fake.aggregate={"trades":20,"wins":12,"win_rate":12/20,"avg_win_R":1.6,"avg_loss_R":0.8,"avg_win_loss_ratio":2.0,"profit_factor":4.0,"net_R":8.0,"max_drawdown_R":1.2,"expectancy_R":0.66,"shrunk_win_rate":0.60,"wilson_lower":0.52,"active_months":6,"positive_months":4,"worst_month_R":-0.8,"max_single_month_profit_share":0.4,"max_trades_single_month":3}
     tier,_=eligibility(fake.aggregate,fake);assert tier=="QUALIFIED"
-    print("V961_SELF_TEST_OK",json.dumps({"experts":len(EXPERTS),"nonzero_masks":sum(v>0 for v in counts.values()),"tier":tier},ensure_ascii=False))
+    print("V968_CORE_SELF_TEST_OK",json.dumps({"experts":len(EXPERTS),"nonzero_masks":sum(v>0 for v in counts.values()),"evidence_first":True,"mature_protected":True,"tier":tier},ensure_ascii=False))
+
 
 def pipeline_smoke() -> None:
     raw,eth,premium,funding=base.synthetic_inputs(120000)
@@ -634,40 +820,63 @@ def pipeline_smoke() -> None:
     for frame in (raw,eth,premium):frame["open_time"]=times;frame["close_time"]=times+299999
     funding["calc_time"]=times[::96][:len(funding)]
     x,_=base.add_features(raw,eth,premium,funding);x=add_sparse_masks(x)
-    reps=[EXPERTS[1],EXPERTS[12],EXPERTS[22]];candidates=[evaluate_candidate(x,e,policy_grid(e)[0]) for e in reps]
-    smoke_dir=ROOT/".v961_pipeline_smoke"
+    reps=[EXPERTS[1],EXPERTS[21],EXPERTS[32],EXPERTS[39]];candidates=[evaluate_candidate(x,e,policy_grid(e)[0]) for e in reps]
+    smoke_dir=ROOT/".v968_pipeline_smoke"
     if smoke_dir.exists():shutil.rmtree(smoke_dir)
     smoke_dir.mkdir();pd.DataFrame([{"expert":EXPERT_BY_ID[c.policy.expert_id].name,"tier":c.tier,**c.aggregate} for c in candidates]).to_csv(smoke_dir/"candidate_summary.csv",index=False)
-    (smoke_dir/"status.json").write_text(json.dumps({"representatives":3,"tiers":[c.tier for c in candidates]},ensure_ascii=False,indent=2),encoding="utf-8")
-    assert (smoke_dir/"candidate_summary.csv").exists();print("V961_PIPELINE_SMOKE_OK")
+    (smoke_dir/"status.json").write_text(json.dumps({"representatives":4,"tiers":[c.tier for c in candidates]},ensure_ascii=False,indent=2),encoding="utf-8")
+    assert (smoke_dir/"candidate_summary.csv").exists();print("V968_CORE_PIPELINE_SMOKE_OK")
+
+
+def _concat_frames(frames:list[pd.DataFrame])->pd.DataFrame:
+    nonempty=[f for f in frames if f is not None and (len(f)>0 or len(f.columns)>0)]
+    return pd.concat(nonempty,ignore_index=True) if nonempty else pd.DataFrame()
+
 
 def main()->None:
     clear_results()
     raw,audit=base.load_official_data();eth,ea=base.load_auxiliary_kline("ETHUSDT","klines");premium,pa=base.load_auxiliary_kline(SYMBOL,"premiumIndexKlines");funding,fa=base.load_funding_rate()
     audit["auxiliary_sources"]={"eth":ea,"premium":pa,"funding":fa};audit["research_months"]={"all":list(MONTHS),"development":list(DEVELOPMENT_MONTHS),"diagnostic_oos":OOS_MONTH}
     x,align=base.add_features(raw,eth,premium,funding);x=add_sparse_masks(x);audit["alignment"]=align
-    all_candidates={};leaderboard=[];monthly_rows=[];funnel=[]
-    tier_priority={"QUALIFIED":3,"WATCH":2,"CANDIDATE":1,"REJECTED":0}
+    all_candidates={};best_by={};leaderboard=[];monthly_rows=[];funnel=[];cluster_rows=[];selection_comparison=[]
+    selection_meta={}
     for expert in EXPERTS:
         print(f"SEARCH_SPARSE_EXPERT={expert.id}:{expert.name}:{expert.family}",flush=True)
-        candidates=[evaluate_candidate(x,expert,p) for p in policy_grid(expert)]
-        candidates.sort(key=lambda c:(tier_priority[c.tier],c.score),reverse=True);all_candidates[expert.id]=candidates
-        for rank,c in enumerate(candidates,1):leaderboard.append({"expert_id":expert.id,"expert":expert.name,"family":expert.family,"rank":rank,"policy_key":c.policy.key,"tier":c.tier,"eligible":c.eligible,"reasons":"|".join(c.reasons),"score":c.score,**c.aggregate})
-        best=candidates[0]
+        raw_candidates=[evaluate_candidate(x,expert,p) for p in policy_grid(expert)]
+        chosen,audits,meta=select_policy_for_expert(expert,raw_candidates)
+        audit_by_key={a["anchor_policy_key"]:a for a in audits}
+        candidates=sorted(raw_candidates,key=lambda c:evidence_key(c,audit_by_key[c.policy.key]),reverse=True)
+        if candidates[0].policy.key!=chosen.policy.key:candidates=[chosen]+[c for c in candidates if c.policy.key!=chosen.policy.key]
+        all_candidates[expert.id]=candidates;best_by[expert.id]=chosen;selection_meta[expert.id]=meta;cluster_rows.extend(audits)
+        for rank,c in enumerate(candidates,1):
+            ca=audit_by_key[c.policy.key]
+            leaderboard.append({"expert_id":expert.id,"expert":expert.name,"family":expert.family,"rank":rank,"selected":c.policy.key==chosen.policy.key,"policy_key":c.policy.key,"tier":c.tier,"eligible":c.eligible,"reasons":"|".join(c.reasons),"score":c.score,"cluster_robust":ca["cluster_robust"],"cluster_positive_share":ca["cluster_positive_share"],"cluster_signal_consensus":ca["cluster_signal_consensus"],**c.aggregate})
+        score_winner=max(raw_candidates,key=lambda c:c.score)
+        selection_comparison.append({"expert_id":expert.id,"expert":expert.name,"family":expert.family,"selected_policy_key":chosen.policy.key,"selected_tier":chosen.tier,"selected_trades":chosen.aggregate.get("trades",0),"selected_active_months":chosen.aggregate.get("active_months",0),"legacy_score_winner_key":score_winner.policy.key,"legacy_score_winner_tier":score_winner.tier,"legacy_score_winner_trades":score_winner.aggregate.get("trades",0),"policy_changed_by_evidence_rule":chosen.policy.key!=score_winner.policy.key,**meta})
         for m in DEVELOPMENT_MONTHS:
-            monthly_rows.append({"expert":expert.name,"family":expert.family,"policy_key":best.policy.key,"tier":best.tier,"month":m,**best.monthly_metrics[m]})
-            funnel.append({"expert":expert.name,"family":expert.family,"policy_key":best.policy.key,"tier":best.tier,"month":m,**best.monthly_audit[m]})
-    best_by={eid:cands[0] for eid,cands in all_candidates.items()}
+            monthly_rows.append({"expert":expert.name,"family":expert.family,"policy_key":chosen.policy.key,"tier":chosen.tier,"month":m,**chosen.monthly_metrics[m]})
+            funnel.append({"expert":expert.name,"family":expert.family,"policy_key":chosen.policy.key,"tier":chosen.tier,"month":m,**chosen.monthly_audit[m]})
     research_selected,qualified_selected,status=select_experts(best_by)
+
     def build_dev(selected):
         portfolios={};stats={};dedup=[];conflicts=[]
         for m in DEVELOPMENT_MONTHS:
-            tr,dd,cc=combine_month({c.policy.expert_id:c.monthly_events.get(m,[]) for c in selected});portfolios[m]=tr;stats[m]=metrics(tr)
+            source={c.policy.expert_id:executable_events(c,c.monthly_events.get(m,[])) for c in selected}
+            tr,dd,cc=combine_month(source);portfolios[m]=tr;stats[m]=metrics(tr)
             dedup.extend([dict(r,month=m) for r in dd]);conflicts.extend([dict(r,month=m) for r in cc])
         return portfolios,stats,dedup,conflicts
+
     research_dev,research_dev_stats,research_dedup,research_conflicts=build_dev(research_selected)
     qualified_dev,qualified_dev_stats,qualified_dedup,qualified_conflicts=build_dev(qualified_selected)
-    # Evaluate every non-rejected best expert in diagnostic June; pool selection remains frozen before June.
+
+    # Candidate SUPPORT-only records are experimental and never feed either portfolio.
+    candidate_support_dev=[]
+    for c in best_by.values():
+        if c.tier!="CANDIDATE":continue
+        for m in DEVELOPMENT_MONTHS:
+            candidate_support_dev.extend([dict(t,month=m,tier=c.tier) for t in candidate_support_events(c,c.monthly_events.get(m,[]))])
+
+    # Evaluate every non-rejected best expert in diagnostic June; selection is frozen before June.
     oos_events={};oos_audit=[];shadow_oos=[]
     for eid,c in best_by.items():
         if c.tier=="REJECTED":continue
@@ -675,8 +884,11 @@ def main()->None:
         if model is None:events=[];faudit={"model_available":False,"raw_candidates":int(np.sum(x.iloc[idx]["month"].to_numpy()==OOS_MONTH))}
         else:events,faudit=evaluate_month(x,idx,expert,c.policy,model,OOS_MONTH,set(MONTHS[:-1]))
         oos_events[eid]=events;oos_audit.append({"expert":expert.name,"family":expert.family,"policy_key":c.policy.key,"tier":c.tier,"month":OOS_MONTH,**faudit});shadow_oos.extend([dict(t,month=OOS_MONTH,tier=c.tier) for t in events])
-    research_june,research_june_dd,research_june_cc=combine_month({c.policy.expert_id:oos_events.get(c.policy.expert_id,[]) for c in research_selected})
-    qualified_june,qualified_june_dd,qualified_june_cc=combine_month({c.policy.expert_id:oos_events.get(c.policy.expert_id,[]) for c in qualified_selected})
+    research_june,research_june_dd,research_june_cc=combine_month({c.policy.expert_id:executable_events(c,oos_events.get(c.policy.expert_id,[])) for c in research_selected})
+    qualified_june,qualified_june_dd,qualified_june_cc=combine_month({c.policy.expert_id:executable_events(c,oos_events.get(c.policy.expert_id,[])) for c in qualified_selected})
+    candidate_support_oos=[]
+    for c in best_by.values():candidate_support_oos.extend([dict(t,month=OOS_MONTH,tier=c.tier) for t in candidate_support_events(c,oos_events.get(c.policy.expert_id,[]))])
+
     research_may=research_dev.get("2026-05",[]);qualified_may=qualified_dev.get("2026-05",[])
     research_metrics={"2026-05":metrics(research_may),OOS_MONTH:metrics(research_june)};qualified_metrics={"2026-05":metrics(qualified_may),OOS_MONTH:metrics(qualified_june)}
     overlap_rows=[]
@@ -684,58 +896,76 @@ def main()->None:
         ov=event_overlap(all_dev_events(a),all_dev_events(b),int(PORT["dedup_window_bars"]));overlap_rows.append({"expert_a":EXPERT_BY_ID[a.policy.expert_id].name,"tier_a":a.tier,"expert_b":EXPERT_BY_ID[b.policy.expert_id].name,"tier_b":b.tier,**ov,"compatible":compatible(a,b)})
     research_ids={c.policy.expert_id for c in research_selected};qualified_ids={c.policy.expert_id for c in qualified_selected}
     selection=[]
-    for eid,c in best_by.items():selection.append({"expert_id":eid,"expert":EXPERT_BY_ID[eid].name,"family":EXPERT_BY_ID[eid].family,"tier":c.tier,"selected_research":eid in research_ids,"selected_qualified":eid in qualified_ids,"policy_key":c.policy.key,"selection_status":status,"rejection_reason":"|".join(c.reasons),**c.aggregate})
+    for eid,c in best_by.items():selection.append({"expert_id":eid,"expert":EXPERT_BY_ID[eid].name,"family":EXPERT_BY_ID[eid].family,"tier":c.tier,"selected_research":eid in research_ids,"selected_qualified":eid in qualified_ids,"candidate_shadow_only":c.tier=="CANDIDATE","policy_key":c.policy.key,"selection_status":status,"selection_reason":selection_meta[eid]["selection_reason"],"mature_policy_available":selection_meta[eid]["mature_policy_available"],"mature_policy_protected":selection_meta[eid]["mature_policy_protected"],"selected_cluster_robust":selection_meta[eid]["selected_cluster_robust"],"rejection_reason":"|".join(c.reasons),**c.aggregate})
+    robustness=[robustness_row(EXPERT_BY_ID[eid],cands) for eid,cands in all_candidates.items()]
     selected_payload=lambda selected:{EXPERT_BY_ID[c.policy.expert_id].name:{"expert_id":c.policy.expert_id,"family":EXPERT_BY_ID[c.policy.expert_id].family,"tier":c.tier,"policy_key":c.policy.key,"policy":asdict(c.policy),"development_summary":c.aggregate} for c in selected}
-    pd.DataFrame(leaderboard).to_csv(RESULTS/"sparse_expert_leaderboard.csv",index=False);pd.DataFrame(monthly_rows).to_csv(RESULTS/"expert_monthly_stats.csv",index=False);pd.DataFrame(funnel+oos_audit).to_csv(RESULTS/"signal_funnel.csv",index=False);pd.DataFrame(funnel+oos_audit).to_csv(RESULTS/"soft_meta_audit.csv",index=False);pd.DataFrame(overlap_rows).to_csv(RESULTS/"expert_overlap.csv",index=False);pd.DataFrame(selection).to_csv(RESULTS/"expert_tier_audit.csv",index=False);pd.DataFrame(selection).to_csv(RESULTS/"selection_audit.csv",index=False)
+
+    pd.DataFrame(leaderboard).to_csv(RESULTS/"sparse_expert_leaderboard.csv",index=False);pd.DataFrame(monthly_rows).to_csv(RESULTS/"expert_monthly_stats.csv",index=False);pd.DataFrame(funnel+oos_audit).to_csv(RESULTS/"signal_funnel.csv",index=False);pd.DataFrame(funnel+oos_audit).to_csv(RESULTS/"soft_meta_audit.csv",index=False);pd.DataFrame(overlap_rows).to_csv(RESULTS/"expert_overlap.csv",index=False);pd.DataFrame(selection).to_csv(RESULTS/"expert_tier_audit.csv",index=False);pd.DataFrame(selection).to_csv(RESULTS/"selection_audit.csv",index=False);pd.DataFrame(robustness).to_csv(RESULTS/"seed_robustness_audit.csv",index=False)
+    pd.DataFrame(cluster_rows).to_csv(RESULTS/"parameter_cluster_audit.csv",index=False);pd.DataFrame(selection_comparison).to_csv(RESULTS/"policy_selection_comparison.csv",index=False)
+    seed_keys=set(str(k) for k in EVIDENCE.get("preferred_seed_policy_keys",[]));seed_rows=[r for r in leaderboard if r["expert_id"]==int(EVIDENCE["seed_expert_id"]) and r["policy_key"] in seed_keys];pd.DataFrame(seed_rows).to_csv(RESULTS/"seed_policy_comparison.csv",index=False)
+    retention=[r for r in selection_comparison if r["mature_policy_available"] or r["expert_id"]==int(EVIDENCE["seed_expert_id"])];pd.DataFrame(retention).to_csv(RESULTS/"historical_policy_retention_audit.csv",index=False)
     drift=[{"expert":r.get("expert"),"family":r.get("family"),"tier":r.get("tier"),"month":r.get("month"),"calibration_mean":r.get("calibration_mean",0),"eval_mean":r.get("eval_mean",0),"probability_drift":r.get("eval_mean",0)-r.get("calibration_mean",0),"calibration_utility_mean":r.get("calibration_utility_mean",0),"eval_utility_mean":r.get("eval_utility_mean",0),"utility_drift":r.get("eval_utility_mean",0)-r.get("calibration_utility_mean",0)} for r in funnel+oos_audit]
     pd.DataFrame(drift).to_csv(RESULTS/"cross_month_score_drift.csv",index=False)
     all_research_dd=research_dedup+[dict(r,month=OOS_MONTH) for r in research_june_dd];all_research_cc=research_conflicts+[dict(r,month=OOS_MONTH) for r in research_june_cc]
     pd.DataFrame(all_research_dd).to_csv(RESULTS/"signal_deduplication.csv",index=False);pd.DataFrame(all_research_cc).to_csv(RESULTS/"signal_conflicts.csv",index=False)
-    research_frame=pd.concat([detailed_frame(x,research_may,"2026-05","research"),detailed_frame(x,research_june,OOS_MONTH,"research")],ignore_index=True);qualified_frame=pd.concat([detailed_frame(x,qualified_may,"2026-05","qualified"),detailed_frame(x,qualified_june,OOS_MONTH,"qualified")],ignore_index=True)
-    research_frame.to_csv(RESULTS/"research_portfolio_trades.csv",index=False);qualified_frame.to_csv(RESULTS/"qualified_portfolio_trades.csv",index=False);research_frame.to_csv(RESULTS/"portfolio_trades.csv",index=False);research_frame.to_csv(RESULTS/"trades.csv",index=False)
+    research_frame=_concat_frames([detailed_frame(x,research_may,"2026-05","watch_research"),detailed_frame(x,research_june,OOS_MONTH,"watch_research")]);qualified_frame=_concat_frames([detailed_frame(x,qualified_may,"2026-05","qualified"),detailed_frame(x,qualified_june,OOS_MONTH,"qualified")])
+    candidate_support_frame=_concat_frames([detailed_frame(x,[t for t in candidate_support_dev if t["month"]=="2026-05"],"2026-05","candidate_support_experimental"),detailed_frame(x,candidate_support_oos,OOS_MONTH,"candidate_support_experimental")])
+    research_frame.to_csv(RESULTS/"watch_portfolio_trades.csv",index=False);research_frame.to_csv(RESULTS/"research_portfolio_trades.csv",index=False);qualified_frame.to_csv(RESULTS/"qualified_portfolio_trades.csv",index=False);candidate_support_frame.to_csv(RESULTS/"candidate_support_only_trades.csv",index=False);research_frame.to_csv(RESULTS/"portfolio_trades.csv",index=False);research_frame.to_csv(RESULTS/"trades.csv",index=False)
     shadow=[]
     for eid,c in best_by.items():
-        for m in DEVELOPMENT_MONTHS:
-            shadow.extend([dict(t,month=m,tier=c.tier) for t in c.monthly_events.get(m,[])])
+        for m in DEVELOPMENT_MONTHS:shadow.extend([dict(t,month=m,tier=c.tier) for t in c.monthly_events.get(m,[])])
     shadow.extend(shadow_oos);pd.DataFrame(shadow).to_csv(RESULTS/"expert_shadow_trades.csv",index=False)
+    candidate_shadow=[t for t in shadow if t.get("tier")=="CANDIDATE"];pd.DataFrame(candidate_shadow).to_csv(RESULTS/"candidate_shadow_trades.csv",index=False)
     coverage=[]
-    for ptype,months_map in (("research",{"2026-05":research_may,OOS_MONTH:research_june}),("qualified",{"2026-05":qualified_may,OOS_MONTH:qualified_june})):
+    for ptype,months_map in (("watch_research",{"2026-05":research_may,OOS_MONTH:research_june}),("qualified",{"2026-05":qualified_may,OOS_MONTH:qualified_june})):
         for m,tr in months_map.items():
             vc=pd.Series([t["expert"] for t in tr]).value_counts() if tr else pd.Series(dtype=int)
             for name,count in vc.items():coverage.append({"portfolio_type":ptype,"month":m,"expert":name,"trades":int(count),"trade_share":float(count/len(tr))})
     pd.DataFrame(coverage).to_csv(RESULTS/"opportunity_coverage.csv",index=False)
-    selected_json={"research":selected_payload(research_selected),"qualified":selected_payload(qualified_selected)};(RESULTS/"selected_policy.json").write_text(json.dumps(selected_json,ensure_ascii=False,indent=2,default=str),encoding="utf-8");(RESULTS/"data_audit.json").write_text(json.dumps(audit,ensure_ascii=False,indent=2,default=str),encoding="utf-8")
+    selected_json={"research_watch_and_qualified_only":selected_payload(research_selected),"qualified":selected_payload(qualified_selected)};(RESULTS/"selected_policy.json").write_text(json.dumps(selected_json,ensure_ascii=False,indent=2,default=str),encoding="utf-8");(RESULTS/"data_audit.json").write_text(json.dumps(audit,ensure_ascii=False,indent=2,default=str),encoding="utf-8")
     qualified_pool_available=len(qualified_selected)>=int(PORT["qualified_min_experts"]);research_stage_ok=qualified_pool_available and stage_pass(qualified_metrics["2026-05"],qualified_may) and stage_pass(qualified_metrics[OOS_MONTH],qualified_june);final_ok=qualified_pool_available and final_pass(qualified_metrics["2026-05"]) and final_pass(qualified_metrics[OOS_MONTH])
     tier_counts={tier:sum(c.tier==tier for c in best_by.values()) for tier in ("QUALIFIED","WATCH","CANDIDATE","REJECTED")}
-    status_payload={"qualified":False,"research_stage_qualified":research_stage_ok,"final_hard_metrics_passed":final_ok,"not_for_live_trading":True,"fresh_blind_month_required":True,"selection_status":status,"engine":ENGINE_NAME,"architecture":"32 specific sparse experts -> 13 rolling development months -> expert-specific conservative expected-R rank -> soft meta support/neutral/reject -> tiered pool -> separate research and qualified portfolios","tier_counts":tier_counts,"selected_research_expert_count":len(research_selected),"selected_qualified_expert_count":len(qualified_selected),"selected_experts":selected_json,"research_portfolio_monthly_stats":research_metrics,"qualified_portfolio_monthly_stats":qualified_metrics,"development_months":list(DEVELOPMENT_MONTHS),"constraints":{"candidate_gate":CANDIDATE_GATE,"watch_gate":WATCH_GATE,"qualified_gate":QUALIFIED_GATE,"research_stage":STAGE,"final_target":FINAL,"portfolio":PORT,"model":MODEL},"oos_isolation":{"used_for_training":False,"used_for_thresholds":False,"used_for_expert_selection":False,"used_for_portfolio_selection":False,"evaluation_occurs_after_policy_freeze":True},"searched_experts":len(EXPERTS),"searched_policies":sum(len(v) for v in all_candidates.values())}
+    support_metrics={"2026-05":metrics([t for t in candidate_support_dev if t["month"]=="2026-05"]),OOS_MONTH:metrics(candidate_support_oos)}
+    status_payload={"qualified":False,"research_stage_qualified":research_stage_ok,"final_hard_metrics_passed":final_ok,"not_for_live_trading":True,"fresh_blind_month_required":True,"selection_status":status,"engine":ENGINE_NAME,"architecture":"40 sparse experts -> evidence-first policy selection -> local parameter clusters -> mature-policy retention -> candidate pure shadow -> WATCH/QUALIFIED research execution","tier_counts":tier_counts,"selected_research_expert_count":len(research_selected),"selected_qualified_expert_count":len(qualified_selected),"candidate_experts_excluded_from_research":True,"evidence_first_policy_selection":True,"mature_policy_protected_count":sum(bool(v["mature_policy_protected"]) for v in selection_meta.values()),"cluster_robust_selected_expert_count":sum(bool(v["selected_cluster_robust"]) for v in selection_meta.values()),"seed_selected_policy_key":best_by[int(EVIDENCE["seed_expert_id"])].policy.key,"seed_preferred_anchor_selected":best_by[int(EVIDENCE["seed_expert_id"])].policy.key in set(EVIDENCE.get("preferred_seed_policy_keys",[])),"selected_experts":selected_json,"watch_portfolio_monthly_stats":research_metrics,"research_portfolio_monthly_stats":research_metrics,"qualified_portfolio_monthly_stats":qualified_metrics,"candidate_support_only_monthly_stats":support_metrics,"development_months":list(DEVELOPMENT_MONTHS),"constraints":{"candidate_gate":CANDIDATE_GATE,"watch_gate":WATCH_GATE,"qualified_gate":QUALIFIED_GATE,"research_stage":STAGE,"final_target":FINAL,"portfolio":PORT,"model":MODEL,"robustness":ROBUSTNESS,"evidence_selection":EVIDENCE},"oos_isolation":{"used_for_training":False,"used_for_thresholds":False,"used_for_expert_selection":False,"used_for_portfolio_selection":False,"evaluation_occurs_after_policy_freeze":True},"searched_experts":len(EXPERTS),"searched_policies":sum(len(v) for v in all_candidates.values())}
     (RESULTS/"status.json").write_text(json.dumps(status_payload,ensure_ascii=False,indent=2,default=str),encoding="utf-8")
-    rm=research_metrics["2026-05"];rj=research_metrics[OOS_MONTH];qm=qualified_metrics["2026-05"];qj=qualified_metrics[OOS_MONTH]
-    report=f"""# BTCUSDT 5分钟 稀疏专家扩容、跨月校准与软Meta过滤 V9.6.1 报告
+    rm=research_metrics["2026-05"];rj=research_metrics[OOS_MONTH];qm=qualified_metrics["2026-05"];qj=qualified_metrics[OOS_MONTH];cm=support_metrics["2026-05"];cj=support_metrics[OOS_MONTH]
+    report=f"""# BTCUSDT 5分钟 证据优先参数选择与专家簇验证 V9.6.8-core 报告
 
-- 架构：32个具体稀疏专家 → 13个滚动开发月 → 专家独立保守预期R与在线排名 → Meta支持/中性/拒绝 → 候选/观察/正式三级晋级。
+- 架构：40个稀疏专家 → 13个滚动开发月 → 证据优先参数选择 → 局部参数簇验证 → 成熟参数保护 → 候选纯影子 → WATCH/QUALIFIED执行。
 - 选择状态：**{status}**。
 - 专家等级：正式 {tier_counts['QUALIFIED']}；观察 {tier_counts['WATCH']}；候选 {tier_counts['CANDIDATE']}；淘汰 {tier_counts['REJECTED']}。
-- 研究组合选入：{len(research_selected)}；正式组合选入：{len(qualified_selected)}。
-- 实盘资格：**不合格**；2026年6月仅作已查看的诊断月，正式资格仍需新的完整盲测月。
+- WATCH/正式研究组合选入：{len(research_selected)}；正式组合选入：{len(qualified_selected)}。
+- 候选专家已从研究组合完全排除；候选SUPPORT交易只写入独立实验文件。
+- 参数选择：优先保留QUALIFIED/WATCH，再比较交易样本、活跃月份、正收益月份、留一月稳健性和参数簇一致性。
+- 种子专家选中参数：`{best_by[int(EVIDENCE["seed_expert_id"])].policy.key}`；历史锚点是否保留：`{best_by[int(EVIDENCE["seed_expert_id"])].policy.key in set(EVIDENCE.get("preferred_seed_policy_keys",[]))}`。
+- 实盘资格：**不合格**；2026年6月仅作已查看诊断月，仍需新的完整盲测月。
 
-## 研究组合
+## WATCH/QUALIFIED研究组合
 
 | 月份 | 交易 | 胜率 | 实际盈亏比 | 盈利因子 | 净R | 最大回撤R |
 |---|---:|---:|---:|---:|---:|---:|
 | 2026-05 | {rm['trades']} | {rm['win_rate']:.2%} | {rm['avg_win_loss_ratio']:.3f} | {rm['profit_factor']:.3f} | {rm['net_R']:.3f} | {rm['max_drawdown_R']:.3f} |
 | 2026-06 | {rj['trades']} | {rj['win_rate']:.2%} | {rj['avg_win_loss_ratio']:.3f} | {rj['profit_factor']:.3f} | {rj['net_R']:.3f} | {rj['max_drawdown_R']:.3f} |
 
-## 正式组合（仅正式专家）
+## 候选SUPPORT-only实验（不计入组合）
+
+| 月份 | 交易 | 胜率 | 净R | 最大回撤R |
+|---|---:|---:|---:|---:|
+| 2026-05 | {cm['trades']} | {cm['win_rate']:.2%} | {cm['net_R']:.3f} | {cm['max_drawdown_R']:.3f} |
+| 2026-06 | {cj['trades']} | {cj['win_rate']:.2%} | {cj['net_R']:.3f} | {cj['max_drawdown_R']:.3f} |
+
+## 正式组合（仅QUALIFIED）
 
 | 月份 | 交易 | 胜率 | 实际盈亏比 | 盈利因子 | 净R | 最大回撤R |
 |---|---:|---:|---:|---:|---:|---:|
 | 2026-05 | {qm['trades']} | {qm['win_rate']:.2%} | {qm['avg_win_loss_ratio']:.3f} | {qm['profit_factor']:.3f} | {qm['net_R']:.3f} | {qm['max_drawdown_R']:.3f} |
 | 2026-06 | {qj['trades']} | {qj['win_rate']:.2%} | {qj['avg_win_loss_ratio']:.3f} | {qj['profit_factor']:.3f} | {qj['net_R']:.3f} | {qj['max_drawdown_R']:.3f} |
 
-研究组合允许观察专家积累证据；正式组合绝不使用候选或观察专家。Meta中性信号可以执行，但明显负预期、路由冲突或Meta强烈反对的信号会被拒绝。
+V9.6.8-core的主要目标是防止低样本漂亮参数覆盖更有证据的成熟参数，并验证专家优势是否存在于一组邻近参数中。候选专家仍不进入组合。
 """
-    (RESULTS/"report.md").write_text(report,encoding="utf-8");(RESULTS/"run_identity.txt").write_text(f"{ENGINE_NAME}\nmonths={','.join(MONTHS)}\ndevelopment={','.join(DEVELOPMENT_MONTHS)}\noos={OOS_MONTH}\noutput=results_v9_6_1\nselection_status={status}\n",encoding="utf-8")
-    print(json.dumps({"tier_counts":tier_counts,"research":research_metrics,"qualified":qualified_metrics},ensure_ascii=False,indent=2))
+    (RESULTS/"report.md").write_text(report,encoding="utf-8");(RESULTS/"run_identity.txt").write_text(f"{ENGINE_NAME}\nmonths={','.join(MONTHS)}\ndevelopment={','.join(DEVELOPMENT_MONTHS)}\noos={OOS_MONTH}\noutput=results_v9_6_8\nselection_status={status}\n",encoding="utf-8")
+    print(json.dumps({"tier_counts":tier_counts,"watch_research":research_metrics,"candidate_support_only":support_metrics,"qualified":qualified_metrics},ensure_ascii=False,indent=2))
+
 
 if __name__=="__main__":
     parser=argparse.ArgumentParser();parser.add_argument("--self-test",action="store_true");parser.add_argument("--pipeline-smoke",action="store_true");args=parser.parse_args()
