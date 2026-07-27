@@ -1,4 +1,4 @@
-name: BTC 5m V8 multi-timeframe expert backtest
+name: BTC 5m V8.1 multi-timeframe expert backtest
 
 on:
   workflow_dispatch:
@@ -34,17 +34,17 @@ jobs:
           python -m pip install --upgrade pip
           python -m pip install numpy==1.26.4 pandas==2.2.2 requests==2.32.3 numba==0.60.0 scikit-learn==1.5.1 tabulate==0.9.0
 
-      - name: Verify exact V8 program
+      - name: Verify exact V8.1 program
         shell: bash
         run: |
           set -euo pipefail
           test -f autonomous_backtest_v8.py
           test -f request.v8.json
           actual="$(sha256sum autonomous_backtest_v8.py | awk '{print $1}')"
-          expected="9b0ac9414865d01bf06971636ba2e0b828ee79af5903c3d088e0b5ea46af1dca"
+          expected="5618fdd8ad5df39d1f7ce872f04f6ca62e68275674c698280e3c1fba803a6365"
           echo "actual_sha256=$actual"
           test "$actual" = "$expected"
-          grep -F 'ENGINE_VERSION = "V8"' autonomous_backtest_v8.py
+          grep -F 'ENGINE_VERSION = "V8.1"' autonomous_backtest_v8.py
           grep -F 'RESULTS = ROOT / "results_v8"' autonomous_backtest_v8.py
           grep -F 'load_auxiliary_kline("ETHUSDT", "klines")' autonomous_backtest_v8.py
           grep -F 'load_funding_rate()' autonomous_backtest_v8.py
@@ -52,7 +52,7 @@ jobs:
           python -m py_compile autonomous_backtest_v8.py
           python autonomous_backtest_v8.py --self-test
 
-      - name: Run V8 backtest
+      - name: Run V8.1 backtest
         shell: bash
         env:
           BACKTEST_REQUEST_FILE: request.v8.json
@@ -64,14 +64,14 @@ jobs:
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: btc-5m-v8-diagnostic-log
+          name: btc-5m-v8-1-diagnostic-log
           path: |
             v8-run.log
             results_v8/
           if-no-files-found: warn
           retention-days: 30
 
-      - name: Verify V8 outputs
+      - name: Verify V8.1 outputs
         shell: bash
         run: |
           set -euo pipefail
@@ -81,12 +81,12 @@ jobs:
           test -f results_v8/candidate_leaderboard.csv
           test -f results_v8/data_audit.json
           test -f results_v8/run_identity.txt
-          grep -F 'BTC 5m multi-timeframe expert rejection ensemble V8' results_v8/run_identity.txt
+          grep -F 'BTC 5m multi-timeframe expert rejection ensemble V8.1' results_v8/run_identity.txt
           grep -F 'output=results_v8' results_v8/run_identity.txt
           python - <<'PY'
           import json
           data = json.load(open('results_v8/status.json', encoding='utf-8'))
-          assert data['engine'] == 'BTC 5m multi-timeframe expert rejection ensemble V8'
+          assert data['engine'] == 'BTC 5m multi-timeframe expert rejection ensemble V8.1'
           assert data['months'][0] == '2025-09'
           assert data['months'][-1] == '2026-06'
           assert 'BTC funding rate' in data['data_context']
@@ -97,7 +97,7 @@ jobs:
       - name: Upload result artifact
         uses: actions/upload-artifact@v4
         with:
-          name: btc-5m-v8-results
+          name: btc-5m-v8-1-results
           path: results_v8/
           retention-days: 30
 
@@ -112,5 +112,5 @@ jobs:
             echo "No result changes"
             exit 0
           fi
-          git commit -m "Add V8 multi-timeframe expert result $(date -u +%Y%m%dT%H%M%SZ)-${{ github.run_id }} [skip ci]"
+          git commit -m "Add V8.1 multi-timeframe expert result $(date -u +%Y%m%dT%H%M%SZ)-${{ github.run_id }} [skip ci]"
           git push
