@@ -30,8 +30,8 @@ RESULTS = ROOT / "results_v8"
 CACHE.mkdir(exist_ok=True)
 RESULTS.mkdir(exist_ok=True)
 
-ENGINE_VERSION = "V8"
-ENGINE_NAME = "BTC 5m multi-timeframe expert rejection ensemble V8"
+ENGINE_VERSION = "V8.1"
+ENGINE_NAME = "BTC 5m multi-timeframe expert rejection ensemble V8.1"
 
 DEFAULT_REQUEST: dict[str, Any] = {
     "symbol": "BTCUSDT",
@@ -64,7 +64,7 @@ SYMBOL = str(REQUEST["symbol"]).upper()
 INTERVAL = str(REQUEST["interval"]).lower()
 EVAL_MONTHS = tuple(str(x) for x in REQUEST["months"])
 if len(EVAL_MONTHS) != 2:
-    raise ValueError("V8 requires exactly two evaluation months")
+    raise ValueError("V8.1 requires exactly two evaluation months")
 first_eval = pd.Period(EVAL_MONTHS[0], freq="M")
 last_eval = pd.Period(EVAL_MONTHS[1], freq="M")
 if last_eval != first_eval + 1:
@@ -286,22 +286,73 @@ def add_features(
     eth_data: pd.DataFrame,
     premium_data: pd.DataFrame,
     funding_data: pd.DataFrame,
-) -> pd.DataFrame:
+) -> tuple[pd.DataFrame, dict[str, Any]]:
     x = data.copy()
     x.index = pd.to_datetime(x["open_time"], unit="ms", utc=True)
     o, h, l, c, v = (x[k].astype(float) for k in ("open", "high", "low", "close", "volume"))
 
-    eth = eth_data.copy()
-    eth.index = pd.to_datetime(eth["open_time"], unit="ms", utc=True)
-    premium = premium_data.copy()
-    premium.index = pd.to_datetime(premium["open_time"], unit="ms", utc=True)
+    def normalized_series(frame: pd.DataFrame, time_col: str, value_col: str) -> pd.Series:
+        raw_time = pd.to_numeric(frame[time_col], errors="coerce")
+        raw_value = pd.to_numeric(frame[value_col], errors="coerce")
+        valid = raw_time.notna() & raw_value.notna()
+        raw_time = raw_time.loc[valid].astype("float64")
+        raw_value = raw_value.loc[valid].astype("float64")
+        if raw_time.empty:
+            return pd.Series(dtype="float64")
+
+        median_ts = float(raw_time.median())
+        # Futures archives normally use milliseconds. The guards also handle
+        # seconds, microseconds or nanoseconds without silently shifting dates.
+        if median_ts >= 1e17:
+            millis = raw_time / 1_000_000.0
+        elif median_ts >= 1e14:
+            millis = raw_time / 1_000.0
+        elif median_ts < 1e11:
+            millis = raw_time * 1_000.0
+        else:
+            millis = raw_time
+
+        idx = pd.to_datetime(np.rint(millis).astype("int64"), unit="ms", utc=True)
+        # Snap sub-second archive irregularities to the nearest 5-minute open.
+        idx = idx.round("5min")
+        series = pd.Series(raw_value.to_numpy(float), index=idx).sort_index()
+        return series.groupby(level=0).last()
+
+    eth_series = normalized_series(eth_data, "open_time", "close")
+    premium_series = normalized_series(premium_data, "open_time", "close")
     funding = funding_data.copy()
     funding.index = pd.to_datetime(funding["calc_time"], unit="ms", utc=True)
 
-    eth_close = eth["close"].astype(float).reindex(x.index)
-    premium_close = premium["close"].astype(float).reindex(x.index)
-    if eth_close.isna().any() or premium_close.isna().any():
-        raise RuntimeError("BTC, ETH and premium-index timestamps are not aligned")
+    eth_exact = eth_series.reindex(x.index)
+    premium_exact = premium_series.reindex(x.index)
+
+    # Only carry information forward from an already published observation.
+    # No backward fill is permitted, so this cannot introduce look-ahead bias.
+    eth_close = eth_series.reindex(
+        x.index, method="ffill", tolerance=pd.Timedelta(minutes=15)
+    )
+    premium_close = premium_series.reindex(
+        x.index, method="ffill", tolerance=pd.Timedelta(minutes=60)
+    )
+
+    alignment_audit = {
+        "btc_rows": int(len(x)),
+        "eth_source_rows": int(len(eth_series)),
+        "premium_source_rows": int(len(premium_series)),
+        "eth_exact_missing": int(eth_exact.isna().sum()),
+        "premium_exact_missing": int(premium_exact.isna().sum()),
+        "eth_missing_after_past_fill": int(eth_close.isna().sum()),
+        "premium_missing_after_past_fill": int(premium_close.isna().sum()),
+        "eth_coverage_after_past_fill": float(eth_close.notna().mean()),
+        "premium_coverage_after_past_fill": float(premium_close.notna().mean()),
+        "alignment_rule": "nearest-5m normalization; past-only forward fill; ETH<=15m; premium<=60m",
+    }
+    print("AUX_ALIGNMENT=" + json.dumps(alignment_audit, ensure_ascii=False, sort_keys=True))
+
+    if alignment_audit["eth_coverage_after_past_fill"] < 0.99:
+        raise RuntimeError("ETH auxiliary coverage is below 99% after past-only alignment")
+    if alignment_audit["premium_coverage_after_past_fill"] < 0.95:
+        raise RuntimeError("Premium-index coverage is below 95% after past-only alignment")
 
     x["eth_close"] = eth_close
     for n in (1, 3, 6, 12, 24, 72):
@@ -539,7 +590,10 @@ def add_features(
     x["weekday"] = x.index.weekday.astype(float)
     x["month"] = x.index.to_period("M").astype(str)
 
-    return x.replace([np.inf, -np.inf], np.nan).dropna().copy()
+    clean = x.replace([np.inf, -np.inf], np.nan).dropna().copy()
+    alignment_audit["rows_after_feature_dropna"] = int(len(clean))
+    alignment_audit["rows_removed_by_feature_dropna"] = int(len(x) - len(clean))
+    return clean, alignment_audit
 
 
 FEATURES = [
@@ -1111,22 +1165,35 @@ def synthetic_inputs(rows: int = 5000) -> tuple[pd.DataFrame, pd.DataFrame, pd.D
 
 def self_test() -> None:
     base, eth, premium, funding = synthetic_inputs()
-    x = add_features(base, eth, premium, funding)
+    x, alignment_audit = add_features(base, eth, premium, funding)
     if x.empty:
-        raise RuntimeError("V8 self-test produced no feature rows")
+        raise RuntimeError("V8.1 self-test produced no feature rows")
     missing = [f for f in FEATURES if f not in x.columns]
     if missing:
-        raise RuntimeError(f"V8 self-test missing features: {missing}")
+        raise RuntimeError(f"V8.1 self-test missing features: {missing}")
+    # Regression test for the real GitHub failure: auxiliary archives may
+    # contain sparse missing bars or a different timestamp precision.
+    eth_gap = eth.drop(index=[250, 251]).reset_index(drop=True)
+    premium_gap = premium.drop(index=[100, 101, 102, 900]).reset_index(drop=True)
+    premium_gap["open_time"] = premium_gap["open_time"].astype("int64") * 1000
+    x_gap, gap_audit = add_features(base, eth_gap, premium_gap, funding)
+    if x_gap.empty:
+        raise RuntimeError("V8.1 alignment regression test produced no feature rows")
+    if gap_audit["eth_exact_missing"] < 2 or gap_audit["premium_exact_missing"] < 4:
+        raise RuntimeError("V8.1 alignment regression test did not exercise missing timestamps")
+    if gap_audit["eth_missing_after_past_fill"] != 0 or gap_audit["premium_missing_after_past_fill"] != 0:
+        raise RuntimeError("V8.1 past-only alignment regression test failed")
+
     experts = make_expert_data(x)
     if set(experts) != set(range(6)):
-        raise RuntimeError("V8 self-test expert registry mismatch")
+        raise RuntimeError("V8.1 self-test expert registry mismatch")
     indices = np.arange(100, min(130, len(x) - 2), dtype=np.int64)
     compute_outcomes(
         indices, 1, x["open"].to_numpy(float), x["high"].to_numpy(float),
         x["low"].to_numpy(float), x["close"].to_numpy(float), x["atr"].to_numpy(float),
         2.0, 1.2, 0.004, 144, 1.0, 0.1, 48, 0.4, FEE_RATE, SLIPPAGE_ABS,
     )
-    print(f"V8 self-test passed: rows={len(x)}, features={len(FEATURES)}, experts={len(experts)}")
+    print(f"V8.1 self-test passed: rows={len(x)}, features={len(FEATURES)}, experts={len(experts)}")
 
 
 def main() -> None:
@@ -1147,7 +1214,8 @@ def main() -> None:
         "premium_index_klines": premium_audit,
         "funding_rate": funding_audit,
     }
-    x = add_features(raw, eth, premium, funding)
+    x, alignment_audit = add_features(raw, eth, premium, funding)
+    audit["auxiliary_alignment"] = alignment_audit
     expert_data = make_expert_data(x)
 
     risk_grid: list[RiskConfig] = []
@@ -1293,7 +1361,7 @@ def main() -> None:
         rows.append(row)
     pd.DataFrame(rows).to_csv(RESULTS / "candidate_leaderboard.csv", index=False)
 
-    report = f"""# BTCUSDT 5分钟 多周期专家拒绝交易 V8 回测报告
+    report = f"""# BTCUSDT 5分钟 多周期专家拒绝交易 V8.1 回测报告
 
 - 数据：Binance USDⓈ-M 永续官方5分钟K线，BTC主数据{audit['actual_rows']:,}根；并加入ETHUSDT、BTC溢价指数和资金费率。
 - 方法：9–11月训练→12月预筛；1–4月逐月滚动验证；5月最终选择；6月完全样本外。
