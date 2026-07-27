@@ -1,0 +1,70 @@
+{
+  "symbol": "BTCUSDT",
+  "interval": "5m",
+  "months": ["2026-05", "2026-06"],
+  "fee_rate_per_side": 0.0005,
+  "tick_size": 0.1,
+  "slippage_ticks_per_fill": 2,
+  "final_target": {
+    "min_trades": 15,
+    "max_trades": 30,
+    "min_win_rate": 0.70,
+    "min_avg_win_loss_ratio": 1.50
+  },
+  "research_stage": {
+    "min_trades": 8,
+    "max_trades": 15,
+    "min_win_rate": 0.60,
+    "min_avg_win_loss_ratio": 1.50,
+    "min_profit_factor": 1.50,
+    "max_drawdown_r": 3.0,
+    "min_active_experts": 3,
+    "max_single_expert_trade_share": 0.35
+  },
+  "sparse_expert_gate": {
+    "min_total_trades": 8,
+    "max_total_trades": 24,
+    "min_active_months": 3,
+    "min_positive_months": 2,
+    "min_raw_win_rate": 0.62,
+    "min_shrunk_win_rate": 0.56,
+    "min_wilson_lower": 0.46,
+    "min_profit_factor": 1.40,
+    "min_avg_win_loss_ratio": 1.40,
+    "min_net_r": 0.0,
+    "max_worst_month_loss_r": 1.50,
+    "max_single_month_profit_share": 0.55,
+    "max_trades_per_month": 5
+  },
+  "portfolio": {
+    "min_experts": 3,
+    "max_experts": 8,
+    "max_pair_signal_overlap": 0.35,
+    "max_pair_loss_overlap": 0.40,
+    "max_pair_return_correlation": 0.60,
+    "dedup_window_bars": 1,
+    "direction_conflict_score_margin": 0.08,
+    "max_trades_per_day": 2,
+    "max_trades_per_expert_day": 1,
+    "max_trades_per_setup_day": 1,
+    "max_consecutive_losses_expert_day": 2
+  },
+  "model": {
+    "calibration_min_rows": 18,
+    "calibration_min_class": 2,
+    "online_rank_window": 400,
+    "online_rank_min_history": 24,
+    "probability_shrinkage": 0.20,
+    "stability_prior_trades": 10,
+    "minimum_meta_probability": 0.48,
+    "minimum_expected_utility_r": 0.02,
+    "base_seed": 20260960
+  },
+  "search": {
+    "probability_thresholds": [0.40, 0.46],
+    "online_percentiles": [0.72, 0.82],
+    "monthly_targets": [2, 4],
+    "top_policies_per_expert": 2,
+    "portfolio_beam_width": 160
+  }
+}
