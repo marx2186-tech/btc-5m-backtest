@@ -45,13 +45,15 @@ jobs:
           test -f _v961_reference_strategy.py
           test -f _v969_base_engine.py
           test -f request.v9_6_9.json
-          test "$(sha256sum autonomous_backtest_v9_6_9.py | awk '{print $1}')" = "7a9999c1e8e7b8a46c32b53fe806f8f081b0f0751d45e717c1b4b4cae69a7b28"
+          test "$(sha256sum autonomous_backtest_v9_6_9.py | awk '{print $1}')" = "d4fbec91b0186cb7b9ddd4b9ae2f8e9b6996c18300236a0375e8f8632fa98547"
           test "$(sha256sum _v969_strategy_core.py | awk '{print $1}')" = "54a570cdaf8cc56bb93069a5d4bf2cc2dae8dfda4c29e37dcbea38445c88ca0a"
           test "$(sha256sum _v961_reference_strategy.py | awk '{print $1}')" = "af69970dfb42c91126f9b3d7b1439d951d61e562a2c70a1c2f9858b410627b68"
           test "$(sha256sum _v969_base_engine.py | awk '{print $1}')" = "bfe74641ed2a6252dcfccb6572145d5b6bbb95079ee1ecd120cf75619cfadfd3"
           test "$(sha256sum request.v9_6_9.json | awk '{print $1}')" = "eae51d8554e0c1e6de546f54f12e77291e1985a96868b2290491dbf888976cb4"
           grep -F 'build_unified_rating_shadow' autonomous_backtest_v9_6_9.py
           grep -F 'EXPERT_COVERAGE' autonomous_backtest_v9_6_9.py
+          grep -F 'feature_frame_column_found' autonomous_backtest_v9_6_9.py
+          grep -F 'V9.6.9_EXTENDED_FEATURES' autonomous_backtest_v9_6_9.py
           grep -F 'V9.6.9_EXTENDED_ORIGINAL' autonomous_backtest_v9_6_9.py
           grep -F 'rating_data_source_audit.json' autonomous_backtest_v9_6_9.py
           grep -F 'risk_budget_dual_track_validation.json' autonomous_backtest_v9_6_9.py
@@ -151,6 +153,8 @@ jobs:
           assert s['rating_data_source_unified'] is True
           assert s['rating_source_expert_coverage_complete'] is True
           assert s['rating_source_policy_coverage_complete'] is True
+          assert s['rating_source_feature_frame_coverage_complete'] is True
+          assert s['rating_source_feature_frame_index_match'] is True
           assert s['rating_source_required_expert_count'] == 40
           assert s['rating_source_covered_expert_count'] == 40
           assert s['rating_source_matches_no_budget_lane'] is True
@@ -162,6 +166,8 @@ jobs:
           assert d['core_fixed_penalty_shadow_for_final_tier'] is False
           assert d['expert_id_coverage_complete'] is True
           assert d['policy_coverage_complete'] is True
+          assert d['feature_frame_coverage_complete'] is True
+          assert d['feature_frame_index_match'] is True
           assert d['required_expert_count'] == 40
           assert d['covered_expert_count'] == 40
           assert set(d['required_expert_ids']) == set(range(40))
@@ -171,8 +177,12 @@ jobs:
           assert coverage['expert_id'].astype(int).nunique() == 40
           assert coverage['expert_found_in_rating_engine'].astype(bool).all()
           assert coverage['policy_found_in_rating_engine'].astype(bool).all()
+          assert coverage['feature_frame_column_found'].astype(bool).all()
+          assert coverage['required_mask_column'].astype(str).str.startswith('sparse_').all()
           assert set(coverage.loc[coverage['expert_id'].astype(int) < 32, 'rating_engine']) == {'V9.6.1_REFERENCE'}
           assert set(coverage.loc[coverage['expert_id'].astype(int) >= 32, 'rating_engine']) == {'V9.6.9_EXTENDED_ORIGINAL'}
+          assert set(coverage.loc[coverage['expert_id'].astype(int) < 32, 'feature_frame']) == {'V9.6.1_REFERENCE_FEATURES'}
+          assert set(coverage.loc[coverage['expert_id'].astype(int) >= 32, 'feature_frame']) == {'V9.6.9_EXTENDED_FEATURES'}
           assert b['winner_decision'] == 'NO_WINNER_SELECTION_FROM_SEEN_OOS'
           assert b['rating_is_independent_of_risk_budget'] is True
           assert q['winner_decision'] == 'NO_WINNER_SELECTION_FROM_SEEN_OOS'
