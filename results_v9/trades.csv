@@ -1,0 +1,1 @@
+signal_time_utc,entry_time_utc,exit_time_utc,month,direction,expert,setup,policy_key,probability,training_percentile,entry,risk_abs,target_R,net_R,win,exit_reason,bars
