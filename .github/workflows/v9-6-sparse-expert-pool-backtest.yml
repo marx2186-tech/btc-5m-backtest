@@ -1,0 +1,137 @@
+name: BTC 5m V9.6 sparse expert pool backtest
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "autonomous_backtest_v9_6.py"
+      - "request.v9_6.json"
+      - "_v96_base_engine.py"
+      - ".github/workflows/v9-6-sparse-expert-pool-backtest.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: btc-5m-v9-6-sparse-expert-pool
+  cancel-in-progress: false
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install numpy==1.26.4 pandas==2.2.2 requests==2.32.3 numba==0.60.0 scikit-learn==1.5.1 pyyaml==6.0.2
+
+      - name: Verify exact V9.6 files
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f autonomous_backtest_v9_6.py
+          test -f request.v9_6.json
+          test -f _v96_base_engine.py
+          test "$(sha256sum autonomous_backtest_v9_6.py | awk '{print $1}')" = "6a3ea0f292807c6f1235ed8bef8a18d00cc03d752094c9bbd6dd5db94e35e745"
+          test "$(sha256sum request.v9_6.json | awk '{print $1}')" = "9e5a5328d440e9939ae0099251d0926a2eec0fcfdf7f952d216a9a7c09f9cdf3"
+          test "$(sha256sum _v96_base_engine.py | awk '{print $1}')" = "4a21efd05d38a95a57717c0c9dc251009ed6b659affb35264f24b822a233e846"
+          grep -F 'ENGINE_VERSION = "V9.6"' autonomous_backtest_v9_6.py
+          grep -F 'RESULTS = ROOT / "results_v9_6"' autonomous_backtest_v9_6.py
+          grep -F 'SparseExpert(15' autonomous_backtest_v9_6.py
+          grep -F 'def select_experts' autonomous_backtest_v9_6.py
+          grep -F 'def event_overlap' autonomous_backtest_v9_6.py
+          grep -F 'def combine_month' autonomous_backtest_v9_6.py
+
+      - name: Syntax and offline tests
+        shell: bash
+        env:
+          BACKTEST_REQUEST_FILE: request.v9_6.json
+        run: |
+          set -euo pipefail
+          python -m py_compile autonomous_backtest_v9_6.py _v96_base_engine.py
+          python autonomous_backtest_v9_6.py --self-test 2>&1 | tee v9-6-self-test.log
+          python - <<'PYCODE'
+          import json
+          from pathlib import Path
+          request=json.loads(Path('request.v9_6.json').read_text())
+          assert request['sparse_expert_gate']['min_raw_win_rate']==0.62
+          assert request['sparse_expert_gate']['min_shrunk_win_rate']==0.56
+          assert request['portfolio']['max_pair_signal_overlap']==0.35
+          assert request['research_stage']['max_single_expert_trade_share']==0.35
+          print('V96_CONFIG_OK')
+          PYCODE
+
+      - name: Run V9.6 real backtest
+        shell: bash
+        env:
+          BACKTEST_REQUEST_FILE: request.v9_6.json
+          PYTHONUNBUFFERED: "1"
+        run: |
+          set -o pipefail
+          python autonomous_backtest_v9_6.py 2>&1 | tee v9-6-run.log
+
+      - name: Upload failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: btc-5m-v9-6-failure-diagnostics
+          path: |
+            v9-6-self-test.log
+            v9-6-run.log
+            results_v9_6/
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Verify V9.6 outputs
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          for f in status.json report.md portfolio_trades.csv trades.csv expert_shadow_trades.csv sparse_expert_leaderboard.csv expert_monthly_stats.csv expert_overlap.csv opportunity_coverage.csv selection_audit.csv signal_funnel.csv signal_deduplication.csv signal_conflicts.csv selected_policy.json data_audit.json run_identity.txt; do
+            test -f "results_v9_6/$f"
+          done
+          grep -F 'BTC 5m high-precision sparse expert pool V9.6' results_v9_6/run_identity.txt
+          grep -F 'oos=2026-06' results_v9_6/run_identity.txt
+          python - <<'PYCODE'
+          import json
+          from pathlib import Path
+          s=json.loads(Path('results_v9_6/status.json').read_text())
+          assert s['engine']=='BTC 5m high-precision sparse expert pool V9.6'
+          assert s['qualified'] is False
+          assert s['not_for_live_trading'] is True
+          assert s['fresh_blind_month_required'] is True
+          assert s['oos_isolation']['used_for_training'] is False
+          assert s['oos_isolation']['used_for_expert_selection'] is False
+          assert s['searched_experts']==16
+          assert s['selection_status'] in {'SPARSE_EXPERT_POOL_QUALIFIED','INSUFFICIENT_HIGH_PRECISION_EXPERTS','ZERO_EXECUTABLE_SPARSE_EXPERTS'}
+          print(json.dumps(s['monthly_stats'],ensure_ascii=False,indent=2))
+          PYCODE
+
+      - name: Upload V9.6 results
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: btc-5m-v9-6-results
+          path: results_v9_6/
+          retention-days: 30
+
+      - name: Commit readable V9.6 results
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add results_v9_6
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Add V9.6 sparse expert result $(date -u +%Y%m%dT%H%M%SZ)-${{ github.run_id }} [skip ci]"
+          git push
