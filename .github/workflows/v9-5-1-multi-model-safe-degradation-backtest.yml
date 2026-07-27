@@ -1,0 +1,206 @@
+name: BTC 5m V9.5.1 multi-model safe-degradation backtest
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "autonomous_backtest_v9_5_1.py"
+      - "request.v9_5_1.json"
+      - ".github/workflows/v9-5-1-multi-model-safe-degradation-backtest.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: btc-5m-v9-5-1-multi-model-safe-degradation
+  cancel-in-progress: false
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install numpy==1.26.4 pandas==2.2.2 requests==2.32.3 numba==0.60.0 scikit-learn==1.5.1 pyyaml==6.0.2
+
+      - name: Verify exact V9.5.1 source and request
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f autonomous_backtest_v9_5_1.py
+          test -f request.v9_5_1.json
+          test -f .github/workflows/v9-5-1-multi-model-safe-degradation-backtest.yml
+          script_actual="$(sha256sum autonomous_backtest_v9_5_1.py | awk '{print $1}')"
+          request_actual="$(sha256sum request.v9_5_1.json | awk '{print $1}')"
+          script_expected="4a21efd05d38a95a57717c0c9dc251009ed6b659affb35264f24b822a233e846"
+          request_expected="0f9b1fe8f38a9851a82e8e365808310bee3dbaa3c875eda99b3182b71d28cfb8"
+          echo "script_sha256=$script_actual"
+          echo "request_sha256=$request_actual"
+          test "$script_actual" = "$script_expected"
+          test "$request_actual" = "$request_expected"
+          grep -F 'ENGINE_VERSION = "V9.5.1"' autonomous_backtest_v9_5_1.py
+          grep -F 'RESULTS = ROOT / "results_v9_5_1"' autonomous_backtest_v9_5_1.py
+          grep -F 'def _fallback_multi_model_policy' autonomous_backtest_v9_5_1.py
+          grep -F 'def model_availability_audit_rows' autonomous_backtest_v9_5_1.py
+          grep -F '"ZERO_EXECUTABLE_MODELS"' autonomous_backtest_v9_5_1.py
+          grep -F '"INSUFFICIENT_MODEL_DIVERSITY"' autonomous_backtest_v9_5_1.py
+          if grep -Fq 'NO_DIVERSE_MULTI_MODEL_FALLBACK' autonomous_backtest_v9_5_1.py; then
+            echo "Old crash path still exists"
+            exit 1
+          fi
+
+      - name: Python syntax and safe-degradation tests
+        shell: bash
+        env:
+          BACKTEST_REQUEST_FILE: request.v9_5_1.json
+        run: |
+          set -euo pipefail
+          python -m py_compile autonomous_backtest_v9_5_1.py
+          python autonomous_backtest_v9_5_1.py --self-test 2>&1 | tee v9-5-1-self-test.log
+          grep -F 'V951_SELF_TEST_OK' v9-5-1-self-test.log
+          python - <<'PY'
+          from pathlib import Path
+          import json
+          import yaml
+          request = json.loads(Path('request.v9_5_1.json').read_text(encoding='utf-8'))
+          assert request['core_expert_ids'] == [0, 1, 2, 3, 4, 5]
+          assert request['research_stage']['min_active_models'] == 3
+          assert request['research_stage']['max_single_model_trade_share'] == 0.6
+          assert request['safe_degradation']['continue_when_fewer_than_three_executable_models'] is True
+          assert request['safe_degradation']['continue_when_zero_executable_models'] is True
+          assert request['safe_degradation']['preserve_all_strategy_qualification_thresholds'] is True
+          workflow = Path('.github/workflows/v9-5-1-multi-model-safe-degradation-backtest.yml')
+          parsed = yaml.safe_load(workflow.read_text(encoding='utf-8'))
+          assert isinstance(parsed, dict)
+          assert 'jobs' in parsed and 'backtest' in parsed['jobs']
+          print('V951_CONFIG_AND_YAML_OK')
+          PY
+
+      - name: Run V9.5.1 real backtest
+        shell: bash
+        env:
+          BACKTEST_REQUEST_FILE: request.v9_5_1.json
+        run: |
+          set -o pipefail
+          python autonomous_backtest_v9_5_1.py 2>&1 | tee v9-5-1-run.log
+
+      - name: Upload failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: btc-5m-v9-5-1-failure-diagnostics
+          path: |
+            v9-5-1-self-test.log
+            v9-5-1-run.log
+            results_v9_5_1/
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Verify V9.5.1 outputs
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          for file in status.json report.md portfolio_trades.csv trades.csv model_shadow_trades.csv model_monthly_stats.csv model_correlation.csv model_contribution.csv model_availability_audit.csv signal_conflicts.csv signal_deduplication.csv meta_filter_audit.csv regime_router_report.csv candidate_leaderboard.csv expert_candidate_leaderboard.csv signal_funnel.csv signal_funnel.json selected_policy.json data_audit.json run_identity.txt; do
+            test -f "results_v9_5_1/$file"
+          done
+          grep -F 'BTC 5m multi-model routed shadow ensemble V9.5.1' results_v9_5_1/run_identity.txt
+          grep -F 'oos=2026-06' results_v9_5_1/run_identity.txt
+          grep -F 'output=results_v9_5_1' results_v9_5_1/run_identity.txt
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          import pandas as pd
+
+          status = json.loads(Path('results_v9_5_1/status.json').read_text(encoding='utf-8'))
+          allowed = {
+              'MULTI_MODEL_RESEARCH_POLICY',
+              'EXPERIMENTAL_FALLBACK',
+              'INSUFFICIENT_MODEL_DIVERSITY',
+              'ZERO_EXECUTABLE_MODELS',
+          }
+          assert status['engine'] == 'BTC 5m multi-model routed shadow ensemble V9.5.1'
+          assert status['selection_status'] in allowed
+          assert status['qualified'] is False
+          assert status['not_for_live_trading'] is True
+          assert status['fresh_blind_month_required'] is True
+          assert status['executable_development_models'] >= 0
+          assert status['selected_executable_development_models'] >= 0
+
+          selected = status['selected_model_policies']
+          selection_status = status['selection_status']
+          if selection_status == 'ZERO_EXECUTABLE_MODELS':
+              assert status['safe_degradation_applied'] is True
+              assert status['model_diversity_requirement_met'] is False
+              assert status['research_stage_qualified'] is False
+              assert selected == {}
+          elif selection_status == 'INSUFFICIENT_MODEL_DIVERSITY':
+              assert status['safe_degradation_applied'] is True
+              assert status['model_diversity_requirement_met'] is False
+              assert status['research_stage_qualified'] is False
+              assert 1 <= len(selected) < 3
+          else:
+              assert len(selected) >= 3
+              families = {v['family'] for v in selected.values()}
+              assert len(families) >= 2
+
+          isolation = status['oos_isolation']
+          assert isolation['used_for_training'] is False
+          assert isolation['used_for_thresholds'] is False
+          assert isolation['used_for_model_selection'] is False
+          assert isolation['used_for_portfolio_selection'] is False
+          assert isolation['evaluation_occurs_after_policy_freeze'] is True
+
+          availability = pd.read_csv('results_v9_5_1/model_availability_audit.csv')
+          assert len(availability) == 6
+          assert set(availability['model_id']) == set(range(6))
+          required_columns = {
+              'searched_policies', 'policies_with_development_trades',
+              'best_total_trades', 'best_active_months', 'best_net_R',
+              'fallback_selected', 'rejection_reason',
+          }
+          assert required_columns.issubset(availability.columns)
+
+          for month, audit in status['diversity_audit'].items():
+              assert audit['max_trades_same_expert_day'] <= 2
+              assert audit['max_trades_same_setup_day'] <= 1
+          print(json.dumps({
+              'selection_status': selection_status,
+              'monthly_stats': status['monthly_stats'],
+              'executable_development_models': status['executable_development_models'],
+          }, ensure_ascii=False, indent=2))
+          PY
+
+      - name: Upload V9.5.1 result artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: btc-5m-v9-5-1-results
+          path: results_v9_5_1/
+          retention-days: 30
+
+      - name: Commit readable V9.5.1 results
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add results_v9_5_1
+          if git diff --cached --quiet; then
+            echo "No result changes"
+            exit 0
+          fi
+          git commit -m "Add V9.5.1 safe-degradation result $(date -u +%Y%m%dT%H%M%SZ)-${{ github.run_id }} [skip ci]"
+          git push
