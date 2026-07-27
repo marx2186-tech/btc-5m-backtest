@@ -1,0 +1,164 @@
+name: BTC 5m V9.5 multi-model router and arbitration backtest
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "autonomous_backtest_v9_5.py"
+      - "request.v9_5.json"
+      - ".github/workflows/v9-5-multi-model-router-arbitrated-backtest.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: btc-5m-v9-5-multi-model-router-arbitrated
+  cancel-in-progress: false
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install numpy==1.26.4 pandas==2.2.2 requests==2.32.3 numba==0.60.0 scikit-learn==1.5.1 pyyaml==6.0.2
+
+      - name: Verify exact V9.5 source and request
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f autonomous_backtest_v9_5.py
+          test -f request.v9_5.json
+          test -f .github/workflows/v9-5-multi-model-router-arbitrated-backtest.yml
+          script_actual="$(sha256sum autonomous_backtest_v9_5.py | awk '{print $1}')"
+          request_actual="$(sha256sum request.v9_5.json | awk '{print $1}')"
+          script_expected="24e1c1a3cea52b8abd951b30b50eda99fe93a60982bf33b9d72a3916abb769f7"
+          request_expected="df44c8f8d6936e530e54ea82dec93744415b3ce2e10ab43618aed163530be4a3"
+          echo "script_sha256=$script_actual"
+          echo "request_sha256=$request_actual"
+          test "$script_actual" = "$script_expected"
+          test "$request_actual" = "$request_expected"
+          grep -F 'ENGINE_VERSION = "V9.5"' autonomous_backtest_v9_5.py
+          grep -F 'RESULTS = ROOT / "results_v9_5"' autonomous_backtest_v9_5.py
+          grep -F 'MODEL_FAMILY = {' autonomous_backtest_v9_5.py
+          grep -F 'def router_confidence_array' autonomous_backtest_v9_5.py
+          grep -F 'def micro_confirmation_array' autonomous_backtest_v9_5.py
+          grep -F 'def portfolio_arbitrate' autonomous_backtest_v9_5.py
+          grep -F 'def causal_model_weights' autonomous_backtest_v9_5.py
+          grep -F 'assert_oos_isolation' autonomous_backtest_v9_5.py
+
+      - name: Python syntax and offline architecture tests
+        shell: bash
+        env:
+          BACKTEST_REQUEST_FILE: request.v9_5.json
+        run: |
+          set -euo pipefail
+          python -m py_compile autonomous_backtest_v9_5.py
+          python autonomous_backtest_v9_5.py --self-test 2>&1 | tee v9-5-self-test.log
+          python - <<'PY'
+          from pathlib import Path
+          import json
+          import yaml
+          request = json.loads(Path('request.v9_5.json').read_text(encoding='utf-8'))
+          assert request['core_expert_ids'] == [0, 1, 2, 3, 4, 5]
+          assert request['research_stage']['min_trades'] == 8
+          assert request['research_stage']['max_trades'] == 15
+          assert request['research_stage']['min_active_models'] == 3
+          assert request['research_stage']['max_single_model_trade_share'] == 0.6
+          assert request['minimum_meta_probability'] == 0.5
+          assert request['dedup_window_bars'] == 1
+          workflow = Path('.github/workflows/v9-5-multi-model-router-arbitrated-backtest.yml')
+          parsed = yaml.safe_load(workflow.read_text(encoding='utf-8'))
+          assert isinstance(parsed, dict)
+          assert 'jobs' in parsed and 'backtest' in parsed['jobs']
+          print('V95_CONFIG_AND_YAML_OK')
+          PY
+
+      - name: Run V9.5 real backtest
+        shell: bash
+        env:
+          BACKTEST_REQUEST_FILE: request.v9_5.json
+        run: |
+          set -o pipefail
+          python autonomous_backtest_v9_5.py 2>&1 | tee v9-5-run.log
+
+      - name: Upload failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: btc-5m-v9-5-failure-diagnostics
+          path: |
+            v9-5-self-test.log
+            v9-5-run.log
+            results_v9_5/
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Verify V9.5 outputs
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          for file in status.json report.md portfolio_trades.csv trades.csv model_shadow_trades.csv model_monthly_stats.csv model_correlation.csv model_contribution.csv signal_conflicts.csv signal_deduplication.csv meta_filter_audit.csv regime_router_report.csv candidate_leaderboard.csv expert_candidate_leaderboard.csv signal_funnel.csv signal_funnel.json selected_policy.json data_audit.json run_identity.txt; do
+            test -f "results_v9_5/$file"
+          done
+          grep -F 'BTC 5m multi-model routed shadow ensemble V9.5' results_v9_5/run_identity.txt
+          grep -F 'oos=2026-06' results_v9_5/run_identity.txt
+          grep -F 'output=results_v9_5' results_v9_5/run_identity.txt
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          status = json.loads(Path('results_v9_5/status.json').read_text(encoding='utf-8'))
+          assert status['engine'] == 'BTC 5m multi-model routed shadow ensemble V9.5'
+          assert status['selection_status'] in {'MULTI_MODEL_RESEARCH_POLICY', 'EXPERIMENTAL_FALLBACK'}
+          assert status['qualified'] is False
+          assert status['not_for_live_trading'] is True
+          assert status['fresh_blind_month_required'] is True
+          assert len(status['selected_model_policies']) >= 3
+          families = {v['family'] for v in status['selected_model_policies'].values()}
+          assert len(families) >= 2
+          isolation = status['oos_isolation']
+          assert isolation['used_for_training'] is False
+          assert isolation['used_for_thresholds'] is False
+          assert isolation['used_for_model_selection'] is False
+          assert isolation['used_for_portfolio_selection'] is False
+          assert isolation['evaluation_occurs_after_policy_freeze'] is True
+          for month, audit in status['diversity_audit'].items():
+            assert audit['max_trades_same_expert_day'] <= 2
+            assert audit['max_trades_same_setup_day'] <= 1
+          print(json.dumps(status['monthly_stats'], ensure_ascii=False, indent=2))
+          PY
+
+      - name: Upload V9.5 result artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: btc-5m-v9-5-results
+          path: results_v9_5/
+          retention-days: 30
+
+      - name: Commit readable V9.5 results
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add results_v9_5
+          if git diff --cached --quiet; then
+            echo "No result changes"
+            exit 0
+          fi
+          git commit -m "Add V9.5 multi-model result $(date -u +%Y%m%dT%H%M%SZ)-${{ github.run_id }} [skip ci]"
+          git push
