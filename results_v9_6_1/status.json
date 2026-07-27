@@ -1,0 +1,473 @@
+{
+  "qualified": false,
+  "research_stage_qualified": false,
+  "final_hard_metrics_passed": false,
+  "not_for_live_trading": true,
+  "fresh_blind_month_required": true,
+  "selection_status": "RESEARCH_EXPERT_POOL_ONLY",
+  "engine": "BTC 5m sparse expert discovery and soft-meta pool V9.6.1",
+  "architecture": "32 specific sparse experts -> 13 rolling development months -> expert-specific conservative expected-R rank -> soft meta support/neutral/reject -> tiered pool -> separate research and qualified portfolios",
+  "tier_counts": {
+    "QUALIFIED": 0,
+    "WATCH": 1,
+    "CANDIDATE": 5,
+    "REJECTED": 26
+  },
+  "selected_research_expert_count": 6,
+  "selected_qualified_expert_count": 0,
+  "selected_experts": {
+    "research": {
+      "BTC强于ETH背离修复空头": {
+        "expert_id": 21,
+        "family": "跨资产背离",
+        "tier": "WATCH",
+        "policy_key": "fca571982b7c88a0",
+        "policy": {
+          "expert_id": 21,
+          "risk": {
+            "rr": 2.1,
+            "sl_atr": 1.35,
+            "min_stop_pct": 0.0037,
+            "max_hold": 216,
+            "breakeven_trigger": 1.0,
+            "breakeven_lock": 0.1,
+            "early_bars": 60,
+            "early_cut_r": 0.4
+          },
+          "model": {
+            "max_depth": 2,
+            "learning_rate": 0.03,
+            "max_iter": 220,
+            "l2_regularization": 7.5,
+            "min_samples_leaf": 22
+          },
+          "monthly_target": 3,
+          "min_percentile": 0.8,
+          "min_expected_utility_r": 0.02
+        },
+        "development_summary": {
+          "trades": 7,
+          "wins": 5,
+          "win_rate": 0.7142857142857143,
+          "avg_win_R": 1.864239152287175,
+          "avg_loss_R": 1.2295004516315258,
+          "avg_win_loss_ratio": 1.5162573952806297,
+          "profit_factor": 3.7906434882015745,
+          "net_R": 6.862194858172823,
+          "max_drawdown_R": 1.2643270542932266,
+          "expectancy_R": 0.9803135511675461,
+          "shrunk_win_rate": 0.6,
+          "wilson_lower": 0.5255503826141334,
+          "active_months": 3,
+          "positive_months": 3,
+          "worst_month_R": 0.0,
+          "max_single_month_profit_share": 0.36723378608277407,
+          "max_trades_single_month": 3
+        }
+      },
+      "区间扫高立即跌回空头": {
+        "expert_id": 13,
+        "family": "流动性反转",
+        "tier": "CANDIDATE",
+        "policy_key": "2c428183978376ff",
+        "policy": {
+          "expert_id": 13,
+          "risk": {
+            "rr": 2.0,
+            "sl_atr": 1.18,
+            "min_stop_pct": 0.0033,
+            "max_hold": 180,
+            "breakeven_trigger": 0.95,
+            "breakeven_lock": 0.1,
+            "early_bars": 48,
+            "early_cut_r": 0.34
+          },
+          "model": {
+            "max_depth": 2,
+            "learning_rate": 0.032,
+            "max_iter": 210,
+            "l2_regularization": 7.5,
+            "min_samples_leaf": 20
+          },
+          "monthly_target": 2,
+          "min_percentile": 0.8,
+          "min_expected_utility_r": 0.02
+        },
+        "development_summary": {
+          "trades": 3,
+          "wins": 1,
+          "win_rate": 0.3333333333333333,
+          "avg_win_R": 1.6971219202291914,
+          "avg_loss_R": 0.20388206743545806,
+          "avg_win_loss_ratio": 8.324037231800393,
+          "profit_factor": 4.162018615900196,
+          "net_R": 1.2893577853582754,
+          "max_drawdown_R": 0.20389217791760067,
+          "expectancy_R": 0.4297859284527585,
+          "shrunk_win_rate": 0.45454545454545453,
+          "wilson_lower": 0.13564322306091547,
+          "active_months": 2,
+          "positive_months": 1,
+          "worst_month_R": -0.20389217791760067,
+          "max_single_month_profit_share": 1.0,
+          "max_trades_single_month": 2
+        }
+      },
+      "压缩后首次放量突破多头": {
+        "expert_id": 22,
+        "family": "波动扩张",
+        "tier": "CANDIDATE",
+        "policy_key": "c1fd7f96ccac000d",
+        "policy": {
+          "expert_id": 22,
+          "risk": {
+            "rr": 1.8,
+            "sl_atr": 1.2,
+            "min_stop_pct": 0.0033,
+            "max_hold": 168,
+            "breakeven_trigger": 0.9,
+            "breakeven_lock": 0.08,
+            "early_bars": 48,
+            "early_cut_r": 0.36
+          },
+          "model": {
+            "max_depth": 2,
+            "learning_rate": 0.028,
+            "max_iter": 230,
+            "l2_regularization": 8.0,
+            "min_samples_leaf": 24
+          },
+          "monthly_target": 2,
+          "min_percentile": 0.8,
+          "min_expected_utility_r": 0.02
+        },
+        "development_summary": {
+          "trades": 3,
+          "wins": 1,
+          "win_rate": 0.3333333333333333,
+          "avg_win_R": 1.4955536389470225,
+          "avg_loss_R": 0.44920212209884924,
+          "avg_win_loss_ratio": 3.329355685051546,
+          "profit_factor": 1.664677842525773,
+          "net_R": 0.597149394749324,
+          "max_drawdown_R": 0.8984042441976985,
+          "expectancy_R": 0.19904979824977467,
+          "shrunk_win_rate": 0.45454545454545453,
+          "wilson_lower": 0.13564322306091547,
+          "active_months": 2,
+          "positive_months": 1,
+          "worst_month_R": -0.8984042441976985,
+          "max_single_month_profit_share": 1.0,
+          "max_trades_single_month": 2
+        }
+      },
+      "欧美时段顺势延续空头": {
+        "expert_id": 11,
+        "family": "时段延续",
+        "tier": "CANDIDATE",
+        "policy_key": "4337d47dd551514a",
+        "policy": {
+          "expert_id": 11,
+          "risk": {
+            "rr": 2.0,
+            "sl_atr": 1.28,
+            "min_stop_pct": 0.0035,
+            "max_hold": 216,
+            "breakeven_trigger": 1.0,
+            "breakeven_lock": 0.1,
+            "early_bars": 60,
+            "early_cut_r": 0.38
+          },
+          "model": {
+            "max_depth": 2,
+            "learning_rate": 0.028,
+            "max_iter": 230,
+            "l2_regularization": 8.0,
+            "min_samples_leaf": 24
+          },
+          "monthly_target": 2,
+          "min_percentile": 0.88,
+          "min_expected_utility_r": 0.02
+        },
+        "development_summary": {
+          "trades": 3,
+          "wins": 1,
+          "win_rate": 0.3333333333333333,
+          "avg_win_R": 1.7147203332269656,
+          "avg_loss_R": 0.7365810698617815,
+          "avg_win_loss_ratio": 2.327945155512523,
+          "profit_factor": 1.1639725777562615,
+          "net_R": 0.24155819350340257,
+          "max_drawdown_R": 1.2869456596998758,
+          "expectancy_R": 0.08051939783446753,
+          "shrunk_win_rate": 0.45454545454545453,
+          "wilson_lower": 0.13564322306091547,
+          "active_months": 2,
+          "positive_months": 1,
+          "worst_month_R": -1.2869456596998758,
+          "max_single_month_profit_share": 1.0,
+          "max_trades_single_month": 2
+        }
+      },
+      "趋势反抽失败空头": {
+        "expert_id": 1,
+        "family": "趋势回踩",
+        "tier": "CANDIDATE",
+        "policy_key": "da51c7f197a1b096",
+        "policy": {
+          "expert_id": 1,
+          "risk": {
+            "rr": 2.0,
+            "sl_atr": 1.28,
+            "min_stop_pct": 0.0035,
+            "max_hold": 216,
+            "breakeven_trigger": 1.0,
+            "breakeven_lock": 0.1,
+            "early_bars": 60,
+            "early_cut_r": 0.38
+          },
+          "model": {
+            "max_depth": 2,
+            "learning_rate": 0.028,
+            "max_iter": 240,
+            "l2_regularization": 8.0,
+            "min_samples_leaf": 28
+          },
+          "monthly_target": 2,
+          "min_percentile": 0.88,
+          "min_expected_utility_r": 0.02
+        },
+        "development_summary": {
+          "trades": 3,
+          "wins": 1,
+          "win_rate": 0.3333333333333333,
+          "avg_win_R": 1.714741469113497,
+          "avg_loss_R": 0.7366079016041253,
+          "avg_win_loss_ratio": 2.327889051121053,
+          "profit_factor": 1.1639445255605265,
+          "net_R": 0.2415256659052465,
+          "max_drawdown_R": 1.2870177022047267,
+          "expectancy_R": 0.08050855530174883,
+          "shrunk_win_rate": 0.45454545454545453,
+          "wilson_lower": 0.13564322306091547,
+          "active_months": 2,
+          "positive_months": 1,
+          "worst_month_R": -1.2870177022047267,
+          "max_single_month_profit_share": 1.0,
+          "max_trades_single_month": 2
+        }
+      },
+      "趋势回踩重新站稳多头": {
+        "expert_id": 0,
+        "family": "趋势回踩",
+        "tier": "CANDIDATE",
+        "policy_key": "1b33e623d700f1dd",
+        "policy": {
+          "expert_id": 0,
+          "risk": {
+            "rr": 2.0,
+            "sl_atr": 1.28,
+            "min_stop_pct": 0.0035,
+            "max_hold": 216,
+            "breakeven_trigger": 1.0,
+            "breakeven_lock": 0.1,
+            "early_bars": 60,
+            "early_cut_r": 0.38
+          },
+          "model": {
+            "max_depth": 2,
+            "learning_rate": 0.028,
+            "max_iter": 240,
+            "l2_regularization": 8.0,
+            "min_samples_leaf": 28
+          },
+          "monthly_target": 2,
+          "min_percentile": 0.8,
+          "min_expected_utility_r": 0.08
+        },
+        "development_summary": {
+          "trades": 3,
+          "wins": 1,
+          "win_rate": 0.3333333333333333,
+          "avg_win_R": 1.7124550554222264,
+          "avg_loss_R": 0.7357114230102177,
+          "avg_win_loss_ratio": 2.327617870082253,
+          "profit_factor": 1.1638089350411265,
+          "net_R": 0.24103220940179093,
+          "max_drawdown_R": 1.4714228460204355,
+          "expectancy_R": 0.08034406980059698,
+          "shrunk_win_rate": 0.45454545454545453,
+          "wilson_lower": 0.13564322306091547,
+          "active_months": 2,
+          "positive_months": 1,
+          "worst_month_R": -1.4714228460204355,
+          "max_single_month_profit_share": 1.0,
+          "max_trades_single_month": 2
+        }
+      }
+    },
+    "qualified": {}
+  },
+  "research_portfolio_monthly_stats": {
+    "2026-05": {
+      "trades": 3,
+      "wins": 0,
+      "win_rate": 0.0,
+      "avg_win_R": 0.0,
+      "avg_loss_R": 0.728449967965858,
+      "avg_win_loss_ratio": 0.0,
+      "profit_factor": 0.0,
+      "net_R": -2.185349903897574,
+      "max_drawdown_R": 2.185349903897574,
+      "expectancy_R": -0.728449967965858
+    },
+    "2026-06": {
+      "trades": 2,
+      "wins": 0,
+      "win_rate": 0.0,
+      "avg_win_R": 0.0,
+      "avg_loss_R": 1.2861138660496905,
+      "avg_win_loss_ratio": 0.0,
+      "profit_factor": 0.0,
+      "net_R": -2.572227732099381,
+      "max_drawdown_R": 2.572227732099381,
+      "expectancy_R": -1.2861138660496905
+    }
+  },
+  "qualified_portfolio_monthly_stats": {
+    "2026-05": {
+      "trades": 0,
+      "wins": 0,
+      "win_rate": 0.0,
+      "avg_win_R": 0.0,
+      "avg_loss_R": 0.0,
+      "avg_win_loss_ratio": 0.0,
+      "profit_factor": 0.0,
+      "net_R": 0.0,
+      "max_drawdown_R": 0.0,
+      "expectancy_R": 0.0
+    },
+    "2026-06": {
+      "trades": 0,
+      "wins": 0,
+      "win_rate": 0.0,
+      "avg_win_R": 0.0,
+      "avg_loss_R": 0.0,
+      "avg_win_loss_ratio": 0.0,
+      "profit_factor": 0.0,
+      "net_R": 0.0,
+      "max_drawdown_R": 0.0,
+      "expectancy_R": 0.0
+    }
+  },
+  "development_months": [
+    "2025-05",
+    "2025-06",
+    "2025-07",
+    "2025-08",
+    "2025-09",
+    "2025-10",
+    "2025-11",
+    "2025-12",
+    "2026-01",
+    "2026-02",
+    "2026-03",
+    "2026-04",
+    "2026-05"
+  ],
+  "constraints": {
+    "candidate_gate": {
+      "min_total_trades": 3,
+      "min_active_months": 2,
+      "min_profit_factor": 1.15,
+      "min_avg_win_loss_ratio": 1.3,
+      "min_net_r": 0.0,
+      "max_worst_month_loss_r": 1.8,
+      "max_trades_per_month": 4
+    },
+    "watch_gate": {
+      "min_total_trades": 6,
+      "min_active_months": 3,
+      "min_positive_months": 2,
+      "min_shrunk_win_rate": 0.52,
+      "min_profit_factor": 1.3,
+      "min_avg_win_loss_ratio": 1.3,
+      "min_net_r": 0.0,
+      "max_drawdown_r": 3.5,
+      "max_worst_month_loss_r": 1.6,
+      "max_single_month_profit_share": 0.75,
+      "max_trades_per_month": 4
+    },
+    "qualified_gate": {
+      "min_total_trades": 10,
+      "max_total_trades": 36,
+      "min_active_months": 4,
+      "min_positive_months": 3,
+      "min_raw_win_rate": 0.6,
+      "min_shrunk_win_rate": 0.56,
+      "min_wilson_lower": 0.45,
+      "min_profit_factor": 1.5,
+      "min_avg_win_loss_ratio": 1.5,
+      "min_net_r": 0.0,
+      "max_drawdown_r": 2.5,
+      "max_worst_month_loss_r": 1.5,
+      "max_single_month_profit_share": 0.6,
+      "max_trades_per_month": 4
+    },
+    "research_stage": {
+      "min_trades": 6,
+      "max_trades": 12,
+      "min_win_rate": 0.6,
+      "min_avg_win_loss_ratio": 1.5,
+      "min_profit_factor": 1.5,
+      "max_drawdown_r": 3.0,
+      "min_active_experts": 3,
+      "max_single_expert_trade_share": 0.4
+    },
+    "final_target": {
+      "min_trades": 15,
+      "max_trades": 30,
+      "min_win_rate": 0.7,
+      "min_avg_win_loss_ratio": 1.5
+    },
+    "portfolio": {
+      "research_min_experts": 2,
+      "qualified_min_experts": 3,
+      "max_experts": 8,
+      "max_pair_signal_overlap": 0.35,
+      "max_pair_loss_overlap": 0.4,
+      "max_pair_return_correlation": 0.6,
+      "dedup_window_bars": 1,
+      "direction_conflict_score_margin": 0.08,
+      "max_trades_per_day": 2,
+      "max_trades_per_expert_day": 1,
+      "max_trades_per_setup_day": 1,
+      "max_consecutive_losses_expert_day": 2
+    },
+    "model": {
+      "calibration_min_rows": 12,
+      "calibration_min_class": 2,
+      "online_rank_window": 600,
+      "online_rank_min_history": 18,
+      "probability_shrinkage": 0.15,
+      "stability_prior_trades": 8,
+      "meta_blend_weight": 0.25,
+      "meta_hard_reject_probability": 0.3,
+      "meta_support_probability": 0.52,
+      "meta_support_micro": 0.42,
+      "minimum_router_confidence": 0.34,
+      "hard_negative_utility_r": -0.1,
+      "utility_uncertainty_penalty": 0.1,
+      "base_seed": 20260961
+    }
+  },
+  "oos_isolation": {
+    "used_for_training": false,
+    "used_for_thresholds": false,
+    "used_for_expert_selection": false,
+    "used_for_portfolio_selection": false,
+    "evaluation_occurs_after_policy_freeze": true
+  },
+  "searched_experts": 32,
+  "searched_policies": 768
+}
