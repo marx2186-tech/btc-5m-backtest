@@ -1,0 +1,102 @@
+{
+  "趋势空头": {
+    "expert_id": 1,
+    "policy_key": "c0f0439ba2106b28",
+    "minimum_calibrated_probability": 0.38,
+    "minimum_online_rank_percentile": 0.65,
+    "monthly_candidate_target": 6,
+    "cooldown_bars": 1,
+    "risk": {
+      "rr": 2.2,
+      "sl_atr": 1.4,
+      "min_stop_pct": 0.0036,
+      "max_hold": 288,
+      "breakeven_trigger": 1.1,
+      "breakeven_lock": 0.15,
+      "early_bars": 72,
+      "early_cut_r": 0.35
+    },
+    "model": {
+      "max_depth": 2,
+      "learning_rate": 0.035,
+      "max_iter": 220,
+      "l2_regularization": 5.0,
+      "min_samples_leaf": 38
+    }
+  },
+  "震荡多头反转": {
+    "expert_id": 2,
+    "policy_key": "299b0a28d888bef2",
+    "minimum_calibrated_probability": 0.38,
+    "minimum_online_rank_percentile": 0.85,
+    "monthly_candidate_target": 10,
+    "cooldown_bars": 2,
+    "risk": {
+      "rr": 1.6,
+      "sl_atr": 0.95,
+      "min_stop_pct": 0.0028,
+      "max_hold": 120,
+      "breakeven_trigger": 0.8,
+      "breakeven_lock": 0.06,
+      "early_bars": 36,
+      "early_cut_r": 0.32
+    },
+    "model": {
+      "max_depth": 2,
+      "learning_rate": 0.035,
+      "max_iter": 220,
+      "l2_regularization": 6.0,
+      "min_samples_leaf": 32
+    }
+  },
+  "震荡空头反转": {
+    "expert_id": 3,
+    "policy_key": "75cec9ff1e3f734e",
+    "minimum_calibrated_probability": 0.34,
+    "minimum_online_rank_percentile": 0.75,
+    "monthly_candidate_target": 4,
+    "cooldown_bars": 2,
+    "risk": {
+      "rr": 2.0,
+      "sl_atr": 1.2,
+      "min_stop_pct": 0.0033,
+      "max_hold": 180,
+      "breakeven_trigger": 0.95,
+      "breakeven_lock": 0.1,
+      "early_bars": 48,
+      "early_cut_r": 0.3
+    },
+    "model": {
+      "max_depth": 3,
+      "learning_rate": 0.025,
+      "max_iter": 260,
+      "l2_regularization": 8.0,
+      "min_samples_leaf": 42
+    }
+  },
+  "高波动空头突破": {
+    "expert_id": 5,
+    "policy_key": "ca327e318cd87b40",
+    "minimum_calibrated_probability": 0.45,
+    "minimum_online_rank_percentile": 0.68,
+    "monthly_candidate_target": 4,
+    "cooldown_bars": 2,
+    "risk": {
+      "rr": 2.5,
+      "sl_atr": 1.65,
+      "min_stop_pct": 0.0045,
+      "max_hold": 288,
+      "breakeven_trigger": 1.25,
+      "breakeven_lock": 0.18,
+      "early_bars": 60,
+      "early_cut_r": 0.32
+    },
+    "model": {
+      "max_depth": 2,
+      "learning_rate": 0.035,
+      "max_iter": 220,
+      "l2_regularization": 6.0,
+      "min_samples_leaf": 32
+    }
+  }
+}
