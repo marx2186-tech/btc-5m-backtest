@@ -1,0 +1,4 @@
+BTC 5m high-precision sparse expert pool V9.6
+oos=2026-06
+output=results_v9_6
+selection_status=INSUFFICIENT_HIGH_PRECISION_EXPERTS

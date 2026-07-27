@@ -1,0 +1,256 @@
+{
+  "source": "Binance USDⓈ-M Futures official monthly klines",
+  "symbol": "BTCUSDT",
+  "interval": "5m",
+  "start_utc": "2025-09-01T00:00:00+00:00",
+  "end_utc": "2026-06-30T23:55:00+00:00",
+  "expected_rows": 87264,
+  "actual_rows": 87264,
+  "unique_rows": 87264,
+  "duplicate_timestamps": 0,
+  "missing_rows": 0,
+  "extra_rows": 0,
+  "off_grid_rows": 0,
+  "invalid_close_time_rows": 0,
+  "invalid_ohlc_rows": 0,
+  "files": [
+    {
+      "file": "BTCUSDT-5m-2025-09.zip",
+      "sha256": "dbfb8bc2f9343107c7a702acd6919d77060a8f7ea4b25359c71e5fc018a85209",
+      "rows": 8640
+    },
+    {
+      "file": "BTCUSDT-5m-2025-10.zip",
+      "sha256": "fab262ca4318f8f65164ae33a020458439adc6f7bc2e59bbfce1886118d05a48",
+      "rows": 8928
+    },
+    {
+      "file": "BTCUSDT-5m-2025-11.zip",
+      "sha256": "2759d4be0fe68cc2be3d4d91940fcd95abc69f0c31f25d0b6cb5e0629c625d2d",
+      "rows": 8640
+    },
+    {
+      "file": "BTCUSDT-5m-2025-12.zip",
+      "sha256": "0e923a3d2ac4f6711d8c841220f4e5d2e479c1bdb40b41515eb250e16808304f",
+      "rows": 8928
+    },
+    {
+      "file": "BTCUSDT-5m-2026-01.zip",
+      "sha256": "c092f3b26036f203bb5b11c28958574aa8501315ed26dd0f8c017051b9fb3abf",
+      "rows": 8928
+    },
+    {
+      "file": "BTCUSDT-5m-2026-02.zip",
+      "sha256": "8be83befce2cd9bf0959c872d91108debd03e1b51a451bac3a56b8ddca196bb4",
+      "rows": 8064
+    },
+    {
+      "file": "BTCUSDT-5m-2026-03.zip",
+      "sha256": "0302ccef9b3e5e38c35bc8667a1e890138c9136e89145688220eea99b748200e",
+      "rows": 8928
+    },
+    {
+      "file": "BTCUSDT-5m-2026-04.zip",
+      "sha256": "e2934467bdb6a000124948f4c8fef176e2066520a6b2e5a0522450fed51396f7",
+      "rows": 8640
+    },
+    {
+      "file": "BTCUSDT-5m-2026-05.zip",
+      "sha256": "b1a73378796bb62084c32ca5865903beeaf87d521d950d5e7776343f682dea93",
+      "rows": 8928
+    },
+    {
+      "file": "BTCUSDT-5m-2026-06.zip",
+      "sha256": "782c555963c852ca768335de21d5743147e5d50bff449600f8fceb9ebe5273de",
+      "rows": 8640
+    }
+  ],
+  "passed": true,
+  "auxiliary_sources": {
+    "eth": {
+      "symbol": "ETHUSDT",
+      "data_type": "klines",
+      "files": [
+        {
+          "file": "ETHUSDT-5m-2025-09.zip",
+          "sha256": "71ee9f99652c07dcea827cd8f870cce49e77203d4c938f80b1c15ac9a4cef473",
+          "rows": 8640
+        },
+        {
+          "file": "ETHUSDT-5m-2025-10.zip",
+          "sha256": "597747fb89e6a6d2ed8029663a7f6310a5b8044b756cc59f4ce83dd3c34e95b2",
+          "rows": 8928
+        },
+        {
+          "file": "ETHUSDT-5m-2025-11.zip",
+          "sha256": "49d6fe077f2f2da4febe18952866ff1b607d72a390306cd9fc74863dbfde4b89",
+          "rows": 8640
+        },
+        {
+          "file": "ETHUSDT-5m-2025-12.zip",
+          "sha256": "0723e20236ff44ecc65bc98b7e344fe6d1bcefd204e72684054064c295ca5c5e",
+          "rows": 8928
+        },
+        {
+          "file": "ETHUSDT-5m-2026-01.zip",
+          "sha256": "c0bd8615649919f64250f8a254b4a282933117e203f8cc9a831d3efd5a4e59d0",
+          "rows": 8928
+        },
+        {
+          "file": "ETHUSDT-5m-2026-02.zip",
+          "sha256": "606781a505c76025b1be3e7c4a375037f63510293402775efed87a23801398b5",
+          "rows": 8064
+        },
+        {
+          "file": "ETHUSDT-5m-2026-03.zip",
+          "sha256": "ec2694016c1d41b815e9c403519c8971a454ef2276987f4ec5ad949bd33674eb",
+          "rows": 8928
+        },
+        {
+          "file": "ETHUSDT-5m-2026-04.zip",
+          "sha256": "94c890bf844ef6c289bcf6d126869a39bbc457aac139a5e0b8cebdf2bef2e078",
+          "rows": 8640
+        },
+        {
+          "file": "ETHUSDT-5m-2026-05.zip",
+          "sha256": "3a642e9db105c9002210fc4d7f5a99a527d6b52d63823ae17076c1e2d2578eda",
+          "rows": 8928
+        },
+        {
+          "file": "ETHUSDT-5m-2026-06.zip",
+          "sha256": "f26819283e11870b0b206acea9e084bcd7e3c6a5fb2abb8800ac5a424959e49d",
+          "rows": 8640
+        }
+      ],
+      "rows": 87264
+    },
+    "premium": {
+      "symbol": "BTCUSDT",
+      "data_type": "premiumIndexKlines",
+      "files": [
+        {
+          "file": "BTCUSDT-5m-2025-09.zip",
+          "sha256": "716437ae1a270b5dfbcc898f0082e329a5b1b43c2bcf27c709bb032af792c1b6",
+          "rows": 8640
+        },
+        {
+          "file": "BTCUSDT-5m-2025-10.zip",
+          "sha256": "9850dd1232badb39827b058fd29d0b871f447ddb7fcd2bfc9a4adfcd61b850a9",
+          "rows": 8928
+        },
+        {
+          "file": "BTCUSDT-5m-2025-11.zip",
+          "sha256": "f119ee49da94685c27cde4e3f2123e7e6ccd2d029aafa4cd8e770099fb83290e",
+          "rows": 8640
+        },
+        {
+          "file": "BTCUSDT-5m-2025-12.zip",
+          "sha256": "721cf9e7282317b09f871fd5cb913ad3ea88a857f1f3f781584b136b3903b004",
+          "rows": 8928
+        },
+        {
+          "file": "BTCUSDT-5m-2026-01.zip",
+          "sha256": "52cc23f37df86952a0e6e97e7880d7c0f6a187981b786597393c074142eeb534",
+          "rows": 8928
+        },
+        {
+          "file": "BTCUSDT-5m-2026-02.zip",
+          "sha256": "6793986c3b2bc2fffc31c16e77dbf7957dd5e71c6ec9686d127c4cde3aae0c69",
+          "rows": 8064
+        },
+        {
+          "file": "BTCUSDT-5m-2026-03.zip",
+          "sha256": "546d2c550c74472bed8b7a807e5d8b6d48da2a007f8810d1df9dbd13a25da3e3",
+          "rows": 8928
+        },
+        {
+          "file": "BTCUSDT-5m-2026-04.zip",
+          "sha256": "fc63dc8b0038b2f834bc4d1f0aabccf230f511664b0cb4ce5292d465e1c962e4",
+          "rows": 8640
+        },
+        {
+          "file": "BTCUSDT-5m-2026-05.zip",
+          "sha256": "893d20ec3a45e5e56915bff38d05dbf199ba7060c9485ec94d492a27102c0e62",
+          "rows": 8928
+        },
+        {
+          "file": "BTCUSDT-5m-2026-06.zip",
+          "sha256": "273358ae98040d79240d6412a7beaa77548da9fd2913ac85cdc7d4a3b323f45e",
+          "rows": 8352
+        }
+      ],
+      "rows": 86976
+    },
+    "funding": {
+      "symbol": "BTCUSDT",
+      "data_type": "fundingRate",
+      "files": [
+        {
+          "file": "BTCUSDT-fundingRate-2025-09.zip",
+          "sha256": "21dc6570fc6bffad0e7b5f9e99211b82ad07c95ab4f18c3a2daa3b95ec98344c",
+          "rows": 90
+        },
+        {
+          "file": "BTCUSDT-fundingRate-2025-10.zip",
+          "sha256": "9ecdedab6344fc4cdb154763266b8e09627a71c3cc5574cf868158b541c259c2",
+          "rows": 93
+        },
+        {
+          "file": "BTCUSDT-fundingRate-2025-11.zip",
+          "sha256": "23735400405627d610123e3a43db3e98ae7addb93459cd670e65a7659a5f081b",
+          "rows": 90
+        },
+        {
+          "file": "BTCUSDT-fundingRate-2025-12.zip",
+          "sha256": "35318b789f020b0e04c9043112480743855554e52e1d188437cbdaa67246d51d",
+          "rows": 93
+        },
+        {
+          "file": "BTCUSDT-fundingRate-2026-01.zip",
+          "sha256": "fcdc796484f395830d418588a34a26baed8849dbef0ff2b56173247e493ff51f",
+          "rows": 93
+        },
+        {
+          "file": "BTCUSDT-fundingRate-2026-02.zip",
+          "sha256": "80df1dd669dc1e3afc360c9da8b9a949a127fce088eedbf5bf708bd37b0a1f58",
+          "rows": 84
+        },
+        {
+          "file": "BTCUSDT-fundingRate-2026-03.zip",
+          "sha256": "5c069d5e9597a44fd0e213395082e59ff223fb99c9eab3a2a5a2a5622ba7867c",
+          "rows": 93
+        },
+        {
+          "file": "BTCUSDT-fundingRate-2026-04.zip",
+          "sha256": "51cdeb4de7d5ef1d4eece80b6115e391bdf7a2d0803bf9ad8371ab23340b22d3",
+          "rows": 90
+        },
+        {
+          "file": "BTCUSDT-fundingRate-2026-05.zip",
+          "sha256": "445b65fd6b17bfcfb5e4d035db29fad34f729fa078f0449024db42621be84e6e",
+          "rows": 93
+        },
+        {
+          "file": "BTCUSDT-fundingRate-2026-06.zip",
+          "sha256": "cff97ce688329592bccbbf5873b5c7021649e093f5f5806e332c5b4fb7fd6a00",
+          "rows": 90
+        }
+      ],
+      "rows": 909
+    }
+  },
+  "alignment": {
+    "btc_rows": 87264,
+    "eth_source_rows": 87264,
+    "premium_source_rows": 86976,
+    "eth_exact_missing": 0,
+    "premium_exact_missing": 288,
+    "eth_missing_after_past_fill": 0,
+    "premium_missing_after_past_fill": 276,
+    "eth_coverage_after_past_fill": 1.0,
+    "premium_coverage_after_past_fill": 0.9968371837183718,
+    "alignment_rule": "nearest-5m normalization; past-only ffill; ETH<=15m; premium<=60m",
+    "rows_after_feature_dropna": 77707,
+    "rows_removed_by_feature_dropna": 9557
+  }
+}

@@ -1,0 +1,96 @@
+{
+  "趋势反抽失败空头": {
+    "expert_id": 1,
+    "family": "趋势回踩",
+    "policy_key": "bb4cec4ee8f476c1",
+    "policy": {
+      "expert_id": 1,
+      "risk": {
+        "rr": 1.8,
+        "sl_atr": 1.15,
+        "min_stop_pct": 0.0031,
+        "max_hold": 180,
+        "breakeven_trigger": 0.9,
+        "breakeven_lock": 0.08,
+        "early_bars": 48,
+        "early_cut_r": 0.36
+      },
+      "model": {
+        "max_depth": 3,
+        "learning_rate": 0.025,
+        "max_iter": 260,
+        "l2_regularization": 8.0,
+        "min_samples_leaf": 40
+      },
+      "monthly_target": 4,
+      "min_probability": 0.4,
+      "min_percentile": 0.82
+    },
+    "development_summary": {
+      "trades": 5,
+      "wins": 3,
+      "win_rate": 0.6,
+      "avg_win_R": 1.4775038826835054,
+      "avg_loss_R": 0.7836097320272234,
+      "avg_win_loss_ratio": 1.8855098683641354,
+      "profit_factor": 2.828264802546203,
+      "net_R": 2.865292183996069,
+      "max_drawdown_R": 1.3238284723939617,
+      "expectancy_R": 0.5730584367992139,
+      "shrunk_win_rate": 0.5333333333333333,
+      "wilson_lower": 0.3826400903534617,
+      "active_months": 2,
+      "positive_months": 1,
+      "worst_month_R": -1.3238284723939617,
+      "max_single_month_profit_share": 1.0
+    },
+    "eligible": false
+  },
+  "区间扫低收回多头": {
+    "expert_id": 6,
+    "family": "流动性反转",
+    "policy_key": "d9ea4012ccd54bb6",
+    "policy": {
+      "expert_id": 6,
+      "risk": {
+        "rr": 1.8,
+        "sl_atr": 1.05,
+        "min_stop_pct": 0.003,
+        "max_hold": 144,
+        "breakeven_trigger": 0.85,
+        "breakeven_lock": 0.08,
+        "early_bars": 42,
+        "early_cut_r": 0.32
+      },
+      "model": {
+        "max_depth": 2,
+        "learning_rate": 0.035,
+        "max_iter": 220,
+        "l2_regularization": 7.0,
+        "min_samples_leaf": 28
+      },
+      "monthly_target": 2,
+      "min_probability": 0.4,
+      "min_percentile": 0.72
+    },
+    "development_summary": {
+      "trades": 2,
+      "wins": 1,
+      "win_rate": 0.5,
+      "avg_win_R": 1.464936081531916,
+      "avg_loss_R": 0.25419996525005567,
+      "avg_win_loss_ratio": 5.762927937818021,
+      "profit_factor": 5.762927937818021,
+      "net_R": 1.2107361162818602,
+      "max_drawdown_R": 0.2541999652500557,
+      "expectancy_R": 0.6053680581409301,
+      "shrunk_win_rate": 0.5,
+      "wilson_lower": 0.21132486540518713,
+      "active_months": 1,
+      "positive_months": 1,
+      "worst_month_R": 0.0,
+      "max_single_month_profit_share": 1.0
+    },
+    "eligible": false
+  }
+}
