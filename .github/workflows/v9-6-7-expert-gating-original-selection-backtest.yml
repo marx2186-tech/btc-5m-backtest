@@ -1,0 +1,159 @@
+name: BTC 5m V9.6.7 expert gating original selection validation
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "autonomous_backtest_v9_6_7.py"
+      - "_v967_strategy_core.py"
+      - "_v961_reference_strategy.py"
+      - "_v967_base_engine.py"
+      - "request.v9_6_7.json"
+      - ".github/workflows/v9-6-7-expert-gating-original-selection-backtest.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: btc-5m-v9-6-7-expert-gating-original-selection
+  cancel-in-progress: false
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 420
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install numpy==1.26.4 pandas==2.2.2 requests==2.32.3 numba==0.60.0 scikit-learn==1.5.1 pyyaml==6.0.2
+
+      - name: Verify exact V9.6.7 files
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f autonomous_backtest_v9_6_7.py
+          test -f _v967_strategy_core.py
+          test -f _v961_reference_strategy.py
+          test -f _v967_base_engine.py
+          test -f request.v9_6_7.json
+          test "$(sha256sum autonomous_backtest_v9_6_7.py | awk '{print $1}')" = "9571bac0d6ca53d3c23a9ad33dc1c09e36cde763a59cfbad41921a84f778db7d"
+          test "$(sha256sum _v967_strategy_core.py | awk '{print $1}')" = "cda4bc44f5057e939d1be6da36c06d3a1e293dbbf1c4676624a21e3e88e4f48d"
+          test "$(sha256sum _v961_reference_strategy.py | awk '{print $1}')" = "02515a6429c0e34345191ef7ae7d7d243cfd8b67d6705ad3a9750f6b41c12854"
+          test "$(sha256sum _v967_base_engine.py | awk '{print $1}')" = "c1c6627f3b0b300242feac613a2bba91645ec1d4f4e38006c14c6d3e347f687b"
+          test "$(sha256sum request.v9_6_7.json | awk '{print $1}')" = "dd2cec2006e0e44ebb98e96497f40a84b6083b6fba99b691b3013657aec90e1a"
+          grep -F 'V9.6.7_EXPERT_GATE_ORIGINAL' autonomous_backtest_v9_6_7.py
+          grep -F 'signal_selection_independent_of_tier' request.v9_6_7.json
+          grep -F '"monthly_cap_enabled": false' request.v9_6_7.json
+          grep -F '"cross_trade_cluster_dedup": false' request.v9_6_7.json
+          grep -F 'NO_WINNER_SELECTION_FROM_SEEN_OOS' autonomous_backtest_v9_6_7.py
+
+      - name: Syntax and offline tests
+        shell: bash
+        env:
+          BACKTEST_REQUEST_FILE: request.v9_6_7.json
+        run: |
+          set -euo pipefail
+          python -m py_compile autonomous_backtest_v9_6_7.py _v967_strategy_core.py _v961_reference_strategy.py _v967_base_engine.py
+          python autonomous_backtest_v9_6_7.py --self-test 2>&1 | tee v9-6-7-self-test.log
+          python autonomous_backtest_v9_6_7.py --pipeline-smoke 2>&1 | tee v9-6-7-pipeline-smoke.log
+          python - <<'PYCODE'
+          import json
+          from pathlib import Path
+          import yaml
+          r=json.loads(Path('request.v9_6_7.json').read_text(encoding='utf-8'))
+          assert r['expert_level_gating']['signal_selection_independent_of_tier'] is True
+          assert r['expert_level_gating']['tier_risk_multiplier']['CANDIDATE']==0.0
+          assert r['expert_level_gating']['tier_risk_multiplier']['WATCH']==0.25
+          assert r['expert_level_gating']['tier_risk_multiplier']['QUALIFIED']==1.0
+          assert r['v967_original_lane']['monthly_cap_enabled'] is False
+          assert r['v967_original_lane']['cross_trade_cluster_dedup'] is False
+          assert r['v967_original_lane']['allow_new_signal_after_exit'] is True
+          assert r['quad_track_validation']['winner_selection_enabled'] is False
+          assert len(r['quad_track_validation']['lanes'])==4
+          y=yaml.safe_load(Path('.github/workflows/v9-6-7-expert-gating-original-selection-backtest.yml').read_text(encoding='utf-8'))
+          assert 'backtest' in y['jobs']
+          print('V967_CONFIG_AND_YAML_OK')
+          PYCODE
+
+      - name: Run V9.6.7 real backtest
+        shell: bash
+        env:
+          BACKTEST_REQUEST_FILE: request.v9_6_7.json
+          PYTHONUNBUFFERED: "1"
+        run: |
+          set -o pipefail
+          python autonomous_backtest_v9_6_7.py 2>&1 | tee v9-6-7-run.log
+
+      - name: Upload failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: btc-5m-v9-6-7-failure-diagnostics
+          path: |
+            v9-6-7-self-test.log
+            v9-6-7-pipeline-smoke.log
+            v9-6-7-run.log
+            results_v9_6_7/
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Verify V9.6.7 outputs
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          for f in status.json report.md run_identity.txt expert_tier_audit.csv expert_shadow_trades.csv monthly_sample_validity.csv time_block_validation.csv block_quality_validation.csv bayesian_win_rate_audit.csv best_trade_removal_audit.csv leave_one_month_out_audit.csv profit_concentration_audit.csv blind_evidence_progress.json strategy_snapshot.json snapshot_replay_audit.json v961_reference_reproduction.json signal_stage_attribution.csv january_signal_case_study.csv filter_impact_summary.csv quad_track_development_trades.csv quad_track_oos_shadow.csv quad_track_validation.json quad_lane_candidate_diff.csv original_selection_attribution.csv allocation_rule_audit.csv expert_level_gate_audit.csv signal_selection_independence_audit.json v967_original_shadow_trades.csv v967_research_execution_trades.csv v967_formal_execution_trades.csv selection_rule_delta.json watch_portfolio_trades.csv research_portfolio_trades.csv qualified_portfolio_trades.csv candidate_shadow_trades.csv candidate_support_only_trades.csv sparse_expert_leaderboard.csv parameter_cluster_audit.csv policy_selection_comparison.csv seed_policy_comparison.csv signal_funnel.csv soft_meta_audit.csv selected_policy.json data_audit.json; do
+            test -f "results_v9_6_7/$f"
+          done
+          python - <<'PYCODE'
+          import json
+          from pathlib import Path
+          s=json.loads(Path('results_v9_6_7/status.json').read_text(encoding='utf-8'))
+          q=json.loads(Path('results_v9_6_7/quad_track_validation.json').read_text(encoding='utf-8'))
+          g=json.loads(Path('results_v9_6_7/signal_selection_independence_audit.json').read_text(encoding='utf-8'))
+          r=json.loads(Path('results_v9_6_7/snapshot_replay_audit.json').read_text(encoding='utf-8'))
+          assert s['engine']=='BTC 5m expert-level evidence gating and frozen original selection V9.6.7'
+          assert s['qualified'] is False and s['not_for_live_trading'] is True
+          assert s['quad_track_validation_enabled'] is True
+          assert s['expert_level_gating_enabled'] is True
+          assert s['signal_selection_independent_of_tier'] is True
+          assert s['v967_original_lane_trace_exact'] is True
+          assert s['v967_monthly_cap_enabled'] is False
+          assert s['v967_cross_trade_cluster_dedup'] is False
+          assert q['winner_decision']=='NO_WINNER_SELECTION_FROM_SEEN_OOS'
+          assert len(q['lanes'])==4
+          assert g['signal_selection_independent_of_tier'] is True
+          assert g['candidate_enters_portfolio'] is False
+          assert r['exact_match'] is True
+          assert sum(s['tier_counts'].values())==40
+          print(json.dumps({'tiers':s['tier_counts'],'lanes':list(q['lanes']),'seed_mode':s['v967_seed_execution_mode']},ensure_ascii=False,indent=2))
+          PYCODE
+
+      - name: Upload V9.6.7 results
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: btc-5m-v9-6-7-results
+          path: results_v9_6_7/
+          retention-days: 30
+
+      - name: Commit readable V9.6.7 results
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add results_v9_6_7
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Add V9.6.7 expert-gating result $(date -u +%Y%m%dT%H%M%SZ)-${{ github.run_id }} [skip ci]"
+          git push
