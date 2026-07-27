@@ -1,0 +1,5 @@
+BTC 5m full snapshot reproduction and sparse evidence validation V9.6.4
+output=results_v9_6_4
+oos=2026-06
+snapshot_replay_exact=True
+v961_reference_exact=True
