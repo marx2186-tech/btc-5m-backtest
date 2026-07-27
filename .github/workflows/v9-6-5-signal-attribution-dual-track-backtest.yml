@@ -1,0 +1,148 @@
+name: BTC 5m V9.6.5 signal attribution and dual-track validation
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "autonomous_backtest_v9_6_5.py"
+      - "_v965_strategy_core.py"
+      - "_v961_reference_strategy.py"
+      - "_v965_base_engine.py"
+      - "request.v9_6_5.json"
+      - ".github/workflows/v9-6-5-signal-attribution-dual-track-backtest.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: btc-5m-v9-6-5-signal-attribution-dual-track
+  cancel-in-progress: false
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 420
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install numpy==1.26.4 pandas==2.2.2 requests==2.32.3 numba==0.60.0 scikit-learn==1.5.1 pyyaml==6.0.2
+
+      - name: Verify exact V9.6.5 files
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f autonomous_backtest_v9_6_5.py
+          test -f _v965_strategy_core.py
+          test -f _v961_reference_strategy.py
+          test -f _v965_base_engine.py
+          test -f request.v9_6_5.json
+          test "$(sha256sum autonomous_backtest_v9_6_5.py | awk '{print $1}')" = "f658381e9de4d26681fc5fb3d23d3c958a364cc5a4f14132b22e8ae62d305e2a"
+          test "$(sha256sum _v965_strategy_core.py | awk '{print $1}')" = "db0d904a147bf63429f7663845e3c5ebd43e45e3eb222633ae333b2b0d364ab1"
+          test "$(sha256sum _v961_reference_strategy.py | awk '{print $1}')" = "c257fb089898f6271ccd3c960e7fa0a5e895bfd8b7384ef359e634d9fe5860d6"
+          test "$(sha256sum _v965_base_engine.py | awk '{print $1}')" = "3054c5ac297b41c930a0b3321c54b04527d8f9a1fa190eb859d1ab21347bfde9"
+          test "$(sha256sum request.v9_6_5.json | awk '{print $1}')" = "75e6f1245acc366f9c943f9512b154b4ebf96a8ea8c466e0fa2deb996f40ec81"
+          grep -F 'signal_stage_attribution.csv' autonomous_backtest_v9_6_5.py
+          grep -F 'january_signal_case_study.csv' autonomous_backtest_v9_6_5.py
+          grep -F 'NO_WINNER_SELECTION_FROM_SEEN_OOS' autonomous_backtest_v9_6_5.py
+
+      - name: Syntax and offline tests
+        shell: bash
+        env:
+          BACKTEST_REQUEST_FILE: request.v9_6_5.json
+        run: |
+          set -euo pipefail
+          python -m py_compile autonomous_backtest_v9_6_5.py _v965_strategy_core.py _v961_reference_strategy.py _v965_base_engine.py
+          python autonomous_backtest_v9_6_5.py --self-test 2>&1 | tee v9-6-5-self-test.log
+          python autonomous_backtest_v9_6_5.py --pipeline-smoke 2>&1 | tee v9-6-5-pipeline-smoke.log
+          python - <<'PYCODE'
+          import json
+          from pathlib import Path
+          import yaml
+          r=json.loads(Path('request.v9_6_5.json').read_text(encoding='utf-8'))
+          assert r['model']['base_seed']==20260964
+          assert r['dual_track_validation']['winner_selection_enabled'] is False
+          assert r['dual_track_validation']['seen_oos_must_not_select_winner'] is True
+          assert r['block_validation']['high_win_rate_min']==0.60
+          assert r['watch_gate']['min_high_win_rate_blocks']==1
+          y=yaml.safe_load(Path('.github/workflows/v9-6-5-signal-attribution-dual-track-backtest.yml').read_text(encoding='utf-8'))
+          assert 'backtest' in y['jobs']
+          print('V965_CONFIG_AND_YAML_OK')
+          PYCODE
+
+      - name: Run V9.6.5 real backtest
+        shell: bash
+        env:
+          BACKTEST_REQUEST_FILE: request.v9_6_5.json
+          PYTHONUNBUFFERED: "1"
+        run: |
+          set -o pipefail
+          python autonomous_backtest_v9_6_5.py 2>&1 | tee v9-6-5-run.log
+
+      - name: Upload failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: btc-5m-v9-6-5-failure-diagnostics
+          path: |
+            v9-6-5-self-test.log
+            v9-6-5-pipeline-smoke.log
+            v9-6-5-run.log
+            results_v9_6_5/
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Verify V9.6.5 outputs
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          for f in status.json report.md run_identity.txt expert_tier_audit.csv expert_shadow_trades.csv monthly_sample_validity.csv time_block_validation.csv block_quality_validation.csv bayesian_win_rate_audit.csv best_trade_removal_audit.csv leave_one_month_out_audit.csv profit_concentration_audit.csv blind_evidence_progress.json strategy_snapshot.json snapshot_replay_audit.json v961_reference_reproduction.json v961_vs_v964_signal_diff.csv signal_stage_attribution.csv v961_vs_v964_candidate_diff.csv january_signal_case_study.csv filter_impact_summary.csv dual_track_development_trades.csv dual_track_oos_shadow.csv dual_track_validation.json selection_rule_delta.json watch_portfolio_trades.csv research_portfolio_trades.csv qualified_portfolio_trades.csv candidate_shadow_trades.csv candidate_support_only_trades.csv sparse_expert_leaderboard.csv parameter_cluster_audit.csv policy_selection_comparison.csv seed_policy_comparison.csv signal_funnel.csv soft_meta_audit.csv selected_policy.json data_audit.json; do
+            test -f "results_v9_6_5/$f"
+          done
+          python - <<'PYCODE'
+          import json
+          from pathlib import Path
+          s=json.loads(Path('results_v9_6_5/status.json').read_text(encoding='utf-8'))
+          d=json.loads(Path('results_v9_6_5/dual_track_validation.json').read_text(encoding='utf-8'))
+          r=json.loads(Path('results_v9_6_5/snapshot_replay_audit.json').read_text(encoding='utf-8'))
+          assert s['engine']=='BTC 5m signal attribution and dual-track validation V9.6.5'
+          assert s['qualified'] is False and s['not_for_live_trading'] is True
+          assert s['signal_stage_attribution_enabled'] is True
+          assert s['dual_track_validation_enabled'] is True
+          assert s['winner_selection_enabled'] is False
+          assert s['current_stage_trace_exact'] is True
+          assert s['reference_stage_trace_exact'] is True
+          assert d['winner_decision']=='NO_WINNER_SELECTION_FROM_SEEN_OOS'
+          assert r['exact_match'] is True
+          assert sum(s['tier_counts'].values())==40
+          print(json.dumps({'tiers':s['tier_counts'],'winner_decision':d['winner_decision']},ensure_ascii=False,indent=2))
+          PYCODE
+
+      - name: Upload V9.6.5 results
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: btc-5m-v9-6-5-results
+          path: results_v9_6_5/
+          retention-days: 30
+
+      - name: Commit readable V9.6.5 results
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add results_v9_6_5
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Add V9.6.5 signal attribution result $(date -u +%Y%m%dT%H%M%SZ)-${{ github.run_id }} [skip ci]"
+          git push
