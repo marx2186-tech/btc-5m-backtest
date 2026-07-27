@@ -1,0 +1,209 @@
+name: BTC 5m V9.6.9 expert coverage and unified rating validation
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "autonomous_backtest_v9_6_9.py"
+      - "_v969_strategy_core.py"
+      - "_v961_reference_strategy.py"
+      - "_v969_base_engine.py"
+      - "request.v9_6_9.json"
+      - ".github/workflows/v9-6-9-expert-coverage-unified-rating-backtest.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: btc-5m-v9-6-9-expert-coverage-unified-rating
+  cancel-in-progress: false
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 480
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install numpy==1.26.4 pandas==2.2.2 requests==2.32.3 numba==0.60.0 scikit-learn==1.5.1 pyyaml==6.0.2
+
+      - name: Verify exact V9.6.9 files
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f autonomous_backtest_v9_6_9.py
+          test -f _v969_strategy_core.py
+          test -f _v961_reference_strategy.py
+          test -f _v969_base_engine.py
+          test -f request.v9_6_9.json
+          test "$(sha256sum autonomous_backtest_v9_6_9.py | awk '{print $1}')" = "7a9999c1e8e7b8a46c32b53fe806f8f081b0f0751d45e717c1b4b4cae69a7b28"
+          test "$(sha256sum _v969_strategy_core.py | awk '{print $1}')" = "54a570cdaf8cc56bb93069a5d4bf2cc2dae8dfda4c29e37dcbea38445c88ca0a"
+          test "$(sha256sum _v961_reference_strategy.py | awk '{print $1}')" = "af69970dfb42c91126f9b3d7b1439d951d61e562a2c70a1c2f9858b410627b68"
+          test "$(sha256sum _v969_base_engine.py | awk '{print $1}')" = "bfe74641ed2a6252dcfccb6572145d5b6bbb95079ee1ecd120cf75619cfadfd3"
+          test "$(sha256sum request.v9_6_9.json | awk '{print $1}')" = "eae51d8554e0c1e6de546f54f12e77291e1985a96868b2290491dbf888976cb4"
+          grep -F 'build_unified_rating_shadow' autonomous_backtest_v9_6_9.py
+          grep -F 'EXPERT_COVERAGE' autonomous_backtest_v9_6_9.py
+          grep -F 'V9.6.9_EXTENDED_ORIGINAL' autonomous_backtest_v9_6_9.py
+          grep -F 'rating_data_source_audit.json' autonomous_backtest_v9_6_9.py
+          grep -F 'risk_budget_dual_track_validation.json' autonomous_backtest_v9_6_9.py
+          grep -F 'expert_coverage' request.v9_6_9.json
+          grep -F 'NO_WINNER_SELECTION_FROM_SEEN_OOS' autonomous_backtest_v9_6_9.py
+
+      - name: Syntax and offline tests
+        shell: bash
+        env:
+          BACKTEST_REQUEST_FILE: request.v9_6_9.json
+        run: |
+          set -euo pipefail
+          python -m py_compile autonomous_backtest_v9_6_9.py _v969_strategy_core.py _v961_reference_strategy.py _v969_base_engine.py
+          python autonomous_backtest_v9_6_9.py --self-test 2>&1 | tee v9-6-9-self-test.log
+          python autonomous_backtest_v9_6_9.py --pipeline-smoke 2>&1 | tee v9-6-9-pipeline-smoke.log
+          python - <<'PYCODE'
+          import json
+          from pathlib import Path
+          import yaml
+
+          r = json.loads(Path('request.v9_6_9.json').read_text(encoding='utf-8'))
+          c = r['expert_coverage']
+          required = set(map(int, c['required_expert_ids']))
+          reference = set(map(int, c['v961_reference_ids']))
+          extended = set(map(int, c['extended_original_ids']))
+          assert r['release']['version'] == '9.6.9'
+          assert r['release']['signal_logic_changed'] is False
+          assert reference.isdisjoint(extended)
+          assert reference | extended == required == set(range(40))
+          assert reference == set(range(32))
+          assert extended == set(range(32, 40))
+          assert c['required_expert_count'] == 40
+          assert c['require_complete_expert_coverage'] is True
+          assert c['require_complete_policy_coverage'] is True
+          g = r['expert_level_gating']
+          assert g['signal_selection_independent_of_tier'] is True
+          assert g['rating_ignores_execution_budget'] is True
+          assert 'max_trades_per_month' in g['rating_gate_ignored_fields']
+          assert r['rating_data_source']['forbid_core_fixed_penalty_shadow_for_final_tier'] is True
+          assert r['v969_no_monthly_budget_lane']['monthly_cap_enabled'] is False
+          assert r['v969_no_monthly_budget_lane']['cross_trade_cluster_dedup'] is False
+          assert r['risk_budget_dual_track']['winner_selection_enabled'] is False
+          assert r['quad_track_validation']['winner_selection_enabled'] is False
+          y = yaml.safe_load(Path('.github/workflows/v9-6-9-expert-coverage-unified-rating-backtest.yml').read_text(encoding='utf-8'))
+          assert 'backtest' in y['jobs']
+          print('V969_CONFIG_COVERAGE_AND_YAML_OK')
+          PYCODE
+
+      - name: Run V9.6.9 real backtest
+        shell: bash
+        env:
+          BACKTEST_REQUEST_FILE: request.v9_6_9.json
+          PYTHONUNBUFFERED: "1"
+        run: |
+          set -o pipefail
+          rm -rf results_v9_6_9
+          python autonomous_backtest_v9_6_9.py 2>&1 | tee v9-6-9-run.log
+
+      - name: Upload failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: btc-5m-v9-6-9-failure-diagnostics
+          path: |
+            v9-6-9-self-test.log
+            v9-6-9-pipeline-smoke.log
+            v9-6-9-run.log
+            results_v9_6_9/
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Verify V9.6.9 outputs
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          for f in status.json report.md run_identity.txt expert_tier_audit.csv monthly_sample_validity.csv time_block_validation.csv bayesian_win_rate_audit.csv best_trade_removal_audit.csv leave_one_month_out_audit.csv profit_concentration_audit.csv blind_evidence_progress.json strategy_snapshot.json snapshot_replay_audit.json v961_reference_reproduction.json signal_stage_attribution.csv quad_track_validation.json quad_lane_candidate_diff.csv signal_selection_independence_audit.json expert_level_gate_audit.csv v969_unified_rating_shadow_trades.csv v969_unified_gated_shadow_trades.csv rating_source_policy_coverage.csv rating_source_comparison.csv rating_data_source_audit.json rating_execution_separation_audit.json risk_budget_dual_track_validation.json risk_budget_signal_diff.csv risk_budget_dual_track_development_trades.csv risk_budget_dual_track_oos_shadow.csv v969_research_execution_trades.csv v969_formal_execution_trades.csv watch_portfolio_trades.csv research_portfolio_trades.csv qualified_portfolio_trades.csv sparse_expert_leaderboard.csv parameter_cluster_audit.csv policy_selection_comparison.csv seed_policy_comparison.csv selected_policy.json data_audit.json; do
+            test -f "results_v9_6_9/$f"
+          done
+          python - <<'PYCODE'
+          import json
+          from pathlib import Path
+          import pandas as pd
+
+          root = Path('results_v9_6_9')
+          s = json.loads((root / 'status.json').read_text(encoding='utf-8'))
+          q = json.loads((root / 'quad_track_validation.json').read_text(encoding='utf-8'))
+          d = json.loads((root / 'rating_data_source_audit.json').read_text(encoding='utf-8'))
+          b = json.loads((root / 'risk_budget_dual_track_validation.json').read_text(encoding='utf-8'))
+          g = json.loads((root / 'signal_selection_independence_audit.json').read_text(encoding='utf-8'))
+          r = json.loads((root / 'snapshot_replay_audit.json').read_text(encoding='utf-8'))
+          coverage = pd.read_csv(root / 'rating_source_policy_coverage.csv')
+
+          assert s['engine'] == 'BTC 5m unified rating source and dual risk-budget validation V9.6.9'
+          assert s['release_version'] == '9.6.9'
+          assert s['qualified'] is False and s['not_for_live_trading'] is True
+          assert s['rating_data_source_unified'] is True
+          assert s['rating_source_expert_coverage_complete'] is True
+          assert s['rating_source_policy_coverage_complete'] is True
+          assert s['rating_source_required_expert_count'] == 40
+          assert s['rating_source_covered_expert_count'] == 40
+          assert s['rating_source_matches_no_budget_lane'] is True
+          assert s['rating_metrics_match_no_budget_lane'] is True
+          assert s['rating_ignores_execution_budget'] is True
+          assert s['risk_budget_dual_track_enabled'] is True
+          assert s['risk_budget_winner_selection_enabled'] is False
+          assert s['signal_selection_independent_of_tier'] is True
+          assert d['core_fixed_penalty_shadow_for_final_tier'] is False
+          assert d['expert_id_coverage_complete'] is True
+          assert d['policy_coverage_complete'] is True
+          assert d['required_expert_count'] == 40
+          assert d['covered_expert_count'] == 40
+          assert set(d['required_expert_ids']) == set(range(40))
+          assert set(d['covered_expert_ids']) == set(range(40))
+          assert d['seed_rating_source_matches_no_budget_lane'] is True
+          assert len(coverage) == 40
+          assert coverage['expert_id'].astype(int).nunique() == 40
+          assert coverage['expert_found_in_rating_engine'].astype(bool).all()
+          assert coverage['policy_found_in_rating_engine'].astype(bool).all()
+          assert set(coverage.loc[coverage['expert_id'].astype(int) < 32, 'rating_engine']) == {'V9.6.1_REFERENCE'}
+          assert set(coverage.loc[coverage['expert_id'].astype(int) >= 32, 'rating_engine']) == {'V9.6.9_EXTENDED_ORIGINAL'}
+          assert b['winner_decision'] == 'NO_WINNER_SELECTION_FROM_SEEN_OOS'
+          assert b['rating_is_independent_of_risk_budget'] is True
+          assert q['winner_decision'] == 'NO_WINNER_SELECTION_FROM_SEEN_OOS'
+          assert len(q['lanes']) == 4
+          assert g['signal_selection_independent_of_tier'] is True
+          assert r['exact_match'] is True
+          assert sum(s['tier_counts'].values()) == 40
+          print(json.dumps({
+              'tiers': s['tier_counts'],
+              'covered_experts': s['rating_source_covered_expert_count'],
+              'rating_source': s['rating_source_lane'],
+              'risk_lanes': list(b['lanes'])
+          }, ensure_ascii=False, indent=2))
+          PYCODE
+
+      - name: Upload V9.6.9 results
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: btc-5m-v9-6-9-results
+          path: results_v9_6_9/
+          retention-days: 30
+
+      - name: Commit readable V9.6.9 results
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add results_v9_6_9
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Add V9.6.9 expert-coverage result $(date -u +%Y%m%dT%H%M%SZ)-${{ github.run_id }} [skip ci]"
+          git push
