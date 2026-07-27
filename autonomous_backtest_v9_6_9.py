@@ -432,6 +432,7 @@ def annotate_expert_gate(events: pd.DataFrame, tier: str) -> pd.DataFrame:
 def build_unified_rating_shadow(
     ref: Any,
     rx: pd.DataFrame,
+    extended_x: pd.DataFrame,
     selected_policy_rows: pd.DataFrame,
     months: list[str],
 ) -> tuple[pd.DataFrame, pd.DataFrame]:
@@ -467,6 +468,7 @@ def build_unified_rating_shadow(
                 })
                 continue
             source_mod = ref
+            source_x = rx
             source_engine = "V9.6.1_REFERENCE"
             found_in_v961_reference = True
         elif eid in extended_ids:
@@ -481,6 +483,7 @@ def build_unified_rating_shadow(
                 })
                 continue
             source_mod = core
+            source_x = extended_x
             source_engine = "V9.6.9_EXTENDED_ORIGINAL"
             found_in_v961_reference = False
         else:
@@ -509,7 +512,23 @@ def build_unified_rating_shadow(
             continue
 
         policy = matches[0]
-        trace, selected = trace_no_monthly_budget_lane(source_mod, rx, rexp, policy, months)
+        mask_column = f"sparse_{rexp.key}"
+        feature_frame_column_found = mask_column in source_x.columns
+        if not feature_frame_column_found:
+            missing.append(f"{eid}:{policy_key}:FEATURE_MASK_NOT_FOUND:{source_engine}:{mask_column}")
+            coverage.append({
+                "expert_id": eid, "expert": expert_name, "policy_key": policy_key,
+                "rating_engine": source_engine,
+                "feature_frame": "V9.6.1_REFERENCE_FEATURES" if source_mod is ref else "V9.6.9_EXTENDED_FEATURES",
+                "found_in_v961_reference": found_in_v961_reference,
+                "expert_found_in_rating_engine": True,
+                "policy_found_in_rating_engine": True,
+                "feature_frame_column_found": False,
+                "required_mask_column": mask_column,
+                "raw_candidates": 0, "selected_trades": 0, "signal_fingerprint": ""
+            })
+            continue
+        trace, selected = trace_no_monthly_budget_lane(source_mod, source_x, rexp, policy, months)
         if not selected.empty:
             selected = selected.copy()
             selected["expert_id"] = eid
@@ -522,13 +541,25 @@ def build_unified_rating_shadow(
         coverage.append({
             "expert_id": eid, "expert": expert_name, "policy_key": policy_key,
             "rating_engine": source_engine,
+            "feature_frame": "V9.6.1_REFERENCE_FEATURES" if source_mod is ref else "V9.6.9_EXTENDED_FEATURES",
             "found_in_v961_reference": found_in_v961_reference,
             "expert_found_in_rating_engine": True,
-            "policy_found_in_rating_engine": True, "raw_candidates": int(len(trace)),
+            "policy_found_in_rating_engine": True,
+            "feature_frame_column_found": True,
+            "required_mask_column": mask_column,
+            "raw_candidates": int(len(trace)),
             "selected_trades": int(len(selected)),
             "signal_fingerprint": event_fingerprint(selected)
         })
     coverage_df = pd.DataFrame(coverage)
+    if not coverage_df.empty:
+        if "feature_frame_column_found" not in coverage_df:
+            coverage_df["feature_frame_column_found"] = False
+        coverage_df["feature_frame_column_found"] = coverage_df["feature_frame_column_found"].fillna(False).astype(bool)
+        if "required_mask_column" not in coverage_df:
+            coverage_df["required_mask_column"] = ""
+        if "feature_frame" not in coverage_df:
+            coverage_df["feature_frame"] = ""
     if missing and bool(RATING_SOURCE.get("policy_key_coverage_must_be_complete", True)):
         raise RuntimeError("Reference policy coverage incomplete: " + ",".join(missing))
     shadow = pd.concat(selected_frames, ignore_index=True, sort=False) if selected_frames else pd.DataFrame()
@@ -905,6 +936,39 @@ def rating_source_self_test() -> None:
             assert ref_keys == current_keys and ref_keys
         for eid in sorted(extended_ids):
             assert {str(p.key) for p in core.policy_grid(core.EXPERT_BY_ID[eid])}
+
+        # Production regression: reference experts must replay against the reference
+        # feature frame, while extended experts must replay against the current frame.
+        # Passing ref_x to expert 32 previously raised:
+        # KeyError: sparse_cross_premium_revert_short.
+        raw, eth, premium, funding = core.base.synthetic_inputs(5000)
+        current_x, _ = core.base.add_features(raw.copy(), eth.copy(), premium.copy(), funding.copy())
+        current_x = core.add_sparse_masks(current_x)
+        ref_x, _ = ref_mod.base.add_features(raw.copy(), eth.copy(), premium.copy(), funding.copy())
+        ref_x = ref_mod.add_sparse_masks(ref_x)
+        assert current_x.index.equals(ref_x.index)
+        for eid in sorted(reference_ids):
+            assert f"sparse_{ref_mod.EXPERT_BY_ID[eid].key}" in ref_x.columns
+        for eid in sorted(extended_ids):
+            assert f"sparse_{core.EXPERT_BY_ID[eid].key}" in current_x.columns
+
+        route_rows = pd.DataFrame([
+            {
+                "expert_id": eid,
+                "expert": core.EXPERT_BY_ID[eid].name,
+                "family": core.EXPERT_BY_ID[eid].family,
+                "policy_key": str(core.policy_grid(core.EXPERT_BY_ID[eid])[0].key),
+            }
+            for eid in sorted(required_ids)
+        ])
+        _, route_coverage = build_unified_rating_shadow(ref_mod, ref_x, current_x, route_rows, [])
+        assert len(route_coverage) == len(required_ids) == 40
+        assert route_coverage["expert_id"].astype(int).nunique() == 40
+        assert route_coverage["feature_frame_column_found"].astype(bool).all()
+        assert route_coverage["expert_found_in_rating_engine"].astype(bool).all()
+        assert route_coverage["policy_found_in_rating_engine"].astype(bool).all()
+        assert set(route_coverage["rating_engine"]) == {"V9.6.1_REFERENCE", "V9.6.9_EXTENDED_ORIGINAL"}
+        assert set(route_coverage["feature_frame"]) == {"V9.6.1_REFERENCE_FEATURES", "V9.6.9_EXTENDED_FEATURES"}
     finally:
         selftest_ref_request.unlink(missing_ok=True)
     assert int(EXPERT_COVERAGE["required_expert_count"]) == len(required_ids) == 40
@@ -925,11 +989,17 @@ def main()->None:
     ref_request=ROOT/str(SNAP["reference_request_file"]);ref_request.write_text(json.dumps(REQUEST["legacy_v961_reference_request"],ensure_ascii=False,indent=2),encoding="utf-8")
     ref=import_reference(ref_request)
     rx,ralign=ref.base.add_features(raw,eth,premium,funding);rx=ref.add_sparse_masks(rx)
+    if not x.index.equals(rx.index):
+        raise RuntimeError(
+            "V9.6.9 rating feature-frame index mismatch: "
+            f"extended_rows={len(x)}, reference_rows={len(rx)}, "
+            f"extended_start={x.index.min() if len(x) else None}, reference_start={rx.index.min() if len(rx) else None}"
+        )
 
     # V9.6.9 invariant: final expert evidence is rebuilt from the complete no-monthly-budget
     # original-selection shadow for every selected expert policy. The fixed-penalty core
     # shadow remains policy-selection evidence only and cannot assign the final tier.
-    rating_shadow, coverage_df = build_unified_rating_shadow(ref, rx, initial_tiers, trace_months)
+    rating_shadow, coverage_df = build_unified_rating_shadow(ref, rx, x, initial_tiers, trace_months)
     rating_shadow.to_csv(RESULTS / "v969_unified_rating_shadow_trades.csv", index=False)
     coverage_df.to_csv(RESULTS / "rating_source_policy_coverage.csv", index=False)
 
@@ -1267,6 +1337,7 @@ def main()->None:
     required_expert_ids = {int(x) for x in EXPERT_COVERAGE["required_expert_ids"]}
     covered_expert_ids = set(coverage_df.loc[coverage_df["expert_found_in_rating_engine"].astype(bool), "expert_id"].astype(int)) if not coverage_df.empty else set()
     policy_coverage_complete = bool(coverage_df["policy_found_in_rating_engine"].all()) if not coverage_df.empty else False
+    feature_frame_coverage_complete = bool(coverage_df["feature_frame_column_found"].all()) if not coverage_df.empty else False
     expert_id_coverage_complete = covered_expert_ids == required_expert_ids
     if bool(EXPERT_COVERAGE.get("require_complete_expert_coverage", True)) and not expert_id_coverage_complete:
         missing_ids = sorted(required_expert_ids - covered_expert_ids)
@@ -1274,11 +1345,19 @@ def main()->None:
         raise RuntimeError(f"V9.6.9 expert coverage incomplete: missing={missing_ids}, extra={extra_ids}")
     if bool(EXPERT_COVERAGE.get("require_complete_policy_coverage", True)) and not policy_coverage_complete:
         raise RuntimeError("V9.6.9 policy coverage incomplete; inspect rating_source_policy_coverage.csv")
+    if not feature_frame_coverage_complete:
+        bad = coverage_df.loc[
+            ~coverage_df["feature_frame_column_found"].astype(bool),
+            ["expert_id", "rating_engine", "feature_frame", "required_mask_column"],
+        ].to_dict("records")
+        raise RuntimeError(f"V9.6.9 feature-frame coverage incomplete: {bad}")
     rating_audit={
         "final_rating_source":str(RATING_SOURCE["source_lane"]),
         "core_fixed_penalty_shadow_for_final_tier":False,
         "all_selected_experts_replayed":bool(RATING_SOURCE["all_selected_experts_replayed"]),
         "policy_coverage_complete": policy_coverage_complete,
+        "feature_frame_coverage_complete": feature_frame_coverage_complete,
+        "feature_frame_index_match": True,
         "expert_id_coverage_complete": expert_id_coverage_complete,
         "required_expert_count": int(EXPERT_COVERAGE["required_expert_count"]),
         "covered_expert_count": len(covered_expert_ids),
@@ -1352,6 +1431,8 @@ def main()->None:
         "rating_data_source_unified": True,
         "rating_source_lane": str(RATING_SOURCE["source_lane"]),
         "rating_source_policy_coverage_complete": policy_coverage_complete,
+        "rating_source_feature_frame_coverage_complete": feature_frame_coverage_complete,
+        "rating_source_feature_frame_index_match": True,
         "rating_source_expert_coverage_complete": expert_id_coverage_complete,
         "rating_source_required_expert_count": int(EXPERT_COVERAGE["required_expert_count"]),
         "rating_source_covered_expert_count": len(covered_expert_ids),
