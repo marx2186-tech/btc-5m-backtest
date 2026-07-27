@@ -1,0 +1,254 @@
+{
+  "qualified": false,
+  "research_stage_qualified": false,
+  "final_hard_metrics_passed": false,
+  "not_for_live_trading": true,
+  "fresh_blind_month_required": true,
+  "selection_status": "NO_WATCH_OR_QUALIFIED_EXPERTS",
+  "engine": "BTC 5m watch-first expert cultivation pool V9.6.2",
+  "architecture": "40 specific sparse experts -> candidate pure shadow -> WATCH/QUALIFIED research execution -> finite-sample utility penalty -> separate candidate SUPPORT experiment -> formal portfolio only after 3 qualified experts",
+  "tier_counts": {
+    "QUALIFIED": 0,
+    "WATCH": 0,
+    "CANDIDATE": 3,
+    "REJECTED": 37
+  },
+  "selected_research_expert_count": 0,
+  "selected_qualified_expert_count": 0,
+  "candidate_experts_excluded_from_research": true,
+  "selected_experts": {
+    "research_watch_and_qualified_only": {},
+    "qualified": {}
+  },
+  "watch_portfolio_monthly_stats": {
+    "2026-05": {
+      "trades": 0,
+      "wins": 0,
+      "win_rate": 0.0,
+      "avg_win_R": 0.0,
+      "avg_loss_R": 0.0,
+      "avg_win_loss_ratio": 0.0,
+      "profit_factor": 0.0,
+      "net_R": 0.0,
+      "max_drawdown_R": 0.0,
+      "expectancy_R": 0.0
+    },
+    "2026-06": {
+      "trades": 0,
+      "wins": 0,
+      "win_rate": 0.0,
+      "avg_win_R": 0.0,
+      "avg_loss_R": 0.0,
+      "avg_win_loss_ratio": 0.0,
+      "profit_factor": 0.0,
+      "net_R": 0.0,
+      "max_drawdown_R": 0.0,
+      "expectancy_R": 0.0
+    }
+  },
+  "research_portfolio_monthly_stats": {
+    "2026-05": {
+      "trades": 0,
+      "wins": 0,
+      "win_rate": 0.0,
+      "avg_win_R": 0.0,
+      "avg_loss_R": 0.0,
+      "avg_win_loss_ratio": 0.0,
+      "profit_factor": 0.0,
+      "net_R": 0.0,
+      "max_drawdown_R": 0.0,
+      "expectancy_R": 0.0
+    },
+    "2026-06": {
+      "trades": 0,
+      "wins": 0,
+      "win_rate": 0.0,
+      "avg_win_R": 0.0,
+      "avg_loss_R": 0.0,
+      "avg_win_loss_ratio": 0.0,
+      "profit_factor": 0.0,
+      "net_R": 0.0,
+      "max_drawdown_R": 0.0,
+      "expectancy_R": 0.0
+    }
+  },
+  "qualified_portfolio_monthly_stats": {
+    "2026-05": {
+      "trades": 0,
+      "wins": 0,
+      "win_rate": 0.0,
+      "avg_win_R": 0.0,
+      "avg_loss_R": 0.0,
+      "avg_win_loss_ratio": 0.0,
+      "profit_factor": 0.0,
+      "net_R": 0.0,
+      "max_drawdown_R": 0.0,
+      "expectancy_R": 0.0
+    },
+    "2026-06": {
+      "trades": 0,
+      "wins": 0,
+      "win_rate": 0.0,
+      "avg_win_R": 0.0,
+      "avg_loss_R": 0.0,
+      "avg_win_loss_ratio": 0.0,
+      "profit_factor": 0.0,
+      "net_R": 0.0,
+      "max_drawdown_R": 0.0,
+      "expectancy_R": 0.0
+    }
+  },
+  "candidate_support_only_monthly_stats": {
+    "2026-05": {
+      "trades": 0,
+      "wins": 0,
+      "win_rate": 0.0,
+      "avg_win_R": 0.0,
+      "avg_loss_R": 0.0,
+      "avg_win_loss_ratio": 0.0,
+      "profit_factor": 0.0,
+      "net_R": 0.0,
+      "max_drawdown_R": 0.0,
+      "expectancy_R": 0.0
+    },
+    "2026-06": {
+      "trades": 0,
+      "wins": 0,
+      "win_rate": 0.0,
+      "avg_win_R": 0.0,
+      "avg_loss_R": 0.0,
+      "avg_win_loss_ratio": 0.0,
+      "profit_factor": 0.0,
+      "net_R": 0.0,
+      "max_drawdown_R": 0.0,
+      "expectancy_R": 0.0
+    }
+  },
+  "development_months": [
+    "2025-05",
+    "2025-06",
+    "2025-07",
+    "2025-08",
+    "2025-09",
+    "2025-10",
+    "2025-11",
+    "2025-12",
+    "2026-01",
+    "2026-02",
+    "2026-03",
+    "2026-04",
+    "2026-05"
+  ],
+  "constraints": {
+    "candidate_gate": {
+      "min_total_trades": 3,
+      "min_active_months": 2,
+      "min_profit_factor": 1.15,
+      "min_avg_win_loss_ratio": 1.3,
+      "min_net_r": 0.0,
+      "max_worst_month_loss_r": 1.8,
+      "max_trades_per_month": 4
+    },
+    "watch_gate": {
+      "min_total_trades": 6,
+      "min_active_months": 3,
+      "min_positive_months": 2,
+      "min_shrunk_win_rate": 0.52,
+      "min_profit_factor": 1.3,
+      "min_avg_win_loss_ratio": 1.3,
+      "min_net_r": 0.0,
+      "max_drawdown_r": 3.5,
+      "max_worst_month_loss_r": 1.6,
+      "max_single_month_profit_share": 0.75,
+      "max_trades_per_month": 4
+    },
+    "qualified_gate": {
+      "min_total_trades": 10,
+      "max_total_trades": 36,
+      "min_active_months": 4,
+      "min_positive_months": 3,
+      "min_raw_win_rate": 0.6,
+      "min_shrunk_win_rate": 0.56,
+      "min_wilson_lower": 0.45,
+      "min_profit_factor": 1.5,
+      "min_avg_win_loss_ratio": 1.5,
+      "min_net_r": 0.0,
+      "max_drawdown_r": 2.5,
+      "max_worst_month_loss_r": 1.5,
+      "max_single_month_profit_share": 0.6,
+      "max_trades_per_month": 4
+    },
+    "research_stage": {
+      "min_trades": 6,
+      "max_trades": 12,
+      "min_win_rate": 0.6,
+      "min_avg_win_loss_ratio": 1.5,
+      "min_profit_factor": 1.5,
+      "max_drawdown_r": 3.0,
+      "min_active_experts": 3,
+      "max_single_expert_trade_share": 0.4
+    },
+    "final_target": {
+      "min_trades": 15,
+      "max_trades": 30,
+      "min_win_rate": 0.7,
+      "min_avg_win_loss_ratio": 1.5
+    },
+    "portfolio": {
+      "research_min_experts": 1,
+      "qualified_min_experts": 3,
+      "max_experts": 8,
+      "max_pair_signal_overlap": 0.35,
+      "max_pair_loss_overlap": 0.4,
+      "max_pair_return_correlation": 0.6,
+      "dedup_window_bars": 1,
+      "direction_conflict_score_margin": 0.08,
+      "max_trades_per_day": 2,
+      "max_trades_per_expert_day": 1,
+      "max_trades_per_setup_day": 1,
+      "max_consecutive_losses_expert_day": 2,
+      "candidate_shadow_only": true,
+      "watch_and_qualified_only_in_research": true
+    },
+    "model": {
+      "calibration_min_rows": 12,
+      "calibration_min_class": 2,
+      "online_rank_window": 600,
+      "online_rank_min_history": 18,
+      "probability_shrinkage": 0.15,
+      "stability_prior_trades": 8,
+      "meta_blend_weight": 0.25,
+      "meta_hard_reject_probability": 0.3,
+      "meta_support_probability": 0.52,
+      "meta_support_micro": 0.42,
+      "minimum_router_confidence": 0.34,
+      "hard_negative_utility_r": -0.1,
+      "utility_uncertainty_penalty": 0.1,
+      "base_seed": 20260962,
+      "sample_uncertainty_penalty": 0.55,
+      "watch_neutral_min_meta": 0.44,
+      "watch_neutral_min_utility_r": 0.08,
+      "qualified_neutral_min_meta": 0.4,
+      "qualified_neutral_min_utility_r": 0.02,
+      "candidate_support_min_meta": 0.58,
+      "candidate_support_min_utility_r": 0.12,
+      "candidate_support_min_percentile": 0.9
+    },
+    "robustness": {
+      "seed_expert_id": 21,
+      "minimum_policy_neighbors": 3,
+      "minimum_positive_neighbor_share": 0.5,
+      "leave_one_active_month_out": true,
+      "candidate_support_only_is_experimental": true
+    }
+  },
+  "oos_isolation": {
+    "used_for_training": false,
+    "used_for_thresholds": false,
+    "used_for_expert_selection": false,
+    "used_for_portfolio_selection": false,
+    "evaluation_occurs_after_policy_freeze": true
+  },
+  "searched_experts": 40,
+  "searched_policies": 960
+}
