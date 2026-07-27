@@ -1,0 +1,9 @@
+BTC 5m uncertainty shrinkage and triple-track blind validation V9.6.6
+output=results_v9_6_6
+oos=2026-06
+snapshot_replay_exact=True
+v961_reference_exact=True
+fixed_stage_trace_exact=True
+reference_stage_trace_exact=True
+shrinkage_stage_trace_exact=True
+winner_selection_enabled=False

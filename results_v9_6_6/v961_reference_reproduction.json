@@ -1,0 +1,25 @@
+{
+  "reference_engine": "V9.6.1 exact code lane",
+  "policy_key": "fca571982b7c88a0",
+  "expected_historical_summary": {
+    "trades": 7,
+    "wins": 5,
+    "win_rate": 0.7142857142857143,
+    "net_R": 6.862194858172823
+  },
+  "reproduced_summary": {
+    "trades": 7,
+    "wins": 5,
+    "win_rate": 0.7142857142857143,
+    "avg_win_R": 1.864239152287175,
+    "avg_loss_R": 1.2295004516315258,
+    "avg_win_loss_ratio": 1.5162573952806297,
+    "profit_factor": 3.7906434882015745,
+    "net_R": 6.862194858172823,
+    "max_drawdown_R": 1.2643270542932266,
+    "expectancy_R": 0.9803135511675461
+  },
+  "exact_historical_summary_match": true,
+  "reference_signal_fingerprint": "4229926a4210bf86419a4f6a2160dbdaad59fb842ebd2add69c89b0df87e2061",
+  "current_v964_signal_fingerprint": "d9378330d69171528c855fd8c7574884a99a83c05d183a40c1c69a66d90dbb1d"
+}

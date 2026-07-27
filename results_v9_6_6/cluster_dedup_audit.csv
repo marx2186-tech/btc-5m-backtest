@@ -1,0 +1,2 @@
+month,signal_i,exit_i,day,net_r,win,probability,online_percentile,meta_probability,meta_decision,raw_expected_utility,evidence_weight,calibration_weight,reliability_weight,evidence_utility,signal_class,allocation_bucket,selected,first_reject_stage
+2026-01,87305,87322,2026-01-05,1.8321953397565938,True,0.36760392815462356,0.96,0.32070566074460527,NEUTRAL,0.10575717534776796,0.4782608695652174,0.65,0.31086956521739134,0.03287668711898004,NEUTRAL,NEUTRAL,False,MARKET_CLUSTER_DUPLICATE
