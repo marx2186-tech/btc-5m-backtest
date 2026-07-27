@@ -1,0 +1,169 @@
+name: BTC 5m V9.6.8 unified rating and dual risk-budget validation
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "autonomous_backtest_v9_6_8.py"
+      - "_v968_strategy_core.py"
+      - "_v961_reference_strategy.py"
+      - "_v968_base_engine.py"
+      - "request.v9_6_8.json"
+      - ".github/workflows/v9-6-8-unified-rating-dual-budget-backtest.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: btc-5m-v9-6-8-unified-rating-dual-budget
+  cancel-in-progress: false
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 480
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install numpy==1.26.4 pandas==2.2.2 requests==2.32.3 numba==0.60.0 scikit-learn==1.5.1 pyyaml==6.0.2
+
+      - name: Verify exact V9.6.8 files
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f autonomous_backtest_v9_6_8.py
+          test -f _v968_strategy_core.py
+          test -f _v961_reference_strategy.py
+          test -f _v968_base_engine.py
+          test -f request.v9_6_8.json
+          test "$(sha256sum autonomous_backtest_v9_6_8.py | awk '{print $1}')" = "ee52010920c973b01e43236df56a4e62e6fb7155ddf6a5e84cc8132e95c4d027"
+          test "$(sha256sum _v968_strategy_core.py | awk '{print $1}')" = "2e5815185cfd6ac8f4a14e05f78a7021d3191aff0c427688db019d841c9f8865"
+          test "$(sha256sum _v961_reference_strategy.py | awk '{print $1}')" = "d75ebb0475ca7004e9bbafca1d3da45fee31f880a5c59ba1d2e3858376ac2417"
+          test "$(sha256sum _v968_base_engine.py | awk '{print $1}')" = "e8f3550de10cd5dd45b766391d1815fdc5df2b18f5fac4bfde303e941c51ebae"
+          test "$(sha256sum request.v9_6_8.json | awk '{print $1}')" = "f3a8dddd453f3684afe21809b86169b1b0cfa5db8017f78310967ca0239e7e99"
+          grep -F 'build_unified_rating_shadow' autonomous_backtest_v9_6_8.py
+          grep -F 'rating_data_source_audit.json' autonomous_backtest_v9_6_8.py
+          grep -F 'risk_budget_dual_track_validation.json' autonomous_backtest_v9_6_8.py
+          grep -F 'rating_gate_ignored_fields' request.v9_6_8.json
+          grep -F 'forbid_core_fixed_penalty_shadow_for_final_tier' request.v9_6_8.json
+          grep -F 'NO_WINNER_SELECTION_FROM_SEEN_OOS' autonomous_backtest_v9_6_8.py
+
+      - name: Syntax and offline tests
+        shell: bash
+        env:
+          BACKTEST_REQUEST_FILE: request.v9_6_8.json
+        run: |
+          set -euo pipefail
+          python -m py_compile autonomous_backtest_v9_6_8.py _v968_strategy_core.py _v961_reference_strategy.py _v968_base_engine.py
+          python autonomous_backtest_v9_6_8.py --self-test 2>&1 | tee v9-6-8-self-test.log
+          python autonomous_backtest_v9_6_8.py --pipeline-smoke 2>&1 | tee v9-6-8-pipeline-smoke.log
+          python - <<'PYCODE'
+          import json
+          from pathlib import Path
+          import yaml
+          r=json.loads(Path('request.v9_6_8.json').read_text(encoding='utf-8'))
+          g=r['expert_level_gating']
+          assert g['signal_selection_independent_of_tier'] is True
+          assert g['rating_ignores_execution_budget'] is True
+          assert 'max_trades_per_month' in g['rating_gate_ignored_fields']
+          assert r['rating_data_source']['forbid_core_fixed_penalty_shadow_for_final_tier'] is True
+          assert r['rating_data_source']['all_selected_experts_replayed'] is True
+          assert r['v968_no_monthly_budget_lane']['monthly_cap_enabled'] is False
+          assert r['v968_no_monthly_budget_lane']['cross_trade_cluster_dedup'] is False
+          assert r['risk_budget_dual_track']['winner_selection_enabled'] is False
+          assert r['quad_track_validation']['winner_selection_enabled'] is False
+          y=yaml.safe_load(Path('.github/workflows/v9-6-8-unified-rating-dual-budget-backtest.yml').read_text(encoding='utf-8'))
+          assert 'backtest' in y['jobs']
+          print('V968_CONFIG_AND_YAML_OK')
+          PYCODE
+
+      - name: Run V9.6.8 real backtest
+        shell: bash
+        env:
+          BACKTEST_REQUEST_FILE: request.v9_6_8.json
+          PYTHONUNBUFFERED: "1"
+        run: |
+          set -o pipefail
+          python autonomous_backtest_v9_6_8.py 2>&1 | tee v9-6-8-run.log
+
+      - name: Upload failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: btc-5m-v9-6-8-failure-diagnostics
+          path: |
+            v9-6-8-self-test.log
+            v9-6-8-pipeline-smoke.log
+            v9-6-8-run.log
+            results_v9_6_8/
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Verify V9.6.8 outputs
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          for f in status.json report.md run_identity.txt expert_tier_audit.csv monthly_sample_validity.csv time_block_validation.csv bayesian_win_rate_audit.csv best_trade_removal_audit.csv leave_one_month_out_audit.csv profit_concentration_audit.csv blind_evidence_progress.json strategy_snapshot.json snapshot_replay_audit.json v961_reference_reproduction.json signal_stage_attribution.csv quad_track_validation.json quad_lane_candidate_diff.csv signal_selection_independence_audit.json expert_level_gate_audit.csv v968_unified_rating_shadow_trades.csv v968_unified_gated_shadow_trades.csv rating_source_policy_coverage.csv rating_source_comparison.csv rating_data_source_audit.json rating_execution_separation_audit.json risk_budget_dual_track_validation.json risk_budget_signal_diff.csv risk_budget_dual_track_development_trades.csv risk_budget_dual_track_oos_shadow.csv v968_research_execution_trades.csv v968_formal_execution_trades.csv watch_portfolio_trades.csv research_portfolio_trades.csv qualified_portfolio_trades.csv sparse_expert_leaderboard.csv parameter_cluster_audit.csv policy_selection_comparison.csv seed_policy_comparison.csv selected_policy.json data_audit.json; do
+            test -f "results_v9_6_8/$f"
+          done
+          python - <<'PYCODE'
+          import json
+          from pathlib import Path
+          s=json.loads(Path('results_v9_6_8/status.json').read_text(encoding='utf-8'))
+          q=json.loads(Path('results_v9_6_8/quad_track_validation.json').read_text(encoding='utf-8'))
+          d=json.loads(Path('results_v9_6_8/rating_data_source_audit.json').read_text(encoding='utf-8'))
+          b=json.loads(Path('results_v9_6_8/risk_budget_dual_track_validation.json').read_text(encoding='utf-8'))
+          g=json.loads(Path('results_v9_6_8/signal_selection_independence_audit.json').read_text(encoding='utf-8'))
+          r=json.loads(Path('results_v9_6_8/snapshot_replay_audit.json').read_text(encoding='utf-8'))
+          assert s['engine']=='BTC 5m unified rating source and dual risk-budget validation V9.6.8'
+          assert s['qualified'] is False and s['not_for_live_trading'] is True
+          assert s['rating_data_source_unified'] is True
+          assert s['rating_source_policy_coverage_complete'] is True
+          assert s['rating_source_matches_no_budget_lane'] is True
+          assert s['rating_metrics_match_no_budget_lane'] is True
+          assert s['rating_ignores_execution_budget'] is True
+          assert s['risk_budget_dual_track_enabled'] is True
+          assert s['risk_budget_winner_selection_enabled'] is False
+          assert s['signal_selection_independent_of_tier'] is True
+          assert d['core_fixed_penalty_shadow_for_final_tier'] is False
+          assert d['policy_coverage_complete'] is True
+          assert d['seed_rating_source_matches_no_budget_lane'] is True
+          assert b['winner_decision']=='NO_WINNER_SELECTION_FROM_SEEN_OOS'
+          assert b['rating_is_independent_of_risk_budget'] is True
+          assert q['winner_decision']=='NO_WINNER_SELECTION_FROM_SEEN_OOS'
+          assert len(q['lanes'])==4
+          assert g['signal_selection_independent_of_tier'] is True
+          assert r['exact_match'] is True
+          assert sum(s['tier_counts'].values())==40
+          print(json.dumps({'tiers':s['tier_counts'],'rating_source':s['rating_source_lane'],'risk_lanes':list(b['lanes'])},ensure_ascii=False,indent=2))
+          PYCODE
+
+      - name: Upload V9.6.8 results
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: btc-5m-v9-6-8-results
+          path: results_v9_6_8/
+          retention-days: 30
+
+      - name: Commit readable V9.6.8 results
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add results_v9_6_8
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Add V9.6.8 unified-rating result $(date -u +%Y%m%dT%H%M%SZ)-${{ github.run_id }} [skip ci]"
+          git push
