@@ -1,0 +1,13 @@
+BTC 5m expert-level evidence gating and frozen original selection V9.6.7
+output=results_v9_6_7
+oos=2026-06
+snapshot_replay_exact=True
+v961_reference_exact=True
+fixed_stage_trace_exact=True
+reference_stage_trace_exact=True
+shrinkage_stage_trace_exact=True
+v967_stage_trace_exact=True
+signal_selection_independent_of_tier=True
+monthly_cap_enabled=False
+cross_trade_cluster_dedup=False
+winner_selection_enabled=False

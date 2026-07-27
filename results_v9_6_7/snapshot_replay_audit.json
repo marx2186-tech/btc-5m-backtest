@@ -1,0 +1,30 @@
+{
+  "policy_key": "fca571982b7c88a0",
+  "original_signal_fingerprint": "d9378330d69171528c855fd8c7574884a99a83c05d183a40c1c69a66d90dbb1d",
+  "replay_signal_fingerprint": "d9378330d69171528c855fd8c7574884a99a83c05d183a40c1c69a66d90dbb1d",
+  "exact_match": true,
+  "original_metrics": {
+    "trades": 6,
+    "wins": 3,
+    "win_rate": 0.5,
+    "avg_win_R": 1.8684002111775857,
+    "avg_loss_R": 0.8471456269773373,
+    "avg_win_loss_ratio": 2.205524235359795,
+    "profit_factor": 2.205524235359795,
+    "net_R": 3.063763752600745,
+    "max_drawdown_R": 1.3467630319621868,
+    "expectancy_R": 0.5106272921001241
+  },
+  "replay_metrics": {
+    "trades": 6,
+    "wins": 3,
+    "win_rate": 0.5,
+    "avg_win_R": 1.8684002111775857,
+    "avg_loss_R": 0.8471456269773373,
+    "avg_win_loss_ratio": 2.205524235359795,
+    "profit_factor": 2.205524235359795,
+    "net_R": 3.063763752600745,
+    "max_drawdown_R": 1.346763031962187,
+    "expectancy_R": 0.5106272921001241
+  }
+}

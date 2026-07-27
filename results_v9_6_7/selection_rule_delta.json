@@ -1,0 +1,163 @@
+{
+  "V9.6.1_REFERENCE": {
+    "base_seed": 20260961,
+    "sample_uncertainty_penalty": 0.0,
+    "policy": {
+      "expert_id": 21,
+      "risk": {
+        "rr": 2.1,
+        "sl_atr": 1.35,
+        "min_stop_pct": 0.0037,
+        "max_hold": 216,
+        "breakeven_trigger": 1.0,
+        "breakeven_lock": 0.1,
+        "early_bars": 60,
+        "early_cut_r": 0.4
+      },
+      "model": {
+        "max_depth": 2,
+        "learning_rate": 0.03,
+        "max_iter": 220,
+        "l2_regularization": 7.5,
+        "min_samples_leaf": 22
+      },
+      "monthly_target": 3,
+      "min_percentile": 0.8,
+      "min_expected_utility_r": 0.02
+    }
+  },
+  "V9.6.4_FIXED_PENALTY": {
+    "base_seed": 20260964,
+    "sample_uncertainty_penalty": 0.55,
+    "policy": {
+      "expert_id": 21,
+      "risk": {
+        "rr": 2.1,
+        "sl_atr": 1.35,
+        "min_stop_pct": 0.0037,
+        "max_hold": 216,
+        "breakeven_trigger": 1.0,
+        "breakeven_lock": 0.1,
+        "early_bars": 60,
+        "early_cut_r": 0.4
+      },
+      "model": {
+        "max_depth": 2,
+        "learning_rate": 0.03,
+        "max_iter": 220,
+        "l2_regularization": 7.5,
+        "min_samples_leaf": 22
+      },
+      "monthly_target": 3,
+      "min_percentile": 0.8,
+      "min_expected_utility_r": 0.02
+    }
+  },
+  "V9.6.6_EVIDENCE_SHRINKAGE": {
+    "base_seed": 20260964,
+    "sample_uncertainty_mode": "multiplicative_shrinkage_to_zero",
+    "allocation": {
+      "evidence_prior_rows": 24.0,
+      "calibration_weight_floor": 0.65,
+      "brier_penalty_reference": 0.1,
+      "minimum_evidence_utility_r": 0.0,
+      "strong_min_percentile": 0.92,
+      "strong_min_meta_probability": 0.52,
+      "strong_min_evidence_utility_r": 0.08,
+      "strong_monthly_safety_cap": 4,
+      "neutral_monthly_cap": 2,
+      "strong_daily_cap": 1,
+      "neutral_daily_cap": 1,
+      "total_daily_cap": 2,
+      "market_cluster_window_bars": 6,
+      "online_allocation_is_chronological": true,
+      "strong_signals_bypass_neutral_quota": true,
+      "sample_uncertainty_mode": "multiplicative_shrinkage_to_zero",
+      "fixed_sample_penalty_r": 0.0
+    },
+    "policy": {
+      "expert_id": 21,
+      "risk": {
+        "rr": 2.1,
+        "sl_atr": 1.35,
+        "min_stop_pct": 0.0037,
+        "max_hold": 216,
+        "breakeven_trigger": 1.0,
+        "breakeven_lock": 0.1,
+        "early_bars": 60,
+        "early_cut_r": 0.4
+      },
+      "model": {
+        "max_depth": 2,
+        "learning_rate": 0.03,
+        "max_iter": 220,
+        "l2_regularization": 7.5,
+        "min_samples_leaf": 22
+      },
+      "monthly_target": 3,
+      "min_percentile": 0.8,
+      "min_expected_utility_r": 0.02
+    }
+  },
+  "V9.6.7_EXPERT_GATE_ORIGINAL": {
+    "base_seed": 20260961,
+    "signal_selection": {
+      "source_engine": "V9.6.1_REFERENCE",
+      "sample_uncertainty_changes_signal_selection": false,
+      "sample_uncertainty_applies_at_expert_gate_only": true,
+      "online_rank_definition": "original_brier_adjusted_utility",
+      "monthly_cap_enabled": false,
+      "max_trades_per_day": 1,
+      "max_consecutive_losses_per_day": 1,
+      "same_bar_dedup": true,
+      "position_overlap_block": true,
+      "allow_new_signal_after_exit": true,
+      "cross_trade_cluster_dedup": false,
+      "minimum_utility_uses_original_policy": true
+    },
+    "expert_level_gate": {
+      "signal_selection_independent_of_tier": true,
+      "tier_risk_multiplier": {
+        "REJECTED": 0.0,
+        "CANDIDATE": 0.0,
+        "WATCH": 0.25,
+        "QUALIFIED": 1.0
+      },
+      "tier_execution_mode": {
+        "REJECTED": "DISABLED",
+        "CANDIDATE": "PURE_SHADOW",
+        "WATCH": "QUARTER_RISK_RESEARCH_SHADOW",
+        "QUALIFIED": "FULL_RISK_RESEARCH_SHADOW"
+      },
+      "candidate_enters_portfolio": false,
+      "watch_enters_research_only": true,
+      "qualified_required_for_formal": true,
+      "minimum_qualified_experts_for_formal": 3,
+      "risk_multipliers_do_not_change_signal_fingerprint": true
+    },
+    "policy": {
+      "expert_id": 21,
+      "risk": {
+        "rr": 2.1,
+        "sl_atr": 1.35,
+        "min_stop_pct": 0.0037,
+        "max_hold": 216,
+        "breakeven_trigger": 1.0,
+        "breakeven_lock": 0.1,
+        "early_bars": 60,
+        "early_cut_r": 0.4
+      },
+      "model": {
+        "max_depth": 2,
+        "learning_rate": 0.03,
+        "max_iter": 220,
+        "l2_regularization": 7.5,
+        "min_samples_leaf": 22
+      },
+      "monthly_target": 3,
+      "min_percentile": 0.8,
+      "min_expected_utility_r": 0.02
+    }
+  },
+  "winner_selection_from_seen_oos": false
+}
