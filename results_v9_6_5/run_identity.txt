@@ -1,0 +1,8 @@
+BTC 5m signal attribution and dual-track validation V9.6.5
+output=results_v9_6_5
+oos=2026-06
+snapshot_replay_exact=True
+v961_reference_exact=True
+current_stage_trace_exact=True
+reference_stage_trace_exact=True
+winner_selection_enabled=False

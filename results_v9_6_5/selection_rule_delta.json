@@ -1,0 +1,66 @@
+{
+  "V9.6.1_REFERENCE": {
+    "base_seed": 20260961,
+    "sample_uncertainty_penalty": 0.0,
+    "utility_uncertainty_penalty": 0.1,
+    "minimum_router_confidence": 0.34,
+    "hard_negative_utility_r": -0.1,
+    "policy": {
+      "expert_id": 21,
+      "risk": {
+        "rr": 2.1,
+        "sl_atr": 1.35,
+        "min_stop_pct": 0.0037,
+        "max_hold": 216,
+        "breakeven_trigger": 1.0,
+        "breakeven_lock": 0.1,
+        "early_bars": 60,
+        "early_cut_r": 0.4
+      },
+      "model": {
+        "max_depth": 2,
+        "learning_rate": 0.03,
+        "max_iter": 220,
+        "l2_regularization": 7.5,
+        "min_samples_leaf": 22
+      },
+      "monthly_target": 3,
+      "min_percentile": 0.8,
+      "min_expected_utility_r": 0.02
+    }
+  },
+  "V9.6.4_FROZEN": {
+    "base_seed": 20260964,
+    "sample_uncertainty_penalty": 0.55,
+    "utility_uncertainty_penalty": 0.1,
+    "minimum_router_confidence": 0.34,
+    "hard_negative_utility_r": -0.1,
+    "policy": {
+      "expert_id": 21,
+      "risk": {
+        "rr": 2.1,
+        "sl_atr": 1.35,
+        "min_stop_pct": 0.0037,
+        "max_hold": 216,
+        "breakeven_trigger": 1.0,
+        "breakeven_lock": 0.1,
+        "early_bars": 60,
+        "early_cut_r": 0.4
+      },
+      "model": {
+        "max_depth": 2,
+        "learning_rate": 0.03,
+        "max_iter": 220,
+        "l2_regularization": 7.5,
+        "min_samples_leaf": 22
+      },
+      "monthly_target": 3,
+      "min_percentile": 0.8,
+      "min_expected_utility_r": 0.02
+    }
+  },
+  "known_rule_delta": {
+    "sample_uncertainty_penalty_added": 0.55,
+    "winner_selection_from_seen_oos": false
+  }
+}

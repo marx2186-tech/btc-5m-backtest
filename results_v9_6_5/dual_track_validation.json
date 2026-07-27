@@ -1,0 +1,65 @@
+{
+  "winner_selection_enabled": false,
+  "winner_decision": "NO_WINNER_SELECTION_FROM_SEEN_OOS",
+  "reason": "2026-06 has already been inspected and cannot select or tune the winning lane",
+  "lanes": {
+    "V9.6.1_REFERENCE": {
+      "development_metrics": {
+        "trades": 7,
+        "wins": 5,
+        "win_rate": 0.7142857142857143,
+        "avg_win_R": 1.864239152287175,
+        "avg_loss_R": 1.2295004516315258,
+        "avg_win_loss_ratio": 1.5162573952806297,
+        "profit_factor": 3.7906434882015745,
+        "net_R": 6.862194858172823,
+        "max_drawdown_R": 1.2643270542932266,
+        "expectancy_R": 0.9803135511675461
+      },
+      "diagnostic_oos_metrics": {
+        "trades": 0,
+        "wins": 0,
+        "win_rate": 0.0,
+        "avg_win_R": 0.0,
+        "avg_loss_R": 0.0,
+        "avg_win_loss_ratio": 0.0,
+        "profit_factor": 0.0,
+        "net_R": 0.0,
+        "max_drawdown_R": 0.0,
+        "expectancy_R": 0.0
+      },
+      "development_signal_fingerprint": "4229926a4210bf86419a4f6a2160dbdaad59fb842ebd2add69c89b0df87e2061",
+      "stage_trace_exact": true
+    },
+    "V9.6.4_FROZEN": {
+      "development_metrics": {
+        "trades": 6,
+        "wins": 3,
+        "win_rate": 0.5,
+        "avg_win_R": 1.8684002111775857,
+        "avg_loss_R": 0.8471456269773373,
+        "avg_win_loss_ratio": 2.205524235359795,
+        "profit_factor": 2.205524235359795,
+        "net_R": 3.063763752600745,
+        "max_drawdown_R": 1.346763031962187,
+        "expectancy_R": 0.5106272921001241
+      },
+      "diagnostic_oos_metrics": {
+        "trades": 0,
+        "wins": 0,
+        "win_rate": 0.0,
+        "avg_win_R": 0.0,
+        "avg_loss_R": 0.0,
+        "avg_win_loss_ratio": 0.0,
+        "profit_factor": 0.0,
+        "net_R": 0.0,
+        "max_drawdown_R": 0.0,
+        "expectancy_R": 0.0
+      },
+      "development_signal_fingerprint": "d9378330d69171528c855fd8c7574884a99a83c05d183a40c1c69a66d90dbb1d",
+      "stage_trace_exact": true
+    }
+  },
+  "future_decision_rule": "Keep both lanes frozen until a new blind window meets minimum calendar-month and trade-count evidence",
+  "focus_month": "2026-01"
+}
