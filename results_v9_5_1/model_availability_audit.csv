@@ -1,0 +1,7 @@
+model_id,model,family,role,searched_policies,eligible_policies,policies_with_development_trades,raw_structural_candidates_best_policy,best_policy_key,best_total_trades,best_active_months,best_positive_months,best_net_R,best_aggregate_score,fallback_selected,selected_policy_key,selected_development_executable,selection_status,rejection_reason
+0,趋势多头,趋势延续,趋势多头回踩与确认,486,0,0,2089,39c307edcb9bfa80,0,0,0,0.0,-999997911.0,False,,False,INSUFFICIENT_MODEL_DIVERSITY,no_policy_produced_development_trades
+1,趋势空头,趋势延续,趋势空头反抽与确认,486,0,243,2250,d7b1dc9ec5529a35,3,1,0,-2.3233816743385964,-1859.0839878805727,True,d7b1dc9ec5529a35,True,INSUFFICIENT_MODEL_DIVERSITY,selected_executable_safe_fallback
+2,震荡多头反转,区间流动性反转,区间扫低与二次测试多头,486,0,432,444,93f550f2aa2f51b3,9,1,0,-0.5351843093722842,-4.0203798693105455,True,93f550f2aa2f51b3,True,INSUFFICIENT_MODEL_DIVERSITY,selected_executable_safe_fallback
+3,震荡空头反转,区间流动性反转,区间扫高与假突破空头,486,0,0,387,c72af9c1bbc6a659,0,0,0,0.0,-999999613.0,False,,False,INSUFFICIENT_MODEL_DIVERSITY,no_policy_produced_development_trades
+4,高波动多头突破,波动扩张突破,压缩后向上波动扩张,486,0,0,327,6bc4ab50313f2ac7,0,0,0,0.0,-999999673.0,False,,False,INSUFFICIENT_MODEL_DIVERSITY,no_policy_produced_development_trades
+5,高波动空头突破,波动扩张突破,压缩后向下波动扩张,486,0,0,404,b7831e5138638594,0,0,0,0.0,-999999596.0,False,,False,INSUFFICIENT_MODEL_DIVERSITY,no_policy_produced_development_trades

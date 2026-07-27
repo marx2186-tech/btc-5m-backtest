@@ -1,0 +1,662 @@
+{
+  "qualified": false,
+  "research_stage_qualified": false,
+  "final_hard_metrics_passed": false,
+  "safe_degradation_applied": true,
+  "model_diversity_requirement_met": false,
+  "executable_development_models": 2,
+  "selected_executable_development_models": 2,
+  "fresh_blind_month_required": true,
+  "selection_status": "INSUFFICIENT_MODEL_DIVERSITY",
+  "not_for_live_trading": true,
+  "engine": "BTC 5m multi-model routed shadow ensemble V9.5.1",
+  "method": "Regime router plus isolated directional specialists, holdout calibration, micro confirmation, holdout meta filter, causal shadow weighting, deduplication and one-position arbitration",
+  "architecture": "completed 1h/15m router → six isolated specialists → specialist calibration → micro confirmation → meta filter → independent shadow accounts → dedup/conflict arbitration → next 5m open fill",
+  "symbol": "BTCUSDT",
+  "interval": "5m",
+  "months": [
+    "2025-09",
+    "2025-10",
+    "2025-11",
+    "2025-12",
+    "2026-01",
+    "2026-02",
+    "2026-03",
+    "2026-04",
+    "2026-05",
+    "2026-06"
+  ],
+  "oos_month": "2026-06",
+  "oos_isolation": {
+    "used_for_training": false,
+    "used_for_thresholds": false,
+    "used_for_model_selection": false,
+    "used_for_portfolio_selection": false,
+    "evaluation_occurs_after_policy_freeze": true
+  },
+  "constraints": {
+    "final": {
+      "min_trades": 15,
+      "max_trades": 30,
+      "min_win_rate": 0.7,
+      "min_avg_win_loss_ratio": 1.5
+    },
+    "research_stage": {
+      "min_trades": 8,
+      "max_trades": 15,
+      "min_win_rate": 0.6,
+      "min_avg_win_loss_ratio": 1.5,
+      "min_profit_factor": 1.5,
+      "max_drawdown_r": 3.0,
+      "min_active_models": 3,
+      "max_single_model_trade_share": 0.6
+    },
+    "fee_rate_per_side": 0.0005,
+    "slippage_per_fill_usdt": 0.2,
+    "dedup_window_bars": 1,
+    "direction_conflict_utility_margin": 0.08,
+    "minimum_meta_probability": 0.5,
+    "minimum_expected_utility_R": 0.03,
+    "dynamic_weight_bounds": [
+      0.1,
+      0.5
+    ]
+  },
+  "selected_combination_key": "38eb40fbcb8b350c1ff0",
+  "selected_model_policies": {
+    "趋势空头": {
+      "model_id": 1,
+      "family": "趋势延续",
+      "role": "趋势空头反抽与确认",
+      "policy_key": "d7b1dc9ec5529a35",
+      "feature_count": 63,
+      "minimum_calibrated_probability": 0.38,
+      "minimum_online_rank_percentile": 0.7,
+      "minimum_meta_probability": 0.5,
+      "minimum_expected_utility_R": 0.03,
+      "monthly_candidate_target": 6,
+      "cooldown_bars": 1,
+      "risk": {
+        "rr": 1.8,
+        "sl_atr": 1.15,
+        "min_stop_pct": 0.003,
+        "max_hold": 180,
+        "breakeven_trigger": 0.9,
+        "breakeven_lock": 0.08,
+        "early_bars": 48,
+        "early_cut_r": 0.38
+      },
+      "model": {
+        "max_depth": 3,
+        "learning_rate": 0.025,
+        "max_iter": 270,
+        "l2_regularization": 8.0,
+        "min_samples_leaf": 50
+      },
+      "development_executable": true,
+      "selection_role": "executable_safe_fallback"
+    },
+    "震荡多头反转": {
+      "model_id": 2,
+      "family": "区间流动性反转",
+      "role": "区间扫低与二次测试多头",
+      "policy_key": "93f550f2aa2f51b3",
+      "feature_count": 56,
+      "minimum_calibrated_probability": 0.38,
+      "minimum_online_rank_percentile": 0.75,
+      "minimum_meta_probability": 0.5,
+      "minimum_expected_utility_R": 0.03,
+      "monthly_candidate_target": 10,
+      "cooldown_bars": 2,
+      "risk": {
+        "rr": 2.0,
+        "sl_atr": 1.2,
+        "min_stop_pct": 0.0033,
+        "max_hold": 180,
+        "breakeven_trigger": 0.95,
+        "breakeven_lock": 0.1,
+        "early_bars": 48,
+        "early_cut_r": 0.3
+      },
+      "model": {
+        "max_depth": 2,
+        "learning_rate": 0.035,
+        "max_iter": 220,
+        "l2_regularization": 6.0,
+        "min_samples_leaf": 32
+      },
+      "development_executable": true,
+      "selection_role": "executable_safe_fallback"
+    }
+  },
+  "model_elimination": {
+    "趋势多头": {
+      "family": "趋势延续",
+      "role": "趋势多头回踩与确认",
+      "feature_count": 63,
+      "eligible_candidates": 0,
+      "searched_candidates": 486,
+      "best_candidate_eligible": false,
+      "best_candidate_reasons": [
+        "连续两个有机会开发月无交易",
+        "有效开发月份不足",
+        "开发交易样本不足"
+      ],
+      "selected": false
+    },
+    "趋势空头": {
+      "family": "趋势延续",
+      "role": "趋势空头反抽与确认",
+      "feature_count": 63,
+      "eligible_candidates": 0,
+      "searched_candidates": 486,
+      "best_candidate_eligible": false,
+      "best_candidate_reasons": [
+        "连续两个有机会开发月无交易",
+        "有效开发月份不足",
+        "开发交易样本不足"
+      ],
+      "selected": true
+    },
+    "震荡多头反转": {
+      "family": "区间流动性反转",
+      "role": "区间扫低与二次测试多头",
+      "feature_count": 56,
+      "eligible_candidates": 0,
+      "searched_candidates": 486,
+      "best_candidate_eligible": false,
+      "best_candidate_reasons": [
+        "连续两个有机会开发月无交易",
+        "有效开发月份不足",
+        "开发交易样本不足"
+      ],
+      "selected": true
+    },
+    "震荡空头反转": {
+      "family": "区间流动性反转",
+      "role": "区间扫高与假突破空头",
+      "feature_count": 56,
+      "eligible_candidates": 0,
+      "searched_candidates": 486,
+      "best_candidate_eligible": false,
+      "best_candidate_reasons": [
+        "连续两个有机会开发月无交易",
+        "有效开发月份不足",
+        "开发交易样本不足"
+      ],
+      "selected": false
+    },
+    "高波动多头突破": {
+      "family": "波动扩张突破",
+      "role": "压缩后向上波动扩张",
+      "feature_count": 50,
+      "eligible_candidates": 0,
+      "searched_candidates": 486,
+      "best_candidate_eligible": false,
+      "best_candidate_reasons": [
+        "连续两个有机会开发月无交易",
+        "有效开发月份不足",
+        "开发交易样本不足"
+      ],
+      "selected": false
+    },
+    "高波动空头突破": {
+      "family": "波动扩张突破",
+      "role": "压缩后向下波动扩张",
+      "feature_count": 50,
+      "eligible_candidates": 0,
+      "searched_candidates": 486,
+      "best_candidate_eligible": false,
+      "best_candidate_reasons": [
+        "连续两个有机会开发月无交易",
+        "有效开发月份不足",
+        "开发交易样本不足"
+      ],
+      "selected": false
+    }
+  },
+  "development_portfolio_monthly_stats": {
+    "2025-12": {
+      "trades": 0,
+      "wins": 0,
+      "win_rate": 0.0,
+      "avg_win_R": 0.0,
+      "avg_loss_R": 0.0,
+      "avg_win_loss_ratio": 0.0,
+      "profit_factor": 0.0,
+      "net_R": 0.0,
+      "max_drawdown_R": 0.0,
+      "expectancy_R": 0.0
+    },
+    "2026-01": {
+      "trades": 0,
+      "wins": 0,
+      "win_rate": 0.0,
+      "avg_win_R": 0.0,
+      "avg_loss_R": 0.0,
+      "avg_win_loss_ratio": 0.0,
+      "profit_factor": 0.0,
+      "net_R": 0.0,
+      "max_drawdown_R": 0.0,
+      "expectancy_R": 0.0
+    },
+    "2026-02": {
+      "trades": 0,
+      "wins": 0,
+      "win_rate": 0.0,
+      "avg_win_R": 0.0,
+      "avg_loss_R": 0.0,
+      "avg_win_loss_ratio": 0.0,
+      "profit_factor": 0.0,
+      "net_R": 0.0,
+      "max_drawdown_R": 0.0,
+      "expectancy_R": 0.0
+    },
+    "2026-03": {
+      "trades": 0,
+      "wins": 0,
+      "win_rate": 0.0,
+      "avg_win_R": 0.0,
+      "avg_loss_R": 0.0,
+      "avg_win_loss_ratio": 0.0,
+      "profit_factor": 0.0,
+      "net_R": 0.0,
+      "max_drawdown_R": 0.0,
+      "expectancy_R": 0.0
+    },
+    "2026-04": {
+      "trades": 0,
+      "wins": 0,
+      "win_rate": 0.0,
+      "avg_win_R": 0.0,
+      "avg_loss_R": 0.0,
+      "avg_win_loss_ratio": 0.0,
+      "profit_factor": 0.0,
+      "net_R": 0.0,
+      "max_drawdown_R": 0.0,
+      "expectancy_R": 0.0
+    },
+    "2026-05": {
+      "trades": 10,
+      "wins": 3,
+      "win_rate": 0.3,
+      "avg_win_R": 1.6952174254060648,
+      "avg_loss_R": 0.8437732119135075,
+      "avg_win_loss_ratio": 2.0090913073213756,
+      "profit_factor": 0.861039131709161,
+      "net_R": -0.8207602071763591,
+      "max_drawdown_R": 4.399268813593389,
+      "expectancy_R": -0.08207602071763591
+    }
+  },
+  "monthly_stats": {
+    "2026-05": {
+      "trades": 10,
+      "wins": 3,
+      "win_rate": 0.3,
+      "avg_win_R": 1.6952174254060648,
+      "avg_loss_R": 0.8437732119135075,
+      "avg_win_loss_ratio": 2.0090913073213756,
+      "profit_factor": 0.861039131709161,
+      "net_R": -0.8207602071763591,
+      "max_drawdown_R": 4.399268813593389,
+      "expectancy_R": -0.08207602071763591
+    },
+    "2026-06": {
+      "trades": 0,
+      "wins": 0,
+      "win_rate": 0.0,
+      "avg_win_R": 0.0,
+      "avg_loss_R": 0.0,
+      "avg_win_loss_ratio": 0.0,
+      "profit_factor": 0.0,
+      "net_R": 0.0,
+      "max_drawdown_R": 0.0,
+      "expectancy_R": 0.0
+    }
+  },
+  "model_primary_stats": {
+    "2026-05": {
+      "趋势多头": {
+        "trades": 0,
+        "wins": 0,
+        "win_rate": 0.0,
+        "avg_win_R": 0.0,
+        "avg_loss_R": 0.0,
+        "avg_win_loss_ratio": 0.0,
+        "profit_factor": 0.0,
+        "net_R": 0.0,
+        "max_drawdown_R": 0.0,
+        "expectancy_R": 0.0
+      },
+      "趋势空头": {
+        "trades": 2,
+        "wins": 0,
+        "win_rate": 0.0,
+        "avg_win_R": 0.0,
+        "avg_loss_R": 0.7944234056052828,
+        "avg_win_loss_ratio": 0.0,
+        "profit_factor": 0.0,
+        "net_R": -1.5888468112105656,
+        "max_drawdown_R": 1.5888468112105656,
+        "expectancy_R": -0.7944234056052828
+      },
+      "震荡多头反转": {
+        "trades": 8,
+        "wins": 3,
+        "win_rate": 0.375,
+        "avg_win_R": 1.6952174254060648,
+        "avg_loss_R": 0.8635131344367973,
+        "avg_win_loss_ratio": 1.9631634514878846,
+        "profit_factor": 1.177898070892731,
+        "net_R": 0.7680866040342065,
+        "max_drawdown_R": 2.810422002382824,
+        "expectancy_R": 0.09601082550427581
+      },
+      "震荡空头反转": {
+        "trades": 0,
+        "wins": 0,
+        "win_rate": 0.0,
+        "avg_win_R": 0.0,
+        "avg_loss_R": 0.0,
+        "avg_win_loss_ratio": 0.0,
+        "profit_factor": 0.0,
+        "net_R": 0.0,
+        "max_drawdown_R": 0.0,
+        "expectancy_R": 0.0
+      },
+      "高波动多头突破": {
+        "trades": 0,
+        "wins": 0,
+        "win_rate": 0.0,
+        "avg_win_R": 0.0,
+        "avg_loss_R": 0.0,
+        "avg_win_loss_ratio": 0.0,
+        "profit_factor": 0.0,
+        "net_R": 0.0,
+        "max_drawdown_R": 0.0,
+        "expectancy_R": 0.0
+      },
+      "高波动空头突破": {
+        "trades": 0,
+        "wins": 0,
+        "win_rate": 0.0,
+        "avg_win_R": 0.0,
+        "avg_loss_R": 0.0,
+        "avg_win_loss_ratio": 0.0,
+        "profit_factor": 0.0,
+        "net_R": 0.0,
+        "max_drawdown_R": 0.0,
+        "expectancy_R": 0.0
+      }
+    },
+    "2026-06": {
+      "趋势多头": {
+        "trades": 0,
+        "wins": 0,
+        "win_rate": 0.0,
+        "avg_win_R": 0.0,
+        "avg_loss_R": 0.0,
+        "avg_win_loss_ratio": 0.0,
+        "profit_factor": 0.0,
+        "net_R": 0.0,
+        "max_drawdown_R": 0.0,
+        "expectancy_R": 0.0
+      },
+      "趋势空头": {
+        "trades": 0,
+        "wins": 0,
+        "win_rate": 0.0,
+        "avg_win_R": 0.0,
+        "avg_loss_R": 0.0,
+        "avg_win_loss_ratio": 0.0,
+        "profit_factor": 0.0,
+        "net_R": 0.0,
+        "max_drawdown_R": 0.0,
+        "expectancy_R": 0.0
+      },
+      "震荡多头反转": {
+        "trades": 0,
+        "wins": 0,
+        "win_rate": 0.0,
+        "avg_win_R": 0.0,
+        "avg_loss_R": 0.0,
+        "avg_win_loss_ratio": 0.0,
+        "profit_factor": 0.0,
+        "net_R": 0.0,
+        "max_drawdown_R": 0.0,
+        "expectancy_R": 0.0
+      },
+      "震荡空头反转": {
+        "trades": 0,
+        "wins": 0,
+        "win_rate": 0.0,
+        "avg_win_R": 0.0,
+        "avg_loss_R": 0.0,
+        "avg_win_loss_ratio": 0.0,
+        "profit_factor": 0.0,
+        "net_R": 0.0,
+        "max_drawdown_R": 0.0,
+        "expectancy_R": 0.0
+      },
+      "高波动多头突破": {
+        "trades": 0,
+        "wins": 0,
+        "win_rate": 0.0,
+        "avg_win_R": 0.0,
+        "avg_loss_R": 0.0,
+        "avg_win_loss_ratio": 0.0,
+        "profit_factor": 0.0,
+        "net_R": 0.0,
+        "max_drawdown_R": 0.0,
+        "expectancy_R": 0.0
+      },
+      "高波动空头突破": {
+        "trades": 0,
+        "wins": 0,
+        "win_rate": 0.0,
+        "avg_win_R": 0.0,
+        "avg_loss_R": 0.0,
+        "avg_win_loss_ratio": 0.0,
+        "profit_factor": 0.0,
+        "net_R": 0.0,
+        "max_drawdown_R": 0.0,
+        "expectancy_R": 0.0
+      }
+    }
+  },
+  "model_weights": {
+    "2026-05": {
+      "趋势空头": 0.5,
+      "震荡多头反转": 0.5
+    },
+    "2026-06": {
+      "趋势空头": 0.4999824765348454,
+      "震荡多头反转": 0.5000175234651546
+    }
+  },
+  "diversity_audit": {
+    "2026-05": {
+      "max_trades_same_day": 2,
+      "max_trades_same_expert_day": 2,
+      "max_trades_same_setup_day": 1,
+      "active_models": 2,
+      "active_families": 2,
+      "max_single_model_trade_share": 0.8,
+      "model_trade_share": {
+        "趋势空头": 0.2,
+        "震荡多头反转": 0.8
+      },
+      "family_trade_share": {
+        "区间流动性反转": 0.8,
+        "趋势延续": 0.2
+      }
+    },
+    "2026-06": {
+      "max_trades_same_day": 0,
+      "max_trades_same_expert_day": 0,
+      "max_trades_same_setup_day": 0,
+      "active_models": 0,
+      "active_families": 0,
+      "max_single_model_trade_share": 0.0,
+      "model_trade_share": {},
+      "family_trade_share": {}
+    }
+  },
+  "best_shadow_model": {
+    "2026-05": {
+      "model": "震荡多头反转",
+      "trades": 9,
+      "wins": 3,
+      "win_rate": 0.3333333333333333,
+      "avg_win_R": 1.6952174254060648,
+      "avg_loss_R": 0.936806097598413,
+      "avg_win_loss_ratio": 1.8095712973601557,
+      "profit_factor": 0.9047856486800778,
+      "net_R": -0.5351843093722842,
+      "max_drawdown_R": 4.113692915789314,
+      "expectancy_R": -0.059464923263587134
+    },
+    "2026-06": {
+      "model": "趋势空头",
+      "trades": 0,
+      "wins": 0,
+      "win_rate": 0.0,
+      "avg_win_R": 0.0,
+      "avg_loss_R": 0.0,
+      "avg_win_loss_ratio": 0.0,
+      "profit_factor": 0.0,
+      "net_R": 0.0,
+      "max_drawdown_R": 0.0,
+      "expectancy_R": 0.0
+    }
+  },
+  "portfolio_vs_best_shadow": {
+    "2026-05": {
+      "portfolio_net_R": -0.8207602071763591,
+      "best_shadow_net_R": -0.5351843093722842,
+      "portfolio_beats_best_shadow_net_R": false,
+      "portfolio_drawdown": 4.399268813593389,
+      "best_shadow_drawdown": 4.113692915789314
+    },
+    "2026-06": {
+      "portfolio_net_R": 0.0,
+      "best_shadow_net_R": 0.0,
+      "portfolio_beats_best_shadow_net_R": false,
+      "portfolio_drawdown": 0.0,
+      "best_shadow_drawdown": 0.0
+    }
+  },
+  "threshold_audit": {
+    "2026-05": {
+      "趋势空头": {
+        "model_available": true,
+        "training_candidates": 2756,
+        "calibration_month": "2026-04",
+        "calibration_candidates": 238,
+        "calibration_base_rate": 0.3067226890756303,
+        "calibration_brier": 0.19351361161165592,
+        "meta_brier": 0.19767215865614488,
+        "feature_count": 63,
+        "raw_structural_candidates": 370,
+        "probability_threshold": 0.38,
+        "quantile": 0.7,
+        "meta_probability_threshold": 0.5,
+        "expected_utility_threshold": 0.03,
+        "raw_eval_after_probability": 28,
+        "after_meta_filter": 5,
+        "capped_eval_candidates": 5,
+        "after_cooldown": 3,
+        "calibration_score_mean": 0.306726920439773,
+        "eval_score_mean": 0.22441782246975944,
+        "score_drift": -0.08230909797001357
+      },
+      "震荡多头反转": {
+        "model_available": true,
+        "training_candidates": 466,
+        "calibration_month": "2026-04",
+        "calibration_candidates": 53,
+        "calibration_base_rate": 0.4716981132075472,
+        "calibration_brier": 0.24918455706375478,
+        "meta_brier": 0.2466859078447285,
+        "feature_count": 56,
+        "raw_structural_candidates": 90,
+        "probability_threshold": 0.38,
+        "quantile": 0.75,
+        "meta_probability_threshold": 0.5,
+        "expected_utility_threshold": 0.03,
+        "raw_eval_after_probability": 17,
+        "after_meta_filter": 17,
+        "capped_eval_candidates": 10,
+        "after_cooldown": 9,
+        "calibration_score_mean": 0.47168669293995785,
+        "eval_score_mean": 0.47161946767066126,
+        "score_drift": -6.722526929658912e-05
+      }
+    },
+    "2026-06": {
+      "趋势空头": {
+        "model_available": true,
+        "training_candidates": 2994,
+        "calibration_month": "2026-05",
+        "calibration_candidates": 370,
+        "calibration_base_rate": 0.3108108108108108,
+        "calibration_brier": 0.21101535400704755,
+        "meta_brier": 0.2100832962049741,
+        "feature_count": 63,
+        "raw_structural_candidates": 475,
+        "probability_threshold": 0.38,
+        "quantile": 0.7,
+        "meta_probability_threshold": 0.5,
+        "expected_utility_threshold": 0.03,
+        "raw_eval_after_probability": 14,
+        "after_meta_filter": 0,
+        "capped_eval_candidates": 0,
+        "after_cooldown": 0,
+        "calibration_score_mean": 0.31078088104982066,
+        "eval_score_mean": 0.3144732307543741,
+        "score_drift": 0.003692349704553455
+      },
+      "震荡多头反转": {
+        "model_available": true,
+        "training_candidates": 519,
+        "calibration_month": "2026-05",
+        "calibration_candidates": 90,
+        "calibration_base_rate": 0.2222222222222222,
+        "calibration_brier": 0.16691401373785855,
+        "meta_brier": 0.17161483049591436,
+        "feature_count": 56,
+        "raw_structural_candidates": 76,
+        "probability_threshold": 0.38,
+        "quantile": 0.75,
+        "meta_probability_threshold": 0.5,
+        "expected_utility_threshold": 0.03,
+        "raw_eval_after_probability": 0,
+        "after_meta_filter": 0,
+        "capped_eval_candidates": 0,
+        "after_cooldown": 0,
+        "calibration_score_mean": 0.22222587384035009,
+        "eval_score_mean": 0.24463898309793616,
+        "score_drift": 0.022413109257586078
+      }
+    }
+  },
+  "output_files": [
+    "portfolio_trades.csv",
+    "model_shadow_trades.csv",
+    "model_monthly_stats.csv",
+    "model_correlation.csv",
+    "model_contribution.csv",
+    "signal_conflicts.csv",
+    "signal_deduplication.csv",
+    "meta_filter_audit.csv",
+    "regime_router_report.csv",
+    "signal_funnel.csv",
+    "candidate_leaderboard.csv",
+    "expert_candidate_leaderboard.csv",
+    "model_availability_audit.csv"
+  ],
+  "searched_expert_policies": 2916,
+  "searched_valid_combinations": 0,
+  "searched_output_combinations": 1
+}

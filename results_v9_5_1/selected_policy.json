@@ -1,0 +1,66 @@
+{
+  "趋势空头": {
+    "model_id": 1,
+    "family": "趋势延续",
+    "role": "趋势空头反抽与确认",
+    "policy_key": "d7b1dc9ec5529a35",
+    "feature_count": 63,
+    "minimum_calibrated_probability": 0.38,
+    "minimum_online_rank_percentile": 0.7,
+    "minimum_meta_probability": 0.5,
+    "minimum_expected_utility_R": 0.03,
+    "monthly_candidate_target": 6,
+    "cooldown_bars": 1,
+    "risk": {
+      "rr": 1.8,
+      "sl_atr": 1.15,
+      "min_stop_pct": 0.003,
+      "max_hold": 180,
+      "breakeven_trigger": 0.9,
+      "breakeven_lock": 0.08,
+      "early_bars": 48,
+      "early_cut_r": 0.38
+    },
+    "model": {
+      "max_depth": 3,
+      "learning_rate": 0.025,
+      "max_iter": 270,
+      "l2_regularization": 8.0,
+      "min_samples_leaf": 50
+    },
+    "development_executable": true,
+    "selection_role": "executable_safe_fallback"
+  },
+  "震荡多头反转": {
+    "model_id": 2,
+    "family": "区间流动性反转",
+    "role": "区间扫低与二次测试多头",
+    "policy_key": "93f550f2aa2f51b3",
+    "feature_count": 56,
+    "minimum_calibrated_probability": 0.38,
+    "minimum_online_rank_percentile": 0.75,
+    "minimum_meta_probability": 0.5,
+    "minimum_expected_utility_R": 0.03,
+    "monthly_candidate_target": 10,
+    "cooldown_bars": 2,
+    "risk": {
+      "rr": 2.0,
+      "sl_atr": 1.2,
+      "min_stop_pct": 0.0033,
+      "max_hold": 180,
+      "breakeven_trigger": 0.95,
+      "breakeven_lock": 0.1,
+      "early_bars": 48,
+      "early_cut_r": 0.3
+    },
+    "model": {
+      "max_depth": 2,
+      "learning_rate": 0.035,
+      "max_iter": 220,
+      "l2_regularization": 6.0,
+      "min_samples_leaf": 32
+    },
+    "development_executable": true,
+    "selection_role": "executable_safe_fallback"
+  }
+}
