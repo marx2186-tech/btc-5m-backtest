@@ -1,0 +1,43 @@
+{
+  "symbol": "BTCUSDT",
+  "interval": "5m",
+  "months": [
+    "2026-05",
+    "2026-06"
+  ],
+  "fee_rate_per_side": 0.0005,
+  "tick_size": 0.1,
+  "slippage_ticks_per_fill": 2,
+  "min_trades_per_month": 15,
+  "max_trades_per_month": 30,
+  "min_win_rate": 0.7,
+  "min_avg_win_loss_ratio": 1.5,
+  "base_seed": 20260912,
+  "combination_top_per_expert": 4,
+  "combination_beam_width": 500,
+  "diagnostic_top_per_expert": 3,
+  "funnel_min_opportunity_candidates": 6,
+  "calibration_min_rows": 24,
+  "calibration_min_class": 3,
+  "online_rank_window": 500,
+  "online_rank_min_history": 35,
+  "probability_shrinkage": 0.15,
+  "stability_prior_trades": 10,
+  "frequency_target_floor": 10,
+  "adaptive_rank_relaxation": 0.14,
+  "adaptive_rank_min_percentile": 0.55,
+  "adaptive_rank_grace_fraction": 0.18,
+  "direction_conflict_margin": 0.01,
+  "expert_elimination": {
+    "max_consecutive_zero_opportunity_months": 2,
+    "min_floor_win_rate": 0.35,
+    "min_cumulative_win_rate": 0.46,
+    "max_negative_expectancy_months": 3,
+    "min_active_months": 3,
+    "min_total_trades": 12,
+    "min_signal_months": 3,
+    "min_raw_candidates_total": 60,
+    "min_cumulative_profit_factor": 1.0,
+    "min_cumulative_net_r": 0.0
+  }
+}
