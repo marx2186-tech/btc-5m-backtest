@@ -1,0 +1,175 @@
+name: BTC 5m V9.3 frequency-restored backtest
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "autonomous_backtest_v9_3.py"
+      - "request.v9_3.json"
+      - ".github/workflows/v9-3-frequency-restored-backtest.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: btc-5m-v9-3-frequency-restored
+  cancel-in-progress: false
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v6
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install numpy==1.26.4 pandas==2.2.2 requests==2.32.3 numba==0.60.0 scikit-learn==1.5.1 pyyaml==6.0.2
+
+      - name: Verify exact V9.3 source and request
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f autonomous_backtest_v9_3.py
+          test -f request.v9_3.json
+          test -f .github/workflows/v9-3-frequency-restored-backtest.yml
+          script_actual="$(sha256sum autonomous_backtest_v9_3.py | awk '{print $1}')"
+          request_actual="$(sha256sum request.v9_3.json | awk '{print $1}')"
+          script_expected="308f7a03cf57ff576969487918f3ab8e4ea3b21d6be049ae866c37174e3bdc6d"
+          request_expected="6c9d58dddbf48400733f61dbeff78188eec7518e32a7a927732729b2f7bf2caa"
+          echo "script_sha256=$script_actual"
+          echo "request_sha256=$request_actual"
+          test "$script_actual" = "$script_expected"
+          test "$request_actual" = "$request_expected"
+          grep -F 'ENGINE_VERSION = "V9.3"' autonomous_backtest_v9_3.py
+          grep -F 'RESULTS = ROOT / "results_v9_3"' autonomous_backtest_v9_3.py
+          grep -F 'OOS_MONTH = "2026-06"' autonomous_backtest_v9_3.py
+          grep -F 'class CalibratedExpertModel' autonomous_backtest_v9_3.py
+          grep -F 'ADAPTIVE_RANK_RELAXATION' autonomous_backtest_v9_3.py
+          grep -F 'Append only after the decision' autonomous_backtest_v9_3.py
+          grep -F 'def event_strength' autonomous_backtest_v9_3.py
+          grep -F 'assert_oos_isolation' autonomous_backtest_v9_3.py
+
+      - name: Python syntax and offline regression tests
+        shell: bash
+        env:
+          BACKTEST_REQUEST_FILE: request.v9_3.json
+        run: |
+          set -euo pipefail
+          python -m py_compile autonomous_backtest_v9_3.py
+          python autonomous_backtest_v9_3.py --self-test 2>&1 | tee v9-3-self-test.log
+          python - <<'PY'
+          from pathlib import Path
+          import yaml
+          workflow = Path('.github/workflows/v9-3-frequency-restored-backtest.yml')
+          parsed = yaml.safe_load(workflow.read_text(encoding='utf-8'))
+          assert isinstance(parsed, dict)
+          assert 'jobs' in parsed and 'backtest' in parsed['jobs']
+          print('YAML_PARSE_OK')
+          PY
+
+      - name: Run V9.3 backtest
+        shell: bash
+        env:
+          BACKTEST_REQUEST_FILE: request.v9_3.json
+        run: |
+          set -o pipefail
+          python autonomous_backtest_v9_3.py 2>&1 | tee v9-3-run.log
+
+      - name: Upload failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: btc-5m-v9-3-failure-diagnostics
+          path: |
+            v9-3-self-test.log
+            v9-3-run.log
+            results_v9_3/
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Verify V9.3 outputs
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f results_v9_3/status.json
+          test -f results_v9_3/report.md
+          test -f results_v9_3/trades.csv
+          test -f results_v9_3/candidate_leaderboard.csv
+          test -f results_v9_3/expert_candidate_leaderboard.csv
+          test -f results_v9_3/signal_funnel.csv
+          test -f results_v9_3/signal_funnel.json
+          test -f results_v9_3/selected_policy.json
+          test -f results_v9_3/data_audit.json
+          test -f results_v9_3/run_identity.txt
+          grep -F 'BTC 5m frequency-restored calibrated expert ensemble V9.3' results_v9_3/run_identity.txt
+          grep -F 'oos=2026-06' results_v9_3/run_identity.txt
+          grep -F 'output=results_v9_3' results_v9_3/run_identity.txt
+          python - <<'PY'
+          import json
+          from pathlib import Path
+          status = json.loads(Path('results_v9_3/status.json').read_text(encoding='utf-8'))
+          assert status['engine'] == 'BTC 5m frequency-restored calibrated expert ensemble V9.3'
+          assert status['oos_month'] == '2026-06'
+          assert status['selection_status'] in {'VALID_POLICY', 'EXPERIMENTAL_FALLBACK'}
+          if status['selection_status'] == 'EXPERIMENTAL_FALLBACK':
+              assert status['not_for_live_trading'] is True
+              assert status['qualified'] is False
+          isolation = status['oos_isolation']
+          assert isolation['used_for_training'] is False
+          assert isolation['used_for_thresholds'] is False
+          assert isolation['used_for_expert_elimination'] is False
+          assert isolation['used_for_combination_selection'] is False
+          assert isolation['evaluation_occurs_after_policy_freeze'] is True
+          assert isolation['oos_funnel_diagnostics_computed_after_policy_freeze'] is True
+          constraints = status['constraints']
+          assert constraints['fee_rate_per_side'] == 0.0005
+          assert constraints['slippage_per_fill_usdt'] == 0.2
+          assert constraints['online_rank_window'] == 500
+          assert constraints['calibration_min_rows'] == 24
+          assert constraints['adaptive_rank_relaxation'] == 0.14
+          assert constraints['adaptive_rank_min_percentile'] == 0.55
+          assert constraints['frequency_target_floor'] == 10
+          assert set(status['expert_stats']) == {'2026-05', '2026-06'}
+          for month, experts in status['threshold_audit'].items():
+              for name, audit in experts.items():
+                  if audit.get('model_available'):
+                      assert 'calibration_month' in audit
+                      assert 'calibration_brier' in audit
+                      assert 'score_drift' in audit
+                      assert 'minimum_effective_quantile' in audit
+                      assert 'pace_relaxed_passes' in audit
+          print(json.dumps(status['monthly_stats'], ensure_ascii=False, indent=2))
+          PY
+
+      - name: Upload V9.3 result artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: btc-5m-v9-3-results
+          path: results_v9_3/
+          retention-days: 30
+
+      - name: Commit readable V9.3 results
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add results_v9_3
+          if git diff --cached --quiet; then
+            echo "No result changes"
+            exit 0
+          fi
+          git commit -m "Add V9.3 frequency-restored result $(date -u +%Y%m%dT%H%M%SZ)-${{ github.run_id }} [skip ci]"
+          git push
