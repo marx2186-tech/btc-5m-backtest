@@ -1,0 +1,149 @@
+name: BTC 5m V9.6.3 evidence-first policy cluster backtest
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "autonomous_backtest_v9_6_3.py"
+      - "request.v9_6_3.json"
+      - "_v963_base_engine.py"
+      - ".github/workflows/v9-6-3-evidence-first-policy-cluster-backtest.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: btc-5m-v9-6-3-evidence-first-policy-cluster
+  cancel-in-progress: false
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install numpy==1.26.4 pandas==2.2.2 requests==2.32.3 numba==0.60.0 scikit-learn==1.5.1 pyyaml==6.0.2
+
+      - name: Verify exact V9.6.3 files
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -f autonomous_backtest_v9_6_3.py
+          test -f request.v9_6_3.json
+          test -f _v963_base_engine.py
+          test -f .github/workflows/v9-6-3-evidence-first-policy-cluster-backtest.yml
+          test "$(sha256sum autonomous_backtest_v9_6_3.py | awk '{print $1}')" = "683a175ffe0edfeb42e02127bde204830363b994b552b317ec56558bc5a990d4"
+          test "$(sha256sum request.v9_6_3.json | awk '{print $1}')" = "8263937d5804d653b53ae0084cfcbe26eb345464c070caeb4d55663c705b3869"
+          test "$(sha256sum _v963_base_engine.py | awk '{print $1}')" = "3054c5ac297b41c930a0b3321c54b04527d8f9a1fa190eb859d1ab21347bfde9"
+          grep -F 'ENGINE_VERSION = "V9.6.3"' autonomous_backtest_v9_6_3.py
+          grep -F 'RESULTS = ROOT / "results_v9_6_3"' autonomous_backtest_v9_6_3.py
+          grep -F 'select_policy_for_expert' autonomous_backtest_v9_6_3.py
+          grep -F 'parameter_cluster_audit.csv' autonomous_backtest_v9_6_3.py
+          grep -F 'policy_selection_comparison.csv' autonomous_backtest_v9_6_3.py
+          grep -F 'seed_policy_comparison.csv' autonomous_backtest_v9_6_3.py
+          grep -F 'historical_policy_retention_audit.csv' autonomous_backtest_v9_6_3.py
+
+      - name: Syntax and offline architecture tests
+        shell: bash
+        env:
+          BACKTEST_REQUEST_FILE: request.v9_6_3.json
+        run: |
+          set -euo pipefail
+          python -m py_compile autonomous_backtest_v9_6_3.py _v963_base_engine.py
+          python autonomous_backtest_v9_6_3.py --self-test 2>&1 | tee v9-6-3-self-test.log
+          python autonomous_backtest_v9_6_3.py --pipeline-smoke 2>&1 | tee v9-6-3-pipeline-smoke.log
+          python - <<'PYCODE'
+          import json
+          from pathlib import Path
+          import yaml
+          request=json.loads(Path('request.v9_6_3.json').read_text(encoding='utf-8'))
+          assert request['portfolio']['candidate_shadow_only'] is True
+          assert request['portfolio']['watch_and_qualified_only_in_research'] is True
+          assert request['evidence_selection']['seed_expert_id']==21
+          assert 'fca571982b7c88a0' in request['evidence_selection']['preferred_seed_policy_keys']
+          assert request['evidence_selection']['protect_mature_policy'] is True
+          assert request['evidence_selection']['cluster_size']==6
+          parsed=yaml.safe_load(Path('.github/workflows/v9-6-3-evidence-first-policy-cluster-backtest.yml').read_text(encoding='utf-8'))
+          assert 'jobs' in parsed and 'backtest' in parsed['jobs']
+          print('V963_CONFIG_AND_YAML_OK')
+          PYCODE
+
+      - name: Run V9.6.3 real backtest
+        shell: bash
+        env:
+          BACKTEST_REQUEST_FILE: request.v9_6_3.json
+          PYTHONUNBUFFERED: "1"
+        run: |
+          set -o pipefail
+          python autonomous_backtest_v9_6_3.py 2>&1 | tee v9-6-3-run.log
+
+      - name: Upload failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: btc-5m-v9-6-3-failure-diagnostics
+          path: |
+            v9-6-3-self-test.log
+            v9-6-3-pipeline-smoke.log
+            v9-6-3-run.log
+            results_v9_6_3/
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Verify V9.6.3 outputs
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          for f in status.json report.md watch_portfolio_trades.csv research_portfolio_trades.csv qualified_portfolio_trades.csv candidate_shadow_trades.csv candidate_support_only_trades.csv portfolio_trades.csv trades.csv expert_shadow_trades.csv sparse_expert_leaderboard.csv expert_monthly_stats.csv expert_overlap.csv opportunity_coverage.csv selection_audit.csv expert_tier_audit.csv seed_robustness_audit.csv parameter_cluster_audit.csv policy_selection_comparison.csv seed_policy_comparison.csv historical_policy_retention_audit.csv signal_funnel.csv soft_meta_audit.csv cross_month_score_drift.csv signal_deduplication.csv signal_conflicts.csv selected_policy.json data_audit.json run_identity.txt; do
+            test -f "results_v9_6_3/$f"
+          done
+          grep -F 'BTC 5m evidence-first policy cluster validation pool V9.6.3' results_v9_6_3/run_identity.txt
+          grep -F 'oos=2026-06' results_v9_6_3/run_identity.txt
+          python - <<'PYCODE'
+          import json
+          from pathlib import Path
+          s=json.loads(Path('results_v9_6_3/status.json').read_text(encoding='utf-8'))
+          assert s['engine']=='BTC 5m evidence-first policy cluster validation pool V9.6.3'
+          assert s['qualified'] is False
+          assert s['not_for_live_trading'] is True
+          assert s['fresh_blind_month_required'] is True
+          assert s['searched_experts']==40
+          assert s['candidate_experts_excluded_from_research'] is True
+          assert s['evidence_first_policy_selection'] is True
+          assert s['seed_selected_policy_key']
+          assert sum(s['tier_counts'].values())==40
+          selected=s['selected_experts']['research_watch_and_qualified_only']
+          assert all(v['tier'] in {'WATCH','QUALIFIED'} for v in selected.values())
+          print(json.dumps({'tiers':s['tier_counts'],'seed_policy':s['seed_selected_policy_key'],'seed_anchor':s['seed_preferred_anchor_selected'],'protected':s['mature_policy_protected_count'],'cluster_robust':s['cluster_robust_selected_expert_count']},ensure_ascii=False,indent=2))
+          PYCODE
+
+      - name: Upload V9.6.3 results
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: btc-5m-v9-6-3-results
+          path: results_v9_6_3/
+          retention-days: 30
+
+      - name: Commit readable V9.6.3 results
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add results_v9_6_3
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Add V9.6.3 evidence-first policy cluster result $(date -u +%Y%m%dT%H%M%SZ)-${{ github.run_id }} [skip ci]"
+          git push
