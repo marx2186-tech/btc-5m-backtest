@@ -1,0 +1,4 @@
+channel_id,channel_label,profile,signals,long_signals,short_signals,unique_signal_times
+baseline_1h_shared_v10_6,基准·V10.6原1小时多空共享组合 RR2.5,baseline_1h_shared_v10_6,10,7,3,10
+mtf_4h_1h_direct_rr2_0,实验A·4H趋势+1H回踩/突破直接成交 RR2.0,mtf_4h_1h_direct,208,79,129,208
+mtf_4h_1h_15m_precision_rr2_0,实验B·4H趋势+1H确认+15M精确成交 RR2.0,mtf_4h_1h_15m_precision,147,57,90,147

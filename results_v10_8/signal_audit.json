@@ -1,0 +1,42 @@
+{
+  "resample": {
+    "15m_rows": 52416,
+    "1h_rows": 13104,
+    "4h_rows": 3276,
+    "no_lookahead_alignment": "BACKWARD_ASOF_ONLY_CLOSED_BARS"
+  },
+  "channels": [
+    {
+      "channel_id": "baseline_1h_shared_v10_6",
+      "channel_label": "基准·V10.6原1小时多空共享组合 RR2.5",
+      "profile": "baseline_1h_shared_v10_6",
+      "signals": 10,
+      "long_signals": 7,
+      "short_signals": 3,
+      "unique_signal_times": 10
+    },
+    {
+      "channel_id": "mtf_4h_1h_direct_rr2_0",
+      "channel_label": "实验A·4H趋势+1H回踩/突破直接成交 RR2.0",
+      "profile": "mtf_4h_1h_direct",
+      "signals": 208,
+      "long_signals": 79,
+      "short_signals": 129,
+      "unique_signal_times": 208
+    },
+    {
+      "channel_id": "mtf_4h_1h_15m_precision_rr2_0",
+      "channel_label": "实验B·4H趋势+1H确认+15M精确成交 RR2.0",
+      "profile": "mtf_4h_1h_15m_precision",
+      "signals": 147,
+      "long_signals": 57,
+      "short_signals": 90,
+      "unique_signal_times": 147
+    }
+  ],
+  "evaluation_window": {
+    "start_utc": "2026-01-01T00:00:00Z",
+    "end_utc": "2026-06-30T23:59:59Z",
+    "entries_outside_window_are_excluded": true
+  }
+}

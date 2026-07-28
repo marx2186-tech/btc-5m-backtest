@@ -1,0 +1,122 @@
+{
+  "release": {
+    "version": "10.8",
+    "release_type": "four_hour_environment_one_hour_setup_fifteen_minute_precision_entry",
+    "historical_diagnostic_only": true,
+    "parameter_optimization_enabled": false,
+    "winner_selection_enabled": false,
+    "single_predeclared_mtf_structure": true,
+    "no_new_indicator_family": true
+  },
+  "channels": [
+    {
+      "channel_id": "baseline_1h_shared_v10_6",
+      "label": "基准·V10.6原1小时多空共享组合 RR2.5",
+      "profile": "baseline_1h_shared_v10_6",
+      "direction_scope": "BOTH",
+      "stop_atr_multiple": 0.0,
+      "reward_risk": 0.0,
+      "max_holding_hours": 0,
+      "is_baseline": true,
+      "long_component_id": null,
+      "short_component_id": null
+    },
+    {
+      "channel_id": "mtf_4h_1h_direct_rr2_0",
+      "label": "实验A·4H趋势+1H回踩/突破直接成交 RR2.0",
+      "profile": "mtf_4h_1h_direct",
+      "direction_scope": "BOTH",
+      "stop_atr_multiple": 1.25,
+      "reward_risk": 2.0,
+      "max_holding_hours": 48,
+      "is_baseline": false,
+      "long_component_id": null,
+      "short_component_id": null
+    },
+    {
+      "channel_id": "mtf_4h_1h_15m_precision_rr2_0",
+      "label": "实验B·4H趋势+1H确认+15M精确成交 RR2.0",
+      "profile": "mtf_4h_1h_15m_precision",
+      "direction_scope": "BOTH",
+      "stop_atr_multiple": 1.25,
+      "reward_risk": 2.0,
+      "max_holding_hours": 48,
+      "is_baseline": false,
+      "long_component_id": null,
+      "short_component_id": null
+    }
+  ],
+  "multi_timeframe_parameters": {
+    "four_hour_environment": {
+      "ema_fast": 20,
+      "ema_slow": 50,
+      "minimum_adx14": 18.0,
+      "minimum_abs_ema50_slope_3_atr": 0.02,
+      "require_directional_index_confirmation": true,
+      "long_requires_close_above_ema50": true,
+      "short_requires_close_below_ema50": true
+    },
+    "one_hour_setup": {
+      "pullback_near_ema_atr": 0.35,
+      "ema50_structure_tolerance_atr": 0.35,
+      "breakout_lookback_hours": 8,
+      "maximum_price_extension_ema20_atr": 1.2,
+      "minimum_breakout_volume_ratio": 0.8,
+      "fresh_transition_only": true,
+      "allowed_setup_types": [
+        "PULLBACK_END",
+        "REBREAK"
+      ]
+    },
+    "fifteen_minute_trigger": {
+      "ema_fast": 9,
+      "ema_slow": 20,
+      "local_breakout_lookback_bars": 4,
+      "minimum_volume_ratio": 0.8,
+      "minimum_close_location_value": 0.55,
+      "setup_validity_hours": 4,
+      "minimum_delay_after_1h_setup_minutes": 15,
+      "first_valid_trigger_only": true
+    },
+    "execution": {
+      "stop_source": "ALIGNED_CLOSED_1H_ATR14",
+      "stop_atr_multiple": 1.25,
+      "reward_risk": 2.0,
+      "max_holding_hours": 48,
+      "exit_on_completed_4h_opposite_environment": true,
+      "one_shared_open_position_per_channel": true,
+      "partial_exits": false,
+      "break_even_stop": false,
+      "pyramiding": false
+    }
+  },
+  "execution": {
+    "fee_rate_per_side": 0.0005,
+    "tick_size": 0.1,
+    "slippage_ticks_per_fill": 2,
+    "minimum_stop_distance_pct": 0.002,
+    "same_bar_stop_target_rule": "STOP_FIRST_CONSERVATIVE",
+    "entry_rule_1h": "NEXT_5M_OPEN_AFTER_CLOSED_1H_SIGNAL_BAR",
+    "entry_rule_15m": "NEXT_5M_OPEN_AFTER_CLOSED_15M_TRIGGER_BAR",
+    "one_open_trade_per_channel": true,
+    "cross_channel_positions_are_independent_for_research": true,
+    "partial_exits": false,
+    "break_even_stop": false
+  },
+  "evaluation_window": {
+    "start_utc": "2026-01-01T00:00:00Z",
+    "end_utc": "2026-06-30T23:59:59Z",
+    "entries_outside_window_are_excluded": true
+  },
+  "no_lookahead_rules": {
+    "aggregate_only_complete_5m_bars": true,
+    "4h_environment_uses_only_closed_4h_bar": true,
+    "1h_setup_uses_only_closed_1h_bar": true,
+    "15m_trigger_uses_only_closed_15m_bar": true,
+    "higher_timeframe_alignment": "BACKWARD_ASOF_ONLY",
+    "15m_trigger_must_be_at_least_one_bar_after_1h_setup": true,
+    "entry_occurs_after_signal_close": true,
+    "same_bar_ambiguity_is_stop_first": true,
+    "one_signal_one_complete_trade": true
+  }
+}
