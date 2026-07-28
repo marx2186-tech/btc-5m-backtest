@@ -1,0 +1,159 @@
+name: BTCUSDT V10.8 4H-1H-15M precision entry
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "autonomous_backtest_v10_8.py"
+      - "_v108_engine.py"
+      - "_v106_engine.py"
+      - "_v105_engine.py"
+      - "_v104_engine.py"
+      - "_v103_engine.py"
+      - "_v102_engine.py"
+      - "request.v10_8.json"
+      - ".github/workflows/v10-8-mtf-precision-entry.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: btcusdt-v10-8-mtf-precision-entry
+  cancel-in-progress: false
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install numpy==1.26.4 pandas==2.2.2 requests==2.32.3
+
+      - name: Verify exact V10.8 files
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(sha256sum autonomous_backtest_v10_8.py | awk '{print $1}')" = "d9891315d02d17a8f8e751a4fa56758f06cdd1524e587b853dd65710bdf67641"
+          test "$(sha256sum _v108_engine.py | awk '{print $1}')" = "687eb295f7da839bd5d29d6fab170a16fc18a0f66d0dc645a78d1ee9cf07a780"
+          test "$(sha256sum _v106_engine.py | awk '{print $1}')" = "2e671f05bee77265ecfa861fc0e0638ed1b2da37b193962aa1107dd96d6bf028"
+          test "$(sha256sum _v105_engine.py | awk '{print $1}')" = "47e0e5c0d4c88690303e04d91440930f904d3497fd769408a10df7e7fd5a23e1"
+          test "$(sha256sum _v104_engine.py | awk '{print $1}')" = "e17735548f938590e423c779c1649b5acb6aeed52920459ca78bdb3f73c33e02"
+          test "$(sha256sum _v103_engine.py | awk '{print $1}')" = "bf6946d9ebf38024c3eb4a208336be5f080e0d04145034050ec2639eee7a59e3"
+          test "$(sha256sum _v102_engine.py | awk '{print $1}')" = "c1e59bc04f0ad7d84bdba9691cfb93d56ecc36a182d722fb18494bd6ff990328"
+          test "$(sha256sum request.v10_8.json | awk '{print $1}')" = "44da733e2abdaaf45a76e84c0465bfe8b78e74cdd8f3ac987f7f30b53f381fa2"
+          grep -F '"start_utc": "2026-01-01T00:00:00Z"' request.v10_8.json
+          grep -F '"end_utc": "2026-06-30T23:59:59Z"' request.v10_8.json
+          grep -F '"reward_risk": 2.0' request.v10_8.json
+          grep -F '"minimum_delay_after_1h_setup_minutes": 15' request.v10_8.json
+          grep -F '"higher_timeframe_alignment": "BACKWARD_ASOF_ONLY"' request.v10_8.json
+          ! grep -R -F 'fapi.binance.com' autonomous_backtest_v10_8.py _v108_engine.py _v106_engine.py _v105_engine.py _v104_engine.py _v103_engine.py _v102_engine.py request.v10_8.json
+
+      - name: Syntax and offline tests
+        shell: bash
+        env:
+          BACKTEST_REQUEST_FILE: request.v10_8.json
+        run: |
+          set -euo pipefail
+          python -m py_compile autonomous_backtest_v10_8.py _v108_engine.py _v106_engine.py _v105_engine.py _v104_engine.py _v103_engine.py _v102_engine.py
+          python autonomous_backtest_v10_8.py --self-test 2>&1 | tee v10-8-self-test.log
+          python autonomous_backtest_v10_8.py --pipeline-smoke 2>&1 | tee v10-8-pipeline-smoke.log
+
+      - name: Run V10.8 real benchmark
+        shell: bash
+        env:
+          BACKTEST_REQUEST_FILE: request.v10_8.json
+          PYTHONUNBUFFERED: "1"
+        run: |
+          set -euo pipefail
+          rm -rf results_v10_8
+          python autonomous_backtest_v10_8.py 2>&1 | tee v10-8-run.log
+
+      - name: Upload failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: btcusdt-v10-8-failure-diagnostics
+          path: |
+            v10-8-self-test.log
+            v10-8-pipeline-smoke.log
+            v10-8-run.log
+            results_v10_8/
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Verify V10.8 outputs
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          for f in status.json report.md data_audit.json signal_audit.json qualification_audit.json strategy_spec.json run_identity.json run_identity.txt channel_summary.csv direction_summary.csv monthly_summary.csv setup_type_summary.csv exit_reason_summary.csv loss_diagnostics.csv signal_funnel.csv signal_counts.csv trade_ledger.csv; do
+            test -f "results_v10_8/$f"
+          done
+          python - <<'PYCODE'
+          import json
+          from pathlib import Path
+          import pandas as pd
+          root=Path('results_v10_8')
+          status=json.loads((root/'status.json').read_text(encoding='utf-8'))
+          audit=json.loads((root/'data_audit.json').read_text(encoding='utf-8'))
+          summary=pd.read_csv(root/'channel_summary.csv')
+          trades=pd.read_csv(root/'trade_ledger.csv')
+          signals=pd.read_csv(root/'signal_counts.csv')
+          funnel=pd.read_csv(root/'signal_funnel.csv')
+          assert status['release_version']=='10.8'
+          assert status['historical_diagnostic_only'] is True
+          assert status['qualified_for_live_trading'] is False
+          assert status['parameter_optimization_enabled'] is False
+          assert status['winner_selection_enabled'] is False
+          assert status['evaluation_start_utc']=='2026-01-01T00:00:00Z'
+          assert status['evaluation_end_utc']=='2026-06-30T23:59:59Z'
+          assert audit['passed'] is True
+          assert audit['missing_rows']==0
+          assert audit['duplicate_timestamps']==0
+          assert audit['uses_rest_fallback'] is False
+          assert len(summary)==3 and summary['channel_id'].nunique()==3
+          assert len(signals)==3
+          assert set(funnel['stage'])=={'4h_environment_bars','1h_setup_events','15m_precision_signals'}
+          if not trades.empty:
+              entries=pd.to_datetime(trades['entry_time_utc'],utc=True)
+              exits=pd.to_datetime(trades['exit_time_utc'],utc=True)
+              assert (entries>=pd.Timestamp('2026-01-01T00:00:00Z')).all()
+              assert (entries<=pd.Timestamp('2026-06-30T23:59:59Z')).all()
+              assert (exits>=entries).all()
+              for channel_id, group in trades.groupby('channel_id'):
+                  e=pd.to_datetime(group['entry_time_utc'],utc=True).reset_index(drop=True)
+                  x=pd.to_datetime(group['exit_time_utc'],utc=True).reset_index(drop=True)
+                  if len(group)>1:
+                      assert (e.iloc[1:].reset_index(drop=True)>=x.iloc[:-1].reset_index(drop=True)).all(), channel_id
+          print(summary[['channel_id','trades','win_rate','avg_win_loss_ratio','profit_factor','net_R','max_drawdown_R']].to_string(index=False))
+          PYCODE
+
+      - name: Upload V10.8 results
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: btcusdt-v10-8-mtf-precision-entry-results
+          path: results_v10_8/
+          retention-days: 30
+
+      - name: Commit readable V10.8 results
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add results_v10_8
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Add V10.8 MTF precision-entry result $(date -u +%Y%m%dT%H%M%SZ)-${{ github.run_id }} [skip ci]"
+          git push
