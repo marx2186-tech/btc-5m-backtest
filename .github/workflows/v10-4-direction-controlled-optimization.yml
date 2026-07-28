@@ -1,0 +1,187 @@
+name: BTCUSDT V10.4 controlled long-short optimization
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "autonomous_backtest_v10_4.py"
+      - "_v104_engine.py"
+      - "_v103_engine.py"
+      - "_v102_engine.py"
+      - "request.v10_4.json"
+      - ".github/workflows/v10-4-direction-controlled-optimization.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: btcusdt-v10-4-controlled-optimization
+  cancel-in-progress: false
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install numpy==1.26.4 pandas==2.2.2 requests==2.32.3
+
+      - name: Verify exact V10.4 files
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(sha256sum autonomous_backtest_v10_4.py | awk '{print $1}')" = "9cdf29ae43fcb67f93db32c622217cbd4d320f6613cc6aa1d9de650c2801c397"
+          test "$(sha256sum _v104_engine.py | awk '{print $1}')" = "e17735548f938590e423c779c1649b5acb6aeed52920459ca78bdb3f73c33e02"
+          test "$(sha256sum _v103_engine.py | awk '{print $1}')" = "bf6946d9ebf38024c3eb4a208336be5f080e0d04145034050ec2639eee7a59e3"
+          test "$(sha256sum _v102_engine.py | awk '{print $1}')" = "c1e59bc04f0ad7d84bdba9691cfb93d56ecc36a182d722fb18494bd6ff990328"
+          test "$(sha256sum request.v10_4.json | awk '{print $1}')" = "a3892d499591e28296ddc36169abc0db2d039b8b702909c757b1cd14a4621c0b"
+          grep -F '"long_short_parameters_are_independent": true' request.v10_4.json
+          grep -F '"controlled_parameter_changes_only": true' request.v10_4.json
+          grep -F '"channel_count": 13' request.v10_4.json
+          grep -F '"directional_channel_count": 7' request.v10_4.json
+          grep -F '"portfolio_channel_count": 6' request.v10_4.json
+          grep -F 'NEXT_5M_OPEN_AFTER_CLOSED_1H_SIGNAL_BAR' request.v10_4.json
+          grep -F 'STOP_FIRST_CONSERVATIVE' request.v10_4.json
+          ! grep -R -F 'fapi.binance.com' autonomous_backtest_v10_4.py _v104_engine.py _v103_engine.py _v102_engine.py request.v10_4.json
+
+      - name: Syntax and offline tests
+        shell: bash
+        env:
+          BACKTEST_REQUEST_FILE: request.v10_4.json
+        run: |
+          set -euo pipefail
+          python -m py_compile autonomous_backtest_v10_4.py _v104_engine.py _v103_engine.py _v102_engine.py
+          python autonomous_backtest_v10_4.py --self-test 2>&1 | tee v10-4-self-test.log
+          python autonomous_backtest_v10_4.py --pipeline-smoke 2>&1 | tee v10-4-pipeline-smoke.log
+          python - <<'PYCODE'
+          import json
+          from pathlib import Path
+          request=json.loads(Path('request.v10_4.json').read_text(encoding='utf-8'))
+          assert request['release']['version']=='10.4'
+          assert request['release']['long_short_parameters_are_independent'] is True
+          assert request['release']['portfolio_uses_shared_position'] is True
+          assert request['release']['controlled_parameter_changes_only'] is True
+          assert request['channel_count']==13
+          assert request['baseline_channel_count']==3
+          assert request['directional_channel_count']==7
+          assert request['portfolio_channel_count']==6
+          assert len(request['channels'])==13
+          assert set(request['research_candidate_thresholds'])=={'long','short','portfolio'}
+          assert request['historical_diagnostic_only'] is True
+          assert request['winner_selection_enabled'] is False
+          assert request['portfolio_rules']['each_candidate_changes_only_one_directional_component'] is True
+          print('V104_CONFIG_OK')
+          PYCODE
+
+      - name: Run V10.4 real benchmark
+        shell: bash
+        env:
+          BACKTEST_REQUEST_FILE: request.v10_4.json
+          PYTHONUNBUFFERED: "1"
+        run: |
+          set -euo pipefail
+          rm -rf results_v10_4
+          python autonomous_backtest_v10_4.py 2>&1 | tee v10-4-run.log
+
+      - name: Upload failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: btcusdt-v10-4-failure-diagnostics
+          path: |
+            v10-4-self-test.log
+            v10-4-pipeline-smoke.log
+            v10-4-run.log
+            results_v10_4/
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Verify V10.4 outputs
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          for f in status.json report.md benchmark_summary.json data_audit.json signal_and_portfolio_audit.json robustness_audit.json strategy_spec.json run_identity.json run_identity.txt channel_summary.csv baseline_comparison.csv parameter_change_audit.csv channel_phase_summary.csv channel_monthly_summary.csv direction_summary.csv portfolio_component_summary.csv rolling_quarter_summary.csv trade_ledger.csv signal_counts.csv portfolio_overlap_audit.csv historical_test_trade_diagnostics.csv; do
+            test -f "results_v10_4/$f"
+          done
+          python - <<'PYCODE'
+          import json
+          from pathlib import Path
+          import pandas as pd
+          root=Path('results_v10_4')
+          status=json.loads((root/'status.json').read_text(encoding='utf-8'))
+          audit=json.loads((root/'data_audit.json').read_text(encoding='utf-8'))
+          summary=pd.read_csv(root/'channel_summary.csv')
+          phases=pd.read_csv(root/'channel_phase_summary.csv')
+          trades=pd.read_csv(root/'trade_ledger.csv')
+          overlap=pd.read_csv(root/'portfolio_overlap_audit.csv')
+          changes=pd.read_csv(root/'parameter_change_audit.csv')
+          components=pd.read_csv(root/'portfolio_component_summary.csv')
+          assert status['release_version']=='10.4'
+          assert status['historical_diagnostic_only'] is True
+          assert status['qualified_for_live_trading'] is False
+          assert status['long_short_parameters_are_independent'] is True
+          assert status['portfolio_uses_shared_position'] is True
+          assert status['controlled_parameter_changes_only'] is True
+          assert status['channel_count']==13
+          assert status['directional_channel_count']==7
+          assert status['portfolio_channel_count']==6
+          assert status['parameter_change_count']==5
+          assert audit['passed'] is True
+          assert audit['missing_rows']==0
+          assert audit['duplicate_timestamps']==0
+          assert audit['uses_rest_fallback'] is False
+          assert len(summary)==13 and summary['channel_id'].nunique()==13
+          assert len(phases)==39 and set(phases['phase'])=={'development','validation','historical_test'}
+          assert len(overlap)==6
+          assert len(changes)==5
+          assert changes['changed_condition_count'].max()<=2
+          assert set(summary['direction_scope'])=={'LONG','SHORT','BOTH'}
+          if not trades.empty:
+              entries=pd.to_datetime(trades['entry_time_utc'],utc=True)
+              signals=pd.to_datetime(trades['signal_time_utc'],utc=True)
+              exits=pd.to_datetime(trades['exit_time_utc'],utc=True)
+              assert (entries>=signals).all()
+              assert (exits>=entries).all()
+              long_ids=set(summary.loc[summary['direction_scope']=='LONG','channel_id'])
+              short_ids=set(summary.loc[summary['direction_scope']=='SHORT','channel_id'])
+              assert set(trades.loc[trades['channel_id'].isin(long_ids),'direction']).issubset({1})
+              assert set(trades.loc[trades['channel_id'].isin(short_ids),'direction']).issubset({-1})
+              for channel_id, group in trades.groupby('channel_id'):
+                  e=pd.to_datetime(group['entry_time_utc'],utc=True).reset_index(drop=True)
+                  x=pd.to_datetime(group['exit_time_utc'],utc=True).reset_index(drop=True)
+                  if len(group)>1:
+                      assert (e.iloc[1:].reset_index(drop=True)>=x.iloc[:-1].reset_index(drop=True)).all(), channel_id
+          assert set(components['channel_id']).issubset(set(summary['channel_id']))
+          print(json.dumps({'leader':status['research_leader'],'candidate_channels':status['research_candidate_channels']},ensure_ascii=False,indent=2))
+          PYCODE
+
+      - name: Upload V10.4 results
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: btcusdt-v10-4-controlled-optimization-results
+          path: results_v10_4/
+          retention-days: 30
+
+      - name: Commit readable V10.4 results
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add results_v10_4
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Add V10.4 controlled optimization result $(date -u +%Y%m%dT%H%M%SZ)-${{ github.run_id }} [skip ci]"
+          git push
