@@ -1,0 +1,261 @@
+{
+  "channels": [
+    {
+      "channel_id": "60m_long_quality_baseline_rr2_5",
+      "direction_scope": "LONG",
+      "profile": "long_quality_baseline",
+      "reward_risk": 2.5,
+      "stop_atr_multiple": 1.25,
+      "max_holding_hours": 36,
+      "is_baseline": true
+    },
+    {
+      "channel_id": "60m_long_extension_guard_rr2_5",
+      "direction_scope": "LONG",
+      "profile": "long_extension_guard",
+      "reward_risk": 2.5,
+      "stop_atr_multiple": 1.25,
+      "max_holding_hours": 36,
+      "is_baseline": false
+    },
+    {
+      "channel_id": "60m_long_extension_adx_cap_rr2_5",
+      "direction_scope": "LONG",
+      "profile": "long_extension_adx_cap",
+      "reward_risk": 2.5,
+      "stop_atr_multiple": 1.25,
+      "max_holding_hours": 36,
+      "is_baseline": false
+    },
+    {
+      "channel_id": "60m_short_persistence_baseline_rr2_5",
+      "direction_scope": "SHORT",
+      "profile": "short_persistence_baseline",
+      "reward_risk": 2.5,
+      "stop_atr_multiple": 1.25,
+      "max_holding_hours": 48,
+      "is_baseline": true
+    },
+    {
+      "channel_id": "60m_short_persistence_age_relax_rr2_5",
+      "direction_scope": "SHORT",
+      "profile": "short_persistence_age_relax",
+      "reward_risk": 2.5,
+      "stop_atr_multiple": 1.25,
+      "max_holding_hours": 48,
+      "is_baseline": false
+    },
+    {
+      "channel_id": "60m_short_persistence_slope_relax_rr2_5",
+      "direction_scope": "SHORT",
+      "profile": "short_persistence_slope_relax",
+      "reward_risk": 2.5,
+      "stop_atr_multiple": 1.25,
+      "max_holding_hours": 48,
+      "is_baseline": false
+    },
+    {
+      "channel_id": "60m_short_persistence_adx_relax_rr2_5",
+      "direction_scope": "SHORT",
+      "profile": "short_persistence_adx_relax",
+      "reward_risk": 2.5,
+      "stop_atr_multiple": 1.25,
+      "max_holding_hours": 48,
+      "is_baseline": false
+    },
+    {
+      "channel_id": "60m_split_portfolio_frozen",
+      "direction_scope": "BOTH",
+      "profile": "split_portfolio_frozen",
+      "long_component_id": "60m_long_quality_baseline_rr2_5",
+      "short_component_id": "60m_short_persistence_baseline_rr2_5",
+      "is_baseline": true
+    },
+    {
+      "channel_id": "60m_split_portfolio_long_extension",
+      "direction_scope": "BOTH",
+      "profile": "split_portfolio_long_extension",
+      "long_component_id": "60m_long_extension_guard_rr2_5",
+      "short_component_id": "60m_short_persistence_baseline_rr2_5",
+      "is_baseline": false
+    },
+    {
+      "channel_id": "60m_split_portfolio_long_extension_adx",
+      "direction_scope": "BOTH",
+      "profile": "split_portfolio_long_extension_adx",
+      "long_component_id": "60m_long_extension_adx_cap_rr2_5",
+      "short_component_id": "60m_short_persistence_baseline_rr2_5",
+      "is_baseline": false
+    },
+    {
+      "channel_id": "60m_split_portfolio_short_age",
+      "direction_scope": "BOTH",
+      "profile": "split_portfolio_short_age",
+      "long_component_id": "60m_long_quality_baseline_rr2_5",
+      "short_component_id": "60m_short_persistence_age_relax_rr2_5",
+      "is_baseline": false
+    },
+    {
+      "channel_id": "60m_split_portfolio_short_slope",
+      "direction_scope": "BOTH",
+      "profile": "split_portfolio_short_slope",
+      "long_component_id": "60m_long_quality_baseline_rr2_5",
+      "short_component_id": "60m_short_persistence_slope_relax_rr2_5",
+      "is_baseline": false
+    },
+    {
+      "channel_id": "60m_split_portfolio_short_adx",
+      "direction_scope": "BOTH",
+      "profile": "split_portfolio_short_adx",
+      "long_component_id": "60m_long_quality_baseline_rr2_5",
+      "short_component_id": "60m_short_persistence_adx_relax_rr2_5",
+      "is_baseline": false
+    }
+  ],
+  "direction_specific_parameters": {
+    "long_quality_baseline": {
+      "source": "V10.1 frozen hourly quality long mask",
+      "stop_atr_multiple": 1.25,
+      "reward_risk": 2.5,
+      "max_holding_hours": 36
+    },
+    "long_extension_guard": {
+      "source": "long_quality_baseline",
+      "changed_condition_count": 1,
+      "added_filter": "price_extension_ema20_atr <= 1.20",
+      "reason": "V10.3 Q2 diagnostics showed three losses with extension above 1.20 ATR while all three Q2 winners were below 0.87 ATR",
+      "stop_atr_multiple": 1.25,
+      "reward_risk": 2.5,
+      "max_holding_hours": 36
+    },
+    "long_extension_adx_cap": {
+      "source": "long_quality_baseline",
+      "changed_condition_count": 2,
+      "added_filters": [
+        "price_extension_ema20_atr <= 1.20",
+        "adx14 <= 45.0"
+      ],
+      "reason": "nested stricter comparison to test whether late-stage high-ADX long pullbacks should be removed",
+      "stop_atr_multiple": 1.25,
+      "reward_risk": 2.5,
+      "max_holding_hours": 36
+    },
+    "short_persistence_baseline": {
+      "source": "V10.2 frozen hourly persistence short mask",
+      "adx_range": [
+        23.0,
+        45.0
+      ],
+      "minimum_adx_change_3": -3.0,
+      "volume_ratio_range": [
+        0.7,
+        2.2
+      ],
+      "channel_width_atr_range": [
+        3.0,
+        8.0
+      ],
+      "maximum_price_extension_from_ema20_atr": 0.8,
+      "trend_age_hours_range": [
+        8,
+        120
+      ],
+      "maximum_ema50_slope_6_atr": -0.04,
+      "minimum_two_of_last_three_closes_below_ema20": true,
+      "stop_atr_multiple": 1.25,
+      "reward_risk": 2.5,
+      "max_holding_hours": 48
+    },
+    "short_persistence_age_relax": {
+      "source": "short_persistence_baseline",
+      "changed_condition_count": 1,
+      "only_change": "trend_age_hours_range [8,120] -> [6,144]"
+    },
+    "short_persistence_slope_relax": {
+      "source": "short_persistence_baseline",
+      "changed_condition_count": 1,
+      "only_change": "maximum_ema50_slope_6_atr -0.04 -> -0.025"
+    },
+    "short_persistence_adx_relax": {
+      "source": "short_persistence_baseline",
+      "changed_condition_count": 1,
+      "only_change": "minimum_adx_change_3 -3.0 -> -4.0"
+    }
+  },
+  "portfolio_rules": {
+    "components_keep_their_own_parameters": true,
+    "one_shared_open_position": true,
+    "same_timestamp_opposite_direction_conflict": "DROP_BOTH_CONSERVATIVE",
+    "each_candidate_changes_only_one_directional_component": true,
+    "no_combined_long_and_short_optimization_in_v10_4": true
+  },
+  "execution": {
+    "fee_rate_per_side": 0.0005,
+    "tick_size": 0.1,
+    "slippage_ticks_per_fill": 2,
+    "minimum_stop_distance_pct": 0.002,
+    "same_bar_stop_target_rule": "STOP_FIRST_CONSERVATIVE",
+    "entry_rule": "NEXT_5M_OPEN_AFTER_CLOSED_1H_SIGNAL_BAR",
+    "one_open_trade_per_channel": true,
+    "portfolio_one_shared_open_position": true,
+    "cross_channel_positions_are_independent_for_research": true,
+    "partial_exits": false,
+    "break_even_stop": false
+  },
+  "no_lookahead_rules": {
+    "aggregate_only_from_complete_5m_bars": true,
+    "signal_uses_only_closed_1h_bar": true,
+    "entry_is_next_5m_open": true,
+    "one_signal_one_complete_trade": true,
+    "same_bar_ambiguity_is_stop_first": true,
+    "future_data_is_never_backfilled": true,
+    "direction_specific_parameters_are_frozen_before_execution": true
+  },
+  "research_candidate_thresholds": {
+    "long": {
+      "minimum_trades": 20,
+      "minimum_win_rate": 0.4,
+      "minimum_avg_win_loss_ratio": 1.7,
+      "minimum_profit_factor": 1.25,
+      "minimum_expectancy_R": 0.08,
+      "maximum_drawdown_R": 6.0,
+      "minimum_positive_months": 5,
+      "minimum_positive_phases": 3,
+      "remove_best_fraction": 0.1,
+      "maximum_single_positive_month_share": 0.4,
+      "minimum_historical_test_profit_factor": 1.0,
+      "minimum_positive_rolling_quarters": 8,
+      "minimum_worst_rolling_quarter_net_R": -3.0
+    },
+    "short": {
+      "minimum_trades": 10,
+      "minimum_win_rate": 0.45,
+      "minimum_avg_win_loss_ratio": 1.8,
+      "minimum_profit_factor": 1.5,
+      "minimum_expectancy_R": 0.15,
+      "maximum_drawdown_R": 4.5,
+      "minimum_positive_months": 4,
+      "minimum_positive_phases": 2,
+      "remove_best_fraction": 0.1,
+      "maximum_single_positive_month_share": 0.4,
+      "minimum_historical_test_profit_factor": 1.0,
+      "minimum_positive_rolling_quarters": 8,
+      "minimum_worst_rolling_quarter_net_R": -3.0
+    },
+    "portfolio": {
+      "minimum_trades": 35,
+      "minimum_win_rate": 0.4,
+      "minimum_avg_win_loss_ratio": 1.8,
+      "minimum_profit_factor": 1.3,
+      "minimum_expectancy_R": 0.1,
+      "maximum_drawdown_R": 8.0,
+      "minimum_positive_months": 8,
+      "minimum_positive_phases": 3,
+      "remove_best_fraction": 0.1,
+      "maximum_single_positive_month_share": 0.35,
+      "minimum_historical_test_profit_factor": 1.0,
+      "minimum_positive_rolling_quarters": 9,
+      "minimum_worst_rolling_quarter_net_R": -4.0
+    }
+  }
+}

@@ -1,0 +1,14 @@
+channel_id,channel_label,profile,direction_scope,reward_risk,stop_atr_multiple,max_holding_hours,is_baseline,signals,long_signals,short_signals
+60m_long_quality_baseline_rr2_5,多头冻结基线·1小时质量回踩 RR2.5,long_quality_baseline,LONG,2.5,1.25,36,True,28,28,0
+60m_long_extension_guard_rr2_5,多头独立策略·回踩延伸保护 RR2.5,long_extension_guard,LONG,2.5,1.25,36,False,21,21,0
+60m_long_extension_adx_cap_rr2_5,多头独立策略·延伸保护+ADX上限 RR2.5,long_extension_adx_cap,LONG,2.5,1.25,36,False,16,16,0
+60m_short_persistence_baseline_rr2_5,空头冻结基线·趋势持续性 RR2.5,short_persistence_baseline,SHORT,2.5,1.25,48,True,7,0,7
+60m_short_persistence_age_relax_rr2_5,空头独立策略·仅放宽趋势年龄 RR2.5,short_persistence_age_relax,SHORT,2.5,1.25,48,False,7,0,7
+60m_short_persistence_slope_relax_rr2_5,空头独立策略·仅放宽EMA50斜率 RR2.5,short_persistence_slope_relax,SHORT,2.5,1.25,48,False,7,0,7
+60m_short_persistence_adx_relax_rr2_5,空头独立策略·仅放宽ADX衰减 RR2.5,short_persistence_adx_relax,SHORT,2.5,1.25,48,False,8,0,8
+60m_split_portfolio_frozen,多空分离组合·冻结基线,split_portfolio_frozen,BOTH,ASYMMETRIC,ASYMMETRIC,ASYMMETRIC,True,35,28,7
+60m_split_portfolio_long_extension,多空分离组合·仅优化多头延伸保护,split_portfolio_long_extension,BOTH,ASYMMETRIC,ASYMMETRIC,ASYMMETRIC,False,28,21,7
+60m_split_portfolio_long_extension_adx,多空分离组合·仅优化多头延伸+ADX,split_portfolio_long_extension_adx,BOTH,ASYMMETRIC,ASYMMETRIC,ASYMMETRIC,False,23,16,7
+60m_split_portfolio_short_age,多空分离组合·仅放宽空头趋势年龄,split_portfolio_short_age,BOTH,ASYMMETRIC,ASYMMETRIC,ASYMMETRIC,False,35,28,7
+60m_split_portfolio_short_slope,多空分离组合·仅放宽空头EMA50斜率,split_portfolio_short_slope,BOTH,ASYMMETRIC,ASYMMETRIC,ASYMMETRIC,False,35,28,7
+60m_split_portfolio_short_adx,多空分离组合·仅放宽空头ADX衰减,split_portfolio_short_adx,BOTH,ASYMMETRIC,ASYMMETRIC,ASYMMETRIC,False,36,28,8

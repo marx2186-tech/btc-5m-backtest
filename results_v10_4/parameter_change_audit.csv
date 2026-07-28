@@ -1,0 +1,6 @@
+channel_id,baseline_channel_id,direction,changed_condition_count,changed_condition,change_type
+60m_long_extension_guard_rr2_5,60m_long_quality_baseline_rr2_5,LONG,1,price_extension_ema20_atr <= 1.20,ADD_FILTER
+60m_long_extension_adx_cap_rr2_5,60m_long_quality_baseline_rr2_5,LONG,2,price_extension_ema20_atr <= 1.20; adx14 <= 45.0,ADD_TWO_FILTERS
+60m_short_persistence_age_relax_rr2_5,60m_short_persistence_baseline_rr2_5,SHORT,1,trend_age_short 8..120 -> 6..144,RELAX_ONE_FILTER
+60m_short_persistence_slope_relax_rr2_5,60m_short_persistence_baseline_rr2_5,SHORT,1,ema50_slope_6_atr <= -0.04 -> <= -0.025,RELAX_ONE_FILTER
+60m_short_persistence_adx_relax_rr2_5,60m_short_persistence_baseline_rr2_5,SHORT,1,adx_change_3 >= -3.0 -> >= -4.0,RELAX_ONE_FILTER
