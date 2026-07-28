@@ -1,0 +1,116 @@
+{
+  "resample": {
+    "60": {
+      "rows": 13104,
+      "first_bar_close_utc": "2025-01-01T01:00:00+00:00",
+      "last_bar_close_utc": "2026-07-01T00:00:00+00:00",
+      "source_rows_per_bar": 12
+    }
+  },
+  "channels": [
+    {
+      "channel_id": "60m_trend_pullback_quality_rr2_5",
+      "channel_label": "V10.1冻结基线·1小时趋势回踩质量过滤 RR2.5",
+      "family": "trend_pullback",
+      "profile": "quality",
+      "reward_risk": 2.5,
+      "stop_atr_multiple": 1.25,
+      "max_holding_hours": 36,
+      "is_baseline": true,
+      "signals": 60,
+      "long_signals": 28,
+      "short_signals": 32
+    },
+    {
+      "channel_id": "60m_trend_pullback_quality_rr3_0",
+      "channel_label": "V10.1冻结基线·1小时趋势回踩质量过滤 RR3.0",
+      "family": "trend_pullback",
+      "profile": "quality",
+      "reward_risk": 3.0,
+      "stop_atr_multiple": 1.25,
+      "max_holding_hours": 36,
+      "is_baseline": true,
+      "signals": 60,
+      "long_signals": 28,
+      "short_signals": 32
+    },
+    {
+      "channel_id": "60m_trend_pullback_anti_exhaustion_rr2_5",
+      "channel_label": "1小时趋势回踩·防趋势衰竭 RR2.5",
+      "family": "trend_pullback",
+      "profile": "anti_exhaustion",
+      "reward_risk": 2.5,
+      "stop_atr_multiple": 1.25,
+      "max_holding_hours": 36,
+      "is_baseline": false,
+      "signals": 9,
+      "long_signals": 3,
+      "short_signals": 6
+    },
+    {
+      "channel_id": "60m_trend_pullback_anti_exhaustion_rr3_0",
+      "channel_label": "1小时趋势回踩·防趋势衰竭 RR3.0",
+      "family": "trend_pullback",
+      "profile": "anti_exhaustion",
+      "reward_risk": 3.0,
+      "stop_atr_multiple": 1.25,
+      "max_holding_hours": 36,
+      "is_baseline": false,
+      "signals": 9,
+      "long_signals": 3,
+      "short_signals": 6
+    },
+    {
+      "channel_id": "60m_trend_pullback_balanced_rr2_5",
+      "channel_label": "1小时趋势回踩·均衡趋势区间 RR2.5",
+      "family": "trend_pullback",
+      "profile": "balanced",
+      "reward_risk": 2.5,
+      "stop_atr_multiple": 1.2,
+      "max_holding_hours": 36,
+      "is_baseline": false,
+      "signals": 2,
+      "long_signals": 2,
+      "short_signals": 0
+    },
+    {
+      "channel_id": "60m_trend_pullback_balanced_rr3_0",
+      "channel_label": "1小时趋势回踩·均衡趋势区间 RR3.0",
+      "family": "trend_pullback",
+      "profile": "balanced",
+      "reward_risk": 3.0,
+      "stop_atr_multiple": 1.2,
+      "max_holding_hours": 36,
+      "is_baseline": false,
+      "signals": 2,
+      "long_signals": 2,
+      "short_signals": 0
+    },
+    {
+      "channel_id": "60m_trend_pullback_persistence_rr2_5",
+      "channel_label": "1小时趋势回踩·趋势持续性 RR2.5",
+      "family": "trend_pullback",
+      "profile": "persistence",
+      "reward_risk": 2.5,
+      "stop_atr_multiple": 1.25,
+      "max_holding_hours": 48,
+      "is_baseline": false,
+      "signals": 10,
+      "long_signals": 3,
+      "short_signals": 7
+    },
+    {
+      "channel_id": "60m_trend_pullback_persistence_rr3_0",
+      "channel_label": "1小时趋势回踩·趋势持续性 RR3.0",
+      "family": "trend_pullback",
+      "profile": "persistence",
+      "reward_risk": 3.0,
+      "stop_atr_multiple": 1.25,
+      "max_holding_hours": 48,
+      "is_baseline": false,
+      "signals": 10,
+      "long_signals": 3,
+      "short_signals": 7
+    }
+  ]
+}

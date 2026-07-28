@@ -1,0 +1,9 @@
+channel_id,channel_label,family,profile,reward_risk,stop_atr_multiple,max_holding_hours,is_baseline,signals,long_signals,short_signals
+60m_trend_pullback_quality_rr2_5,V10.1冻结基线·1小时趋势回踩质量过滤 RR2.5,trend_pullback,quality,2.5,1.25,36,True,60,28,32
+60m_trend_pullback_quality_rr3_0,V10.1冻结基线·1小时趋势回踩质量过滤 RR3.0,trend_pullback,quality,3.0,1.25,36,True,60,28,32
+60m_trend_pullback_anti_exhaustion_rr2_5,1小时趋势回踩·防趋势衰竭 RR2.5,trend_pullback,anti_exhaustion,2.5,1.25,36,False,9,3,6
+60m_trend_pullback_anti_exhaustion_rr3_0,1小时趋势回踩·防趋势衰竭 RR3.0,trend_pullback,anti_exhaustion,3.0,1.25,36,False,9,3,6
+60m_trend_pullback_balanced_rr2_5,1小时趋势回踩·均衡趋势区间 RR2.5,trend_pullback,balanced,2.5,1.2,36,False,2,2,0
+60m_trend_pullback_balanced_rr3_0,1小时趋势回踩·均衡趋势区间 RR3.0,trend_pullback,balanced,3.0,1.2,36,False,2,2,0
+60m_trend_pullback_persistence_rr2_5,1小时趋势回踩·趋势持续性 RR2.5,trend_pullback,persistence,2.5,1.25,48,False,10,3,7
+60m_trend_pullback_persistence_rr3_0,1小时趋势回踩·趋势持续性 RR3.0,trend_pullback,persistence,3.0,1.25,48,False,10,3,7
