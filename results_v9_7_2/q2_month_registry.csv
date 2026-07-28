@@ -1,0 +1,4 @@
+month,state,calendar_complete,archive_available,window_type,used_for_evaluation,used_for_tuning,used_for_winner_selection
+2026-04,HISTORICAL_DIAGNOSTIC_EVALUATED,True,True,FULL_MONTH_HISTORICAL_DIAGNOSTIC,True,False,False
+2026-05,HISTORICAL_DIAGNOSTIC_EVALUATED,True,True,FULL_MONTH_HISTORICAL_DIAGNOSTIC,True,False,False
+2026-06,HISTORICAL_DIAGNOSTIC_EVALUATED,True,True,FULL_MONTH_HISTORICAL_DIAGNOSTIC,True,False,False

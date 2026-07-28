@@ -1,0 +1,7 @@
+{
+  "decision_ready": false,
+  "window_type": "FULL_MONTH_HISTORICAL_DIAGNOSTIC",
+  "winner_selection_enabled": false,
+  "automatic_tier_activation_enabled": false,
+  "action": "report historical Q2 diagnostics only; do not tune or select a winner"
+}

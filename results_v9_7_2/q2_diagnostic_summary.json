@@ -1,0 +1,22 @@
+{
+  "window_type": "FULL_MONTH_HISTORICAL_DIAGNOSTIC",
+  "window_start_utc": "2026-04-01T00:00:00+00:00",
+  "window_end_utc": "2026-06-30T23:59:59+00:00",
+  "months_included": [
+    "2026-04",
+    "2026-05",
+    "2026-06"
+  ],
+  "days_included": 91,
+  "last_raw_5m_bar_utc": "2026-06-30T23:55:00+00:00",
+  "last_usable_feature_bar_utc": "2026-06-30T23:30:00+00:00",
+  "feature_tail_gap_minutes": 25.0,
+  "expert_shadow_trades": 53,
+  "risk_budget_trades": 8,
+  "uses_monthly_archives_only": false,
+  "uses_monthly_archives_as_primary": true,
+  "uses_daily_archives": true,
+  "daily_archives_for_premium_gap_repair_only": true,
+  "uses_rest_fallback": false,
+  "historical_diagnostic_only": true
+}

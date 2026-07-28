@@ -1,0 +1,46 @@
+{
+  "window_type": "FULL_MONTH_HISTORICAL_DIAGNOSTIC",
+  "window_start_utc": "2026-04-01T00:00:00+00:00",
+  "window_end_utc": "2026-06-30T23:59:59+00:00",
+  "window_months": [
+    "2026-04",
+    "2026-05",
+    "2026-06"
+  ],
+  "complete_month_count": 3,
+  "window_evaluated": true,
+  "risk_lanes": {
+    "V9.6.1_MONTHLY_BUDGET": {
+      "trades": 3,
+      "wins": 2,
+      "win_rate": 0.6666666666666666,
+      "avg_win_R": 1.8573518237871882,
+      "avg_loss_R": 1.194673848969825,
+      "avg_win_loss_ratio": 1.5546936307250676,
+      "profit_factor": 3.109387261450135,
+      "net_R": 2.5200297986045515,
+      "max_drawdown_R": 1.194673848969825,
+      "expectancy_R": 0.8400099328681838,
+      "complete_calendar_months": 3,
+      "historical_diagnostic_only": true
+    },
+    "V9.6.7_NO_MONTHLY_BUDGET": {
+      "trades": 5,
+      "wins": 2,
+      "win_rate": 0.4,
+      "avg_win_R": 1.8573518237871882,
+      "avg_loss_R": 0.8680187327648857,
+      "avg_win_loss_ratio": 2.1397600693143985,
+      "profit_factor": 1.4265067128762656,
+      "net_R": 1.1106474492797194,
+      "max_drawdown_R": 2.604056198294657,
+      "expectancy_R": 0.22212948985594388,
+      "complete_calendar_months": 3,
+      "historical_diagnostic_only": true
+    }
+  },
+  "decision_ready": false,
+  "winner_selection_enabled": false,
+  "winner_decision": "HISTORICAL_DIAGNOSTIC_ONLY_NO_WINNER",
+  "automatic_tier_activation_enabled": false
+}

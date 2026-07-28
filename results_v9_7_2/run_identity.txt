@@ -1,0 +1,10 @@
+BTC 5m 2026 Q2 historical diagnostic backtest V9.7.2
+output=results_v9_7_2
+window=2026-04-01T00:00:00Z..2026-06-30T23:59:59Z
+monthly_archives_primary=True
+daily_archives=premium_gap_repair_only
+rest_fallback=False
+snapshot_replay_exact=True
+v961_reference_exact=True
+signal_selection_independent_of_tier=True
+winner_selection_enabled=False
