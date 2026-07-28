@@ -31,6 +31,7 @@ RISK_BUDGET = REQUEST["risk_budget_dual_track"]
 RATING_SOURCE = REQUEST["rating_data_source"]
 EXPERT_COVERAGE = REQUEST["expert_coverage"]
 DIAGNOSTIC = REQUEST["historical_diagnostic_window"]
+MONTHLY_DATA_QUALITY = DIAGNOSTIC["monthly_data_quality"]
 ENGINE_NAME = "BTC 5m 2026 Q2 historical diagnostic backtest V9.7.2"
 
 spec = importlib.util.spec_from_file_location("v972_strategy_core", ROOT / "_v972_strategy_core.py")
@@ -1107,27 +1108,90 @@ def _daily_window_dates() -> list[str]:
     return [d.strftime("%Y-%m-%d") for d in pd.date_range(start, end, freq="D")]
 
 
-def _audit_monthly_klines(data: pd.DataFrame, label: str) -> tuple[pd.DataFrame, dict[str, Any]]:
+def _audit_monthly_klines(
+    data: pd.DataFrame,
+    label: str,
+    *,
+    max_missing_rows: int = 0,
+    max_missing_ratio: float = 0.0,
+) -> tuple[pd.DataFrame, dict[str, Any]]:
+    if "open_time" not in data.columns:
+        raise RuntimeError(f"V9.7.2 monthly kline audit missing open_time for {label}")
+
+    raw_open_time = pd.to_numeric(data["open_time"], errors="coerce")
+    invalid_timestamps = int(raw_open_time.isna().sum())
+    valid_open_time = raw_open_time.dropna().astype("int64")
+    duplicates = int(valid_open_time.duplicated().sum())
+
+    data = data.loc[raw_open_time.notna()].copy()
+    data["open_time"] = valid_open_time.to_numpy()
     data = data.sort_values("open_time").drop_duplicates("open_time").reset_index(drop=True)
+
     start = pd.Timestamp("2025-01-01T00:00:00Z")
     cutoff = _window_cutoff()
     last_open = cutoff.floor("5min")
-    expected = np.arange(int(start.timestamp()*1000), int(last_open.timestamp()*1000) + core.base.STEP_MS, core.base.STEP_MS, dtype=np.int64)
+    expected = np.arange(
+        int(start.timestamp() * 1000),
+        int(last_open.timestamp() * 1000) + core.base.STEP_MS,
+        core.base.STEP_MS,
+        dtype=np.int64,
+    )
     actual = data["open_time"].astype("int64").to_numpy()
-    missing = np.setdiff1d(expected, np.unique(actual))
-    extra = np.setdiff1d(np.unique(actual), expected)
-    duplicates = int(pd.Series(actual).duplicated().sum())
-    passed = bool(len(data)==len(expected) and len(missing)==0 and len(extra)==0 and duplicates==0)
+    unique_actual = np.unique(actual)
+    missing = np.setdiff1d(expected, unique_actual)
+    extra = np.setdiff1d(unique_actual, expected)
+    missing_rows = int(len(missing))
+    missing_ratio = float(missing_rows / len(expected)) if len(expected) else 0.0
+
+    structural_integrity_passed = bool(
+        invalid_timestamps == 0 and len(extra) == 0 and duplicates == 0
+    )
+    gap_budget_passed = bool(
+        missing_rows <= int(max_missing_rows)
+        and missing_ratio <= float(max_missing_ratio)
+    )
+    passed = bool(structural_integrity_passed and gap_budget_passed)
+
     audit = {
-        "label": label, "source_mode": "VERIFIED_MONTHLY_ARCHIVES_ONLY",
-        "start_utc": start.isoformat(), "cutoff_utc": cutoff.isoformat(),
-        "last_included_bar_utc": last_open.isoformat(), "expected_rows": int(len(expected)),
-        "actual_rows": int(len(data)), "missing_rows": int(len(missing)),
-        "extra_rows": int(len(extra)), "duplicate_timestamps": duplicates, "passed": passed,
+        "label": label,
+        "source_mode": "VERIFIED_MONTHLY_ARCHIVES_ONLY",
+        "start_utc": start.isoformat(),
+        "cutoff_utc": cutoff.isoformat(),
+        "last_included_bar_utc": last_open.isoformat(),
+        "expected_rows": int(len(expected)),
+        "actual_rows": int(len(data)),
+        "missing_rows": missing_rows,
+        "missing_ratio": missing_ratio,
+        "extra_rows": int(len(extra)),
+        "duplicate_timestamps": duplicates,
+        "invalid_timestamps": invalid_timestamps,
+        "max_missing_rows": int(max_missing_rows),
+        "max_missing_ratio": float(max_missing_ratio),
+        "structural_integrity_passed": structural_integrity_passed,
+        "gap_budget_passed": gap_budget_passed,
+        "first_missing_utc": (
+            pd.to_datetime(missing[0], unit="ms", utc=True).isoformat()
+            if missing_rows else None
+        ),
+        "last_missing_utc": (
+            pd.to_datetime(missing[-1], unit="ms", utc=True).isoformat()
+            if missing_rows else None
+        ),
+        "passed": passed,
     }
     if not passed:
-        raise RuntimeError(f"V9.7.2 monthly kline audit failed for {label}: {json.dumps(audit, ensure_ascii=False)}")
+        raise RuntimeError(
+            f"V9.7.2 monthly kline audit failed for {label}: "
+            f"{json.dumps(audit, ensure_ascii=False)}"
+        )
     return data, audit
+
+
+def _monthly_quality_budget(label: str) -> tuple[int, float]:
+    rule = MONTHLY_DATA_QUALITY.get(label)
+    if not isinstance(rule, dict):
+        raise RuntimeError(f"V9.7.2 missing monthly_data_quality rule for {label}")
+    return int(rule["max_missing_rows"]), float(rule["max_missing_ratio"])
 
 
 def _load_q2_monthly_frames(ref: Any) -> tuple[pd.DataFrame, pd.DataFrame, dict[str, Any]]:
@@ -1145,9 +1209,19 @@ def _load_q2_monthly_frames(ref: Any) -> tuple[pd.DataFrame, pd.DataFrame, dict[
         core.base.MONTHS = old_core_months
         ref.base.MONTHS = old_ref_months
 
-    raw, raw_audit = _audit_monthly_klines(raw, "BTCUSDT_5m")
-    eth, eth_audit = _audit_monthly_klines(eth, "ETHUSDT_5m")
-    premium, premium_audit = _audit_monthly_klines(premium, "BTCUSDT_premiumIndexKlines_5m")
+    raw_budget = _monthly_quality_budget("BTCUSDT_5m")
+    eth_budget = _monthly_quality_budget("ETHUSDT_5m")
+    premium_budget = _monthly_quality_budget("BTCUSDT_premiumIndexKlines_5m")
+    raw, raw_audit = _audit_monthly_klines(
+        raw, "BTCUSDT_5m", max_missing_rows=raw_budget[0], max_missing_ratio=raw_budget[1]
+    )
+    eth, eth_audit = _audit_monthly_klines(
+        eth, "ETHUSDT_5m", max_missing_rows=eth_budget[0], max_missing_ratio=eth_budget[1]
+    )
+    premium, premium_audit = _audit_monthly_klines(
+        premium, "BTCUSDT_premiumIndexKlines_5m",
+        max_missing_rows=premium_budget[0], max_missing_ratio=premium_budget[1],
+    )
     cutoff_ms = int(_window_cutoff().timestamp()*1000)
     funding = funding[pd.to_numeric(funding["calc_time"], errors="coerce") <= cutoff_ms].reset_index(drop=True)
 
@@ -1305,8 +1379,47 @@ def q2_diagnostic_self_test() -> None:
     start_ms=int(pd.Timestamp("2025-01-01T00:00:00Z").timestamp()*1000)
     last_ms=int(pd.Timestamp("2026-06-30T23:55:00Z").timestamp()*1000)
     times=np.arange(start_ms,last_ms+core.base.STEP_MS,core.base.STEP_MS,dtype=np.int64)
-    combined,audit=_audit_monthly_klines(pd.DataFrame({"open_time":times}),"SELF_TEST")
+    combined,audit=_audit_monthly_klines(
+        pd.DataFrame({"open_time":times}), "SELF_TEST",
+        max_missing_rows=0, max_missing_ratio=0.0,
+    )
     assert audit["passed"] and len(combined)==len(times)
+
+    # Main BTC/ETH bars remain strict: one missing 5-minute bar must fail.
+    try:
+        _audit_monthly_klines(
+            pd.DataFrame({"open_time":times[:-1]}), "STRICT_GAP_SELF_TEST",
+            max_missing_rows=0, max_missing_ratio=0.0,
+        )
+    except RuntimeError:
+        pass
+    else:
+        raise AssertionError("Strict BTC/ETH audit must reject one missing bar")
+
+    # Premium index is auxiliary data. One verified missing day (288 bars) is allowed,
+    # matching the frozen engine's past-only <=60-minute fill and feature cleaning.
+    premium_gap = pd.DataFrame({"open_time":times[:-288]})
+    _, premium_audit = _audit_monthly_klines(
+        premium_gap, "PREMIUM_GAP_SELF_TEST",
+        max_missing_rows=288, max_missing_ratio=0.002,
+    )
+    assert premium_audit["passed"] is True
+    assert premium_audit["missing_rows"] == 288
+    assert premium_audit["gap_budget_passed"] is True
+
+    try:
+        _audit_monthly_klines(
+            pd.DataFrame({"open_time":times[:-289]}), "PREMIUM_EXCESSIVE_GAP_SELF_TEST",
+            max_missing_rows=288, max_missing_ratio=0.002,
+        )
+    except RuntimeError:
+        pass
+    else:
+        raise AssertionError("Premium audit must reject gaps above 288 bars")
+
+    assert _monthly_quality_budget("BTCUSDT_5m") == (0, 0.0)
+    assert _monthly_quality_budget("ETHUSDT_5m") == (0, 0.0)
+    assert _monthly_quality_budget("BTCUSDT_premiumIndexKlines_5m") == (288, 0.002)
     assert DIAGNOSTIC["winner_selection_enabled"] is False
     assert DIAGNOSTIC["automatic_tier_activation_enabled"] is False
     print("V972_Q2_HISTORICAL_DIAGNOSTIC_SELF_TEST_OK")

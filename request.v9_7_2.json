@@ -529,6 +529,26 @@
     "historical_data_used_for_signal_formula_changes": false,
     "winner_selection_enabled": false,
     "automatic_tier_activation_enabled": false,
-    "decision_label": "HISTORICAL_DIAGNOSTIC_ONLY_NO_WINNER"
+    "decision_label": "HISTORICAL_DIAGNOSTIC_ONLY_NO_WINNER",
+    "monthly_data_quality": {
+      "BTCUSDT_5m": {
+        "max_missing_rows": 0,
+        "max_missing_ratio": 0.0,
+        "role": "primary_price_series",
+        "handling": "strict_zero_gap"
+      },
+      "ETHUSDT_5m": {
+        "max_missing_rows": 0,
+        "max_missing_ratio": 0.0,
+        "role": "cross_asset_price_series",
+        "handling": "strict_zero_gap"
+      },
+      "BTCUSDT_premiumIndexKlines_5m": {
+        "max_missing_rows": 288,
+        "max_missing_ratio": 0.002,
+        "role": "auxiliary_derivatives_series",
+        "handling": "verified_archive_controlled_gap_then_frozen_past_only_fill_max_60m"
+      }
+    }
   }
 }
