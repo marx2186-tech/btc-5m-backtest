@@ -1,0 +1,76 @@
+{
+  "engine": "BTCUSDT V10.11 frozen state-machine 34-channel batch matrix",
+  "release_version": "10.11",
+  "historical_diagnostic_only": true,
+  "qualified_for_live_trading": false,
+  "parameter_optimization_enabled": false,
+  "winner_selection_enabled": false,
+  "evaluation_start_utc": "2026-01-01T00:00:00Z",
+  "evaluation_end_utc": "2026-06-30T23:59:59Z",
+  "warmup_start_utc": "2025-01-01T00:00:00Z",
+  "channel_count": 34,
+  "matrix_counts": {
+    "channel_count": 34,
+    "fixed_directional_channels": 18,
+    "fixed_shared_channels": 9,
+    "break_even_shadow_channels": 6,
+    "baseline_channels": 1,
+    "entry_modes": [
+      "direct_1h",
+      "local_break_15m",
+      "pullback_reclaim_15m"
+    ],
+    "reward_risks": [
+      1.5,
+      2.0,
+      2.5
+    ],
+    "same_confirmation_pool": true,
+    "upper_state_machine_identical_to_v10_9": true
+  },
+  "state_machine_audit": {
+    "environment_legs": 122,
+    "confirmation_setups_all_data": 12,
+    "confirmation_setups_evaluation_window": 6,
+    "one_setup_per_cycle": true,
+    "upper_state_machine_identical_to_v10_9": true
+  },
+  "trigger_comparison_audit": {
+    "direct_signals": 6,
+    "single_local_break_signals": 2,
+    "pullback_reclaim_signals": 5,
+    "all_channels_use_same_confirmation_pool": true
+  },
+  "historical_research_gate_pass_channels": [],
+  "baseline_result": {
+    "channel_id": "baseline_1h_shared_v10_6",
+    "channel_label": "基准·V10.6原1小时多空共享组合 RR2.5",
+    "profile": "baseline_1h_shared_v10_6",
+    "is_baseline": true,
+    "trades": 9,
+    "wins": 6,
+    "losses": 3,
+    "win_rate": 0.6666666666666666,
+    "avg_win_R": 2.0891149352430385,
+    "avg_loss_R": 1.128264463625512,
+    "avg_win_loss_ratio": 1.8516181290776232,
+    "profit_factor": 3.703236258155246,
+    "net_R": 9.149896220581692,
+    "max_drawdown_R": 3.3847933908765366,
+    "expectancy_R": 1.016655135620188,
+    "median_R": 2.1681856360704774,
+    "best_10pct_removed_net_R": 6.757517332065313,
+    "checks_passed": 5,
+    "checks_total": 6,
+    "historical_research_gate_pass": false,
+    "entry_mode": "baseline_v10_6",
+    "direction_variant": "shared",
+    "management_mode": "V10_6_FROZEN",
+    "reward_risk": 2.5,
+    "max_consecutive_losses": 3,
+    "cost_1_5x_profit_factor": 3.320685492776596,
+    "cost_1_5x_net_R": 8.30153353717559,
+    "cost_1_5x_max_drawdown_R": 3.577190258229769
+  },
+  "next_step": "Read all 34 channels together, eliminate weak direction/entry/RR/management routes, and avoid another upload for small isolated changes."
+}
