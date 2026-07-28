@@ -1,0 +1,159 @@
+{
+  "release": {
+    "version": "10.3",
+    "release_type": "hourly_direction_decoupled_long_short_strategies",
+    "inherits_v10_2_data_audit": true,
+    "inherits_v10_execution_conservatism": true,
+    "uses_v9_40_expert_system": false,
+    "only_one_hour_signal_timeframe": true,
+    "trend_pullback_only": true,
+    "long_short_parameters_are_independent": true,
+    "portfolio_uses_shared_position": true
+  },
+  "symbol": "BTCUSDT",
+  "source_interval": "5m",
+  "start_month": "2025-01",
+  "end_month": "2026-06",
+  "signal_timeframe_minutes": 60,
+  "channel_count": 9,
+  "baseline_channel_count": 3,
+  "directional_channel_count": 6,
+  "portfolio_channel_count": 3,
+  "historical_diagnostic_only": true,
+  "winner_selection_enabled": false,
+  "primary_research_goals": [
+    "separate_long_and_short_signal_parameters",
+    "separate_long_and_short_stop_reward_and_holding_rules",
+    "increase_directional_sample_without_returning_to_low_quality_signals",
+    "keep_2026_q2_positive",
+    "remain_profitable_after_removing_best_10_percent_of_trades",
+    "evaluate_shared_position_portfolios_from_independent_direction_components"
+  ],
+  "channels": [
+    {"channel_id":"60m_long_quality_baseline_rr2_5","direction_scope":"LONG","profile":"long_quality_baseline","reward_risk":2.5,"stop_atr_multiple":1.25,"max_holding_hours":36,"is_baseline":true},
+    {"channel_id":"60m_long_recovery_rr2_0","direction_scope":"LONG","profile":"long_recovery","reward_risk":2.0,"stop_atr_multiple":1.20,"max_holding_hours":48,"is_baseline":false},
+    {"channel_id":"60m_long_recovery_rr2_5","direction_scope":"LONG","profile":"long_recovery","reward_risk":2.5,"stop_atr_multiple":1.20,"max_holding_hours":48,"is_baseline":false},
+    {"channel_id":"60m_short_persistence_baseline_rr2_5","direction_scope":"SHORT","profile":"short_persistence_baseline","reward_risk":2.5,"stop_atr_multiple":1.25,"max_holding_hours":48,"is_baseline":true},
+    {"channel_id":"60m_short_continuation_rr2_5","direction_scope":"SHORT","profile":"short_continuation","reward_risk":2.5,"stop_atr_multiple":1.30,"max_holding_hours":36,"is_baseline":false},
+    {"channel_id":"60m_short_continuation_rr3_0","direction_scope":"SHORT","profile":"short_continuation","reward_risk":3.0,"stop_atr_multiple":1.30,"max_holding_hours":36,"is_baseline":false},
+    {"channel_id":"60m_split_portfolio_frozen","direction_scope":"BOTH","profile":"split_portfolio_frozen","long_component_id":"60m_long_quality_baseline_rr2_5","short_component_id":"60m_short_persistence_baseline_rr2_5","is_baseline":true},
+    {"channel_id":"60m_split_portfolio_balanced","direction_scope":"BOTH","profile":"split_portfolio_balanced","long_component_id":"60m_long_recovery_rr2_0","short_component_id":"60m_short_continuation_rr2_5","is_baseline":false},
+    {"channel_id":"60m_split_portfolio_growth","direction_scope":"BOTH","profile":"split_portfolio_growth","long_component_id":"60m_long_recovery_rr2_5","short_component_id":"60m_short_continuation_rr3_0","is_baseline":false}
+  ],
+  "direction_specific_parameters": {
+    "long_quality_baseline": {
+      "source": "V10.1 frozen hourly quality long mask",
+      "stop_atr_multiple": 1.25,
+      "reward_risk": 2.5,
+      "max_holding_hours": 36
+    },
+    "long_recovery": {
+      "market_hypothesis": "bull trends usually recover more gradually after a controlled pullback",
+      "adx_range": [22.0, 42.0],
+      "plus_di_advantage_range": [4.0, 20.0],
+      "ema_separation_atr_range": [0.65, 2.30],
+      "ema20_slope_3_atr_range": [0.10, 0.45],
+      "minimum_ema50_slope_6_atr": 0.02,
+      "minimum_adx_change_3": -4.0,
+      "volume_ratio_range": [0.75, 2.20],
+      "channel_width_atr_range": [2.75, 8.50],
+      "maximum_price_extension_from_ema20_atr": 0.80,
+      "trend_age_hours_range": [5, 144],
+      "minimum_two_of_last_three_closes_above_ema20": true,
+      "rsi_range": [50.0, 67.0],
+      "stop_atr_multiple": 1.20,
+      "reward_risk_grid": [2.0, 2.5],
+      "max_holding_hours": 48
+    },
+    "short_persistence_baseline": {
+      "source": "V10.2 frozen hourly persistence short mask",
+      "stop_atr_multiple": 1.25,
+      "reward_risk": 2.5,
+      "max_holding_hours": 48
+    },
+    "short_continuation": {
+      "market_hypothesis": "bear moves expand faster and need wider squeeze tolerance but shorter holding",
+      "adx_range": [22.0, 48.0],
+      "minus_di_advantage_range": [4.0, 24.0],
+      "ema_separation_atr_range": [0.65, 2.80],
+      "ema20_slope_3_atr_range": [-0.55, -0.10],
+      "maximum_ema50_slope_6_atr": -0.02,
+      "minimum_adx_change_3": -5.0,
+      "volume_ratio_range": [0.65, 2.60],
+      "channel_width_atr_range": [2.50, 9.00],
+      "maximum_price_extension_from_ema20_atr": 1.00,
+      "trend_age_hours_range": [5, 144],
+      "minimum_two_of_last_three_closes_below_ema20": true,
+      "rsi_range": [30.0, 50.0],
+      "stop_atr_multiple": 1.30,
+      "reward_risk_grid": [2.5, 3.0],
+      "max_holding_hours": 36
+    }
+  },
+  "portfolio_rules": {
+    "components_keep_their_own_parameters": true,
+    "one_shared_open_position": true,
+    "same_timestamp_opposite_direction_conflict": "DROP_BOTH_CONSERVATIVE",
+    "balanced": {"long_component":"60m_long_recovery_rr2_0","short_component":"60m_short_continuation_rr2_5"},
+    "growth": {"long_component":"60m_long_recovery_rr2_5","short_component":"60m_short_continuation_rr3_0"}
+  },
+  "execution": {
+    "fee_rate_per_side": 0.0005,
+    "tick_size": 0.1,
+    "slippage_ticks_per_fill": 2,
+    "minimum_stop_distance_pct": 0.002,
+    "same_bar_stop_target_rule": "STOP_FIRST_CONSERVATIVE",
+    "entry_rule": "NEXT_5M_OPEN_AFTER_CLOSED_1H_SIGNAL_BAR",
+    "one_open_trade_per_channel": true,
+    "portfolio_one_shared_open_position": true,
+    "cross_channel_positions_are_independent_for_research": true,
+    "partial_exits": false,
+    "break_even_stop": false
+  },
+  "phases": {
+    "development": {"start_utc":"2025-01-01T00:00:00Z","end_utc":"2025-09-30T23:59:59Z"},
+    "validation": {"start_utc":"2025-10-01T00:00:00Z","end_utc":"2026-03-31T23:59:59Z"},
+    "historical_test": {"start_utc":"2026-04-01T00:00:00Z","end_utc":"2026-06-30T23:59:59Z"}
+  },
+  "research_candidate_thresholds": {
+    "directional": {
+      "minimum_trades": 20,
+      "minimum_win_rate": 0.40,
+      "minimum_avg_win_loss_ratio": 1.70,
+      "minimum_profit_factor": 1.25,
+      "minimum_expectancy_R": 0.08,
+      "maximum_drawdown_R": 6.0,
+      "minimum_positive_months": 5,
+      "minimum_positive_phases": 2,
+      "remove_best_fraction": 0.10,
+      "maximum_single_positive_month_share": 0.40,
+      "minimum_historical_test_profit_factor": 1.0,
+      "minimum_positive_rolling_quarters": 8,
+      "minimum_worst_rolling_quarter_net_R": -3.0
+    },
+    "portfolio": {
+      "minimum_trades": 35,
+      "minimum_win_rate": 0.40,
+      "minimum_avg_win_loss_ratio": 1.80,
+      "minimum_profit_factor": 1.30,
+      "minimum_expectancy_R": 0.10,
+      "maximum_drawdown_R": 8.0,
+      "minimum_positive_months": 8,
+      "minimum_positive_phases": 3,
+      "remove_best_fraction": 0.10,
+      "maximum_single_positive_month_share": 0.35,
+      "minimum_historical_test_profit_factor": 1.0,
+      "minimum_positive_rolling_quarters": 9,
+      "minimum_worst_rolling_quarter_net_R": -4.0
+    }
+  },
+  "no_lookahead_rules": {
+    "aggregate_only_from_complete_5m_bars": true,
+    "signal_uses_only_closed_1h_bar": true,
+    "entry_is_next_5m_open": true,
+    "one_signal_one_complete_trade": true,
+    "same_bar_ambiguity_is_stop_first": true,
+    "future_data_is_never_backfilled": true,
+    "direction_specific_parameters_are_frozen_before_execution": true
+  }
+}
