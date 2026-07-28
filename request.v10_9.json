@@ -1,0 +1,146 @@
+{
+  "release": {
+    "version": "10.9",
+    "release_type": "strict_four_hour_leg_one_hour_impulse_pullback_state_machine_fifteen_minute_trigger",
+    "historical_diagnostic_only": true,
+    "parameter_optimization_enabled": false,
+    "winner_selection_enabled": false,
+    "single_predeclared_state_machine": true,
+    "one_setup_per_cycle": true,
+    "no_new_indicator_family": true,
+    "shadow_management_does_not_change_signals": true
+  },
+  "symbol": "BTCUSDT",
+  "source_interval": "5m",
+  "start_month": "2025-01",
+  "end_month": "2026-06",
+  "warmup_window": {
+    "start_utc": "2025-01-01T00:00:00Z",
+    "end_utc": "2025-12-31T23:59:59Z",
+    "trades_counted": false
+  },
+  "evaluation_window": {
+    "start_utc": "2026-01-01T00:00:00Z",
+    "end_utc": "2026-06-30T23:59:59Z",
+    "entries_outside_window_are_excluded": true
+  },
+  "channel_count": 3,
+  "channels": [
+    {
+      "channel_id": "baseline_1h_shared_v10_6",
+      "role": "REFERENCE_BASELINE",
+      "description": "V10.6 frozen one-hour shared-position portfolio, unchanged, RR2.5"
+    },
+    {
+      "channel_id": "strict_state_4h_1h_15m_fixed_rr2_0",
+      "role": "PRIMARY_STATE_MACHINE_EXPERIMENT",
+      "description": "4h environment leg; one-hour impulse, real pullback and confirmation state machine; first strict 15m structural breakout; fixed stop and 2R target"
+    },
+    {
+      "channel_id": "strict_state_4h_1h_15m_be1_shadow_rr2_0",
+      "role": "SHADOW_MANAGEMENT_ONLY",
+      "description": "Exact same signals as primary; after 1R is touched, break-even becomes active from the next complete 5m bar"
+    }
+  ],
+  "multi_timeframe_parameters": {
+    "four_hour_environment": {
+      "ema_fast": 20,
+      "ema_slow": 50,
+      "minimum_adx14": 18.0,
+      "minimum_abs_ema50_slope_3_atr": 0.02,
+      "require_directional_index_confirmation": true,
+      "long_requires_close_above_ema50": true,
+      "short_requires_close_below_ema50": true
+    }
+  },
+  "state_machine_parameters": {
+    "one_hour_cycle": {
+      "impulse_breakout_lookback_hours": 12,
+      "minimum_impulse_body_atr": 0.45,
+      "minimum_impulse_close_location_value": 0.65,
+      "minimum_impulse_volume_ratio": 0.90,
+      "minimum_impulse_extension_ema20_atr": 0.60,
+      "maximum_impulse_extension_ema20_atr": 2.00,
+      "minimum_pullback_retracement_atr": 0.50,
+      "pullback_touch_ema20_zone_atr": 0.20,
+      "ema50_structure_tolerance_atr": 0.15,
+      "maximum_hours_impulse_to_pullback": 18,
+      "maximum_hours_pullback_to_confirmation": 6,
+      "minimum_confirmation_body_atr": 0.25,
+      "minimum_confirmation_close_location_value": 0.65,
+      "maximum_confirmation_extension_ema20_atr": 0.90,
+      "cycle_cooldown_hours": 8,
+      "maximum_cycles_per_4h_environment_leg": 2
+    },
+    "fifteen_minute_trigger": {
+      "local_breakout_lookback_bars": 4,
+      "minimum_delay_after_confirmation_minutes": 15,
+      "setup_validity_hours": 3,
+      "minimum_volume_ratio": 0.90,
+      "minimum_close_location_value": 0.60,
+      "maximum_price_extension_ema20_atr": 1.20,
+      "must_break_confirmation_extreme": true,
+      "first_valid_trigger_only": true
+    },
+    "execution": {
+      "stop_source": "ALIGNED_CLOSED_1H_ATR14",
+      "stop_atr_multiple": 1.25,
+      "reward_risk": 2.0,
+      "max_holding_hours": 48,
+      "exit_on_completed_4h_opposite_environment": true,
+      "one_shared_open_position_per_channel": true,
+      "partial_exits": false,
+      "pyramiding": false
+    },
+    "shadow_management": {
+      "break_even_activation_R": 1.0,
+      "activation_effective_from": "NEXT_COMPLETE_5M_BAR",
+      "same_bar_target_and_break_even_rule": "BREAK_EVEN_FIRST_CONSERVATIVE_ONCE_ACTIVE",
+      "signals_must_match_primary_exactly": true
+    }
+  },
+  "execution": {
+    "fee_rate_per_side": 0.0005,
+    "tick_size": 0.1,
+    "slippage_ticks_per_fill": 2,
+    "minimum_stop_distance_pct": 0.002,
+    "same_bar_stop_target_rule": "STOP_FIRST_CONSERVATIVE",
+    "entry_rule_15m": "NEXT_5M_OPEN_AFTER_CLOSED_15M_TRIGGER_BAR",
+    "one_open_trade_per_channel": true,
+    "cross_channel_positions_are_independent_for_research": true,
+    "partial_exits": false
+  },
+  "phases": {
+    "evaluation_2026_h1": {
+      "start_utc": "2026-01-01T00:00:00Z",
+      "end_utc": "2026-06-30T23:59:59Z"
+    }
+  },
+  "evaluation_thresholds": {
+    "minimum_trades": 15,
+    "minimum_win_rate": 0.50,
+    "minimum_avg_win_loss_ratio": 1.70,
+    "minimum_profit_factor": 1.50,
+    "maximum_drawdown_R": 6.0,
+    "remove_best_fraction": 0.10
+  },
+  "no_lookahead_rules": {
+    "aggregate_only_complete_5m_bars": true,
+    "4h_environment_uses_only_closed_4h_bar": true,
+    "1h_state_machine_uses_only_closed_1h_bars": true,
+    "15m_trigger_uses_only_closed_15m_bar": true,
+    "higher_timeframe_alignment": "BACKWARD_ASOF_ONLY",
+    "entry_occurs_at_next_5m_open_after_trigger_close": true,
+    "break_even_activation_is_delayed_until_next_5m_bar": true,
+    "same_bar_ambiguity_is_conservative": true,
+    "one_setup_one_trigger_maximum": true,
+    "one_cycle_one_setup_maximum": true,
+    "one_signal_one_complete_trade": true
+  },
+  "governance": {
+    "qualified_for_live_trading": false,
+    "historical_data_already_viewed": true,
+    "do_not_tune_after_reading_2026_h1_result": true,
+    "primary_goal": "replace repeated ordinary pullback events with a finite impulse-pullback-confirmation cycle and isolate break-even management as a shadow comparison"
+  }
+}
