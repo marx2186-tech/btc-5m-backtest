@@ -1,0 +1,41 @@
+{
+  "engine": "BTCUSDT multi-timeframe simple-strategy benchmark V10.0",
+  "release_version": "10.0",
+  "historical_diagnostic_only": true,
+  "qualified_for_live_trading": false,
+  "timeframes_tested_minutes": [
+    15,
+    30,
+    60
+  ],
+  "channel_count": 10,
+  "research_candidate_count": 0,
+  "research_candidate_channels": [],
+  "research_leader": {
+    "channel_id": "60m_range_reversal",
+    "channel_label": "1小时区间反转",
+    "timeframe_minutes": 60,
+    "strategy": "range_reversal",
+    "trades": 260,
+    "wins": 94,
+    "losses": 166,
+    "win_rate": 0.36153846153846153,
+    "avg_win_R": 1.7118097153065803,
+    "avg_loss_R": 1.161706766804143,
+    "avg_win_loss_ratio": 1.473529951121634,
+    "profit_factor": 0.8344085265387566,
+    "net_R": -31.933210050669125,
+    "max_drawdown_R": 38.02673960000595,
+    "expectancy_R": -0.12282003865641972,
+    "median_R": -1.120090576332452,
+    "active_months": 18,
+    "positive_months": 8,
+    "positive_phases": 1,
+    "best_10pct_removed_net_R": -81.22092644009966,
+    "max_single_positive_month_share": 0.23487191067576174,
+    "research_candidate": false,
+    "benchmark_score": -83.15805554152055
+  },
+  "winner_selection_enabled": false,
+  "next_step": "Freeze the best structurally robust channel and validate on future unseen data."
+}

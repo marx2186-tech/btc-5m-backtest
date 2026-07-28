@@ -1,0 +1,11 @@
+channel_id,channel_label,timeframe_minutes,strategy,signals,long_signals,short_signals
+15m_trend_pullback,15分钟趋势回踩,15,trend_pullback,2505,1180,1325
+15m_range_reversal,15分钟区间反转,15,range_reversal,1605,767,838
+15m_volatility_breakout,15分钟波动突破,15,volatility_breakout,1602,785,817
+30m_trend_pullback,30分钟趋势回踩,30,trend_pullback,1308,645,663
+30m_range_reversal,30分钟区间反转,30,range_reversal,823,415,408
+30m_volatility_breakout,30分钟波动突破,30,volatility_breakout,823,414,409
+60m_trend_pullback,1小时趋势回踩,60,trend_pullback,693,322,371
+60m_range_reversal,1小时区间反转,60,range_reversal,334,168,166
+60m_volatility_breakout,1小时波动突破,60,volatility_breakout,350,177,173
+1h_15m_5m_trend,1小时趋势＋15分钟结构＋5分钟执行,15,mtf_trend_pullback,4583,2199,2384

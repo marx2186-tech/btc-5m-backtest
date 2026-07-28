@@ -1,0 +1,83 @@
+{
+  "channels": [
+    {
+      "channel_id": "15m_trend_pullback",
+      "timeframe": "15m",
+      "strategy": "trend_pullback"
+    },
+    {
+      "channel_id": "15m_range_reversal",
+      "timeframe": "15m",
+      "strategy": "range_reversal"
+    },
+    {
+      "channel_id": "15m_volatility_breakout",
+      "timeframe": "15m",
+      "strategy": "volatility_breakout"
+    },
+    {
+      "channel_id": "30m_trend_pullback",
+      "timeframe": "30m",
+      "strategy": "trend_pullback"
+    },
+    {
+      "channel_id": "30m_range_reversal",
+      "timeframe": "30m",
+      "strategy": "range_reversal"
+    },
+    {
+      "channel_id": "30m_volatility_breakout",
+      "timeframe": "30m",
+      "strategy": "volatility_breakout"
+    },
+    {
+      "channel_id": "60m_trend_pullback",
+      "timeframe": "60m",
+      "strategy": "trend_pullback"
+    },
+    {
+      "channel_id": "60m_range_reversal",
+      "timeframe": "60m",
+      "strategy": "range_reversal"
+    },
+    {
+      "channel_id": "60m_volatility_breakout",
+      "timeframe": "60m",
+      "strategy": "volatility_breakout"
+    },
+    {
+      "channel_id": "1h_15m_5m_trend",
+      "timeframe": "1h+15m+5m",
+      "strategy": "mtf_trend_pullback"
+    }
+  ],
+  "execution": {
+    "fee_rate_per_side": 0.0005,
+    "tick_size": 0.1,
+    "slippage_ticks_per_fill": 2,
+    "minimum_stop_distance_pct": 0.002,
+    "reward_risk": 2.0,
+    "same_bar_stop_target_rule": "STOP_FIRST_CONSERVATIVE",
+    "entry_rule": "NEXT_5M_OPEN_AFTER_CLOSED_SIGNAL_BAR",
+    "one_open_trade_per_channel": true,
+    "cross_channel_positions_are_independent_for_benchmark": true
+  },
+  "no_lookahead_rules": {
+    "aggregate_only_from_complete_5m_bars": true,
+    "signal_uses_only_closed_timeframe_bar": true,
+    "entry_is_next_5m_open": true,
+    "one_signal_one_complete_trade": true,
+    "same_bar_ambiguity_is_stop_first": true,
+    "future_data_is_never_backfilled": true
+  },
+  "research_candidate_thresholds": {
+    "minimum_trades": 80,
+    "minimum_profit_factor": 1.3,
+    "minimum_expectancy_R": 0.1,
+    "maximum_drawdown_R": 8.0,
+    "minimum_positive_months": 4,
+    "minimum_positive_phases": 2,
+    "remove_best_fraction": 0.1,
+    "maximum_single_positive_month_share": 0.4
+  }
+}

@@ -1,0 +1,114 @@
+{
+  "resample": {
+    "15": {
+      "rows": 52416,
+      "first_bar_close_utc": "2025-01-01T00:15:00+00:00",
+      "last_bar_close_utc": "2026-07-01T00:00:00+00:00",
+      "source_rows_per_bar": 3
+    },
+    "30": {
+      "rows": 26208,
+      "first_bar_close_utc": "2025-01-01T00:30:00+00:00",
+      "last_bar_close_utc": "2026-07-01T00:00:00+00:00",
+      "source_rows_per_bar": 6
+    },
+    "60": {
+      "rows": 13104,
+      "first_bar_close_utc": "2025-01-01T01:00:00+00:00",
+      "last_bar_close_utc": "2026-07-01T00:00:00+00:00",
+      "source_rows_per_bar": 12
+    }
+  },
+  "channels": [
+    {
+      "channel_id": "15m_trend_pullback",
+      "channel_label": "15分钟趋势回踩",
+      "timeframe_minutes": 15,
+      "strategy": "trend_pullback",
+      "signals": 2505,
+      "long_signals": 1180,
+      "short_signals": 1325
+    },
+    {
+      "channel_id": "15m_range_reversal",
+      "channel_label": "15分钟区间反转",
+      "timeframe_minutes": 15,
+      "strategy": "range_reversal",
+      "signals": 1605,
+      "long_signals": 767,
+      "short_signals": 838
+    },
+    {
+      "channel_id": "15m_volatility_breakout",
+      "channel_label": "15分钟波动突破",
+      "timeframe_minutes": 15,
+      "strategy": "volatility_breakout",
+      "signals": 1602,
+      "long_signals": 785,
+      "short_signals": 817
+    },
+    {
+      "channel_id": "30m_trend_pullback",
+      "channel_label": "30分钟趋势回踩",
+      "timeframe_minutes": 30,
+      "strategy": "trend_pullback",
+      "signals": 1308,
+      "long_signals": 645,
+      "short_signals": 663
+    },
+    {
+      "channel_id": "30m_range_reversal",
+      "channel_label": "30分钟区间反转",
+      "timeframe_minutes": 30,
+      "strategy": "range_reversal",
+      "signals": 823,
+      "long_signals": 415,
+      "short_signals": 408
+    },
+    {
+      "channel_id": "30m_volatility_breakout",
+      "channel_label": "30分钟波动突破",
+      "timeframe_minutes": 30,
+      "strategy": "volatility_breakout",
+      "signals": 823,
+      "long_signals": 414,
+      "short_signals": 409
+    },
+    {
+      "channel_id": "60m_trend_pullback",
+      "channel_label": "1小时趋势回踩",
+      "timeframe_minutes": 60,
+      "strategy": "trend_pullback",
+      "signals": 693,
+      "long_signals": 322,
+      "short_signals": 371
+    },
+    {
+      "channel_id": "60m_range_reversal",
+      "channel_label": "1小时区间反转",
+      "timeframe_minutes": 60,
+      "strategy": "range_reversal",
+      "signals": 334,
+      "long_signals": 168,
+      "short_signals": 166
+    },
+    {
+      "channel_id": "60m_volatility_breakout",
+      "channel_label": "1小时波动突破",
+      "timeframe_minutes": 60,
+      "strategy": "volatility_breakout",
+      "signals": 350,
+      "long_signals": 177,
+      "short_signals": 173
+    },
+    {
+      "channel_id": "1h_15m_5m_trend",
+      "channel_label": "1小时趋势＋15分钟结构＋5分钟执行",
+      "timeframe_minutes": 15,
+      "strategy": "mtf_trend_pullback",
+      "signals": 4583,
+      "long_signals": 2199,
+      "short_signals": 2384
+    }
+  ]
+}
