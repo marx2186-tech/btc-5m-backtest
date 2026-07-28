@@ -1,0 +1,9 @@
+{
+  "decision_ready": false,
+  "requirements": {
+    "minimum_complete_calendar_months": 3,
+    "minimum_trades_per_risk_lane": 5
+  },
+  "winner_selection_enabled": false,
+  "action": "continue append-only accumulation"
+}

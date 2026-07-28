@@ -1,0 +1,11 @@
+{
+  "signal_layer": "frozen original probability/rank/meta/utility",
+  "statistics_layer": "V9.6.7_NO_MONTHLY_BUDGET_ORIGINAL",
+  "risk_layer": "expert tier multiplier plus frozen dual risk budgets",
+  "rating_ignores_execution_budget": true,
+  "ignored_gate_fields": [
+    "max_trades_per_month"
+  ],
+  "monthly_budget_winner_selected": false,
+  "seen_oos_used_for_selection": false
+}

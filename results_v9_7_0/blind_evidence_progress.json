@@ -1,0 +1,45 @@
+{
+  "blind_start_month": "2026-07",
+  "calendar_latest_complete_month": "2026-06",
+  "latest_available_archive_month": null,
+  "complete_blind_months": [],
+  "complete_blind_month_count": 0,
+  "risk_lanes": {
+    "V9.6.1_MONTHLY_BUDGET": {
+      "trades": 0,
+      "wins": 0,
+      "win_rate": 0.0,
+      "avg_win_R": 0.0,
+      "avg_loss_R": 0.0,
+      "avg_win_loss_ratio": 0.0,
+      "profit_factor": 0.0,
+      "net_R": 0.0,
+      "max_drawdown_R": 0.0,
+      "expectancy_R": 0.0,
+      "complete_calendar_months": 0,
+      "calendar_requirement_met": false,
+      "trade_requirement_met": false,
+      "evidence_ready": false
+    },
+    "V9.6.7_NO_MONTHLY_BUDGET": {
+      "trades": 0,
+      "wins": 0,
+      "win_rate": 0.0,
+      "avg_win_R": 0.0,
+      "avg_loss_R": 0.0,
+      "avg_win_loss_ratio": 0.0,
+      "profit_factor": 0.0,
+      "net_R": 0.0,
+      "max_drawdown_R": 0.0,
+      "expectancy_R": 0.0,
+      "complete_calendar_months": 0,
+      "calendar_requirement_met": false,
+      "trade_requirement_met": false,
+      "evidence_ready": false
+    }
+  },
+  "decision_ready": false,
+  "winner_selection_enabled": false,
+  "winner_decision": "INSUFFICIENT_FRESH_BLIND_EVIDENCE",
+  "automatic_tier_activation_enabled": false
+}

@@ -1,0 +1,67 @@
+{
+  "winner_selection_enabled": false,
+  "winner_decision": "NO_WINNER_SELECTION_FROM_SEEN_OOS",
+  "reason": "2026-06 has already been inspected; both risk budgets remain frozen until fresh blind evidence",
+  "rating_source": "V9.6.7_NO_MONTHLY_BUDGET_ORIGINAL",
+  "rating_is_independent_of_risk_budget": true,
+  "lanes": {
+    "V9.6.1_MONTHLY_BUDGET": {
+      "development_metrics": {
+        "trades": 7,
+        "wins": 5,
+        "win_rate": 0.7142857142857143,
+        "avg_win_R": 1.864239152287175,
+        "avg_loss_R": 1.2295004516315258,
+        "avg_win_loss_ratio": 1.5162573952806297,
+        "profit_factor": 3.7906434882015745,
+        "net_R": 6.862194858172823,
+        "max_drawdown_R": 1.2643270542932266,
+        "expectancy_R": 0.9803135511675461
+      },
+      "diagnostic_oos_metrics": {
+        "trades": 0,
+        "wins": 0,
+        "win_rate": 0.0,
+        "avg_win_R": 0.0,
+        "avg_loss_R": 0.0,
+        "avg_win_loss_ratio": 0.0,
+        "profit_factor": 0.0,
+        "net_R": 0.0,
+        "max_drawdown_R": 0.0,
+        "expectancy_R": 0.0
+      },
+      "signal_fingerprint": "4229926a4210bf86419a4f6a2160dbdaad59fb842ebd2add69c89b0df87e2061",
+      "monthly_budget_enabled": true
+    },
+    "V9.6.7_NO_MONTHLY_BUDGET": {
+      "development_metrics": {
+        "trades": 10,
+        "wins": 5,
+        "win_rate": 0.5,
+        "avg_win_R": 1.864239152287175,
+        "avg_loss_R": 0.7918253207701366,
+        "avg_win_loss_ratio": 2.354356577627499,
+        "profit_factor": 2.354356577627499,
+        "net_R": 5.362069157585193,
+        "max_drawdown_R": 2.604056198294657,
+        "expectancy_R": 0.5362069157585193
+      },
+      "diagnostic_oos_metrics": {
+        "trades": 0,
+        "wins": 0,
+        "win_rate": 0.0,
+        "avg_win_R": 0.0,
+        "avg_loss_R": 0.0,
+        "avg_win_loss_ratio": 0.0,
+        "profit_factor": 0.0,
+        "net_R": 0.0,
+        "max_drawdown_R": 0.0,
+        "expectancy_R": 0.0
+      },
+      "signal_fingerprint": "9220c4e1effecd565f24e43cdda7f2b7d74b7ec89b91ef64863143d91137a20d",
+      "monthly_budget_enabled": false
+    }
+  },
+  "future_blind_min_calendar_months": 3,
+  "future_blind_min_trades_per_lane": 5
+}

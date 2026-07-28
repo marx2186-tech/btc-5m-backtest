@@ -1,0 +1,27 @@
+{
+  "append_only_enabled": true,
+  "expert_ledger": {
+    "ledger": "blind_expert_trade_ledger",
+    "previous_rows": 0,
+    "new_rows": 0,
+    "unchanged_rows": 0,
+    "mutations": 0,
+    "append_only_pass": true
+  },
+  "risk_budget_ledger": {
+    "ledger": "blind_risk_budget_trade_ledger",
+    "previous_rows": 0,
+    "new_rows": 0,
+    "unchanged_rows": 0,
+    "mutations": 0,
+    "append_only_pass": true
+  },
+  "archive_discovery": {
+    "attempts": [],
+    "data_audit": null
+  },
+  "blind_data_used_for_policy_search": false,
+  "blind_data_used_for_threshold_tuning": false,
+  "blind_data_used_for_signal_formula_changes": false,
+  "frozen_baseline_cutoff": "2026-06-30T23:59:59Z"
+}
