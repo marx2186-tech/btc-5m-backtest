@@ -1,0 +1,4 @@
+channel_id,baseline_channel_id,direction,changed_condition_count,changed_condition,change_type
+60m_long_extension_adx47_5_rr2_5,60m_long_extension_adx45_rr2_5,LONG,1,adx14 upper cap 45.0 -> 47.5,RELAX_ONE_FILTER
+60m_long_extension_adx50_rr2_5,60m_long_extension_adx45_rr2_5,LONG,1,adx14 upper cap 45.0 -> 50.0,RELAX_ONE_FILTER
+60m_short_persistence_adx_relax_frozen_rr2_5,60m_short_persistence_reference_rr2_5,SHORT,1,adx_change_3 minimum -3.0 -> -4.0,FROZEN_EFFECTIVE_RELAXATION

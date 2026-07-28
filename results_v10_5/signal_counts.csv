@@ -1,0 +1,12 @@
+channel_id,channel_label,profile,direction_scope,reward_risk,stop_atr_multiple,max_holding_hours,is_baseline,signals,long_signals,short_signals
+60m_long_extension_adx45_rr2_5,多头冻结基线·延伸保护+ADX≤45 RR2.5,long_extension_adx45,LONG,2.5,1.25,36,True,16,16,0
+60m_long_extension_adx47_5_rr2_5,多头独立策略·延伸保护+ADX≤47.5 RR2.5,long_extension_adx47_5,LONG,2.5,1.25,36,False,17,17,0
+60m_long_extension_adx50_rr2_5,多头独立策略·延伸保护+ADX≤50 RR2.5,long_extension_adx50,LONG,2.5,1.25,36,False,17,17,0
+60m_short_persistence_reference_rr2_5,空头冻结参考·趋势持续性 RR2.5,short_persistence_reference,SHORT,2.5,1.25,48,True,7,0,7
+60m_short_persistence_adx_relax_frozen_rr2_5,空头冻结优化·ADX衰减≥-4 RR2.5,short_persistence_adx_relax_frozen,SHORT,2.5,1.25,48,False,8,0,8
+60m_split_portfolio_v104_leader,多空组合冻结基线·多ADX45/空原始,split_portfolio_v104_leader,BOTH,ASYMMETRIC,ASYMMETRIC,ASYMMETRIC,True,23,16,7
+60m_split_portfolio_interaction_45,多空交互组合·多ADX45/空ADX-4,split_portfolio_interaction_45,BOTH,ASYMMETRIC,ASYMMETRIC,ASYMMETRIC,False,24,16,8
+60m_split_portfolio_long47_reference,多空对照组合·多ADX47.5/空原始,split_portfolio_long47_reference,BOTH,ASYMMETRIC,ASYMMETRIC,ASYMMETRIC,False,24,17,7
+60m_split_portfolio_interaction_47_5,多空交互组合·多ADX47.5/空ADX-4,split_portfolio_interaction_47_5,BOTH,ASYMMETRIC,ASYMMETRIC,ASYMMETRIC,False,25,17,8
+60m_split_portfolio_long50_reference,多空对照组合·多ADX50/空原始,split_portfolio_long50_reference,BOTH,ASYMMETRIC,ASYMMETRIC,ASYMMETRIC,False,24,17,7
+60m_split_portfolio_interaction_50,多空交互组合·多ADX50/空ADX-4,split_portfolio_interaction_50,BOTH,ASYMMETRIC,ASYMMETRIC,ASYMMETRIC,False,25,17,8

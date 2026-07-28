@@ -1,0 +1,275 @@
+{
+  "resample": {
+    "60": {
+      "rows": 13104,
+      "first_bar_close_utc": "2025-01-01T01:00:00+00:00",
+      "last_bar_close_utc": "2026-07-01T00:00:00+00:00",
+      "source_rows_per_bar": 12
+    }
+  },
+  "channels": [
+    {
+      "channel_id": "60m_long_extension_adx45_rr2_5",
+      "channel_label": "多头冻结基线·延伸保护+ADX≤45 RR2.5",
+      "profile": "long_extension_adx45",
+      "direction_scope": "LONG",
+      "reward_risk": 2.5,
+      "stop_atr_multiple": 1.25,
+      "max_holding_hours": 36,
+      "is_baseline": true,
+      "signals": 16,
+      "long_signals": 16,
+      "short_signals": 0
+    },
+    {
+      "channel_id": "60m_long_extension_adx47_5_rr2_5",
+      "channel_label": "多头独立策略·延伸保护+ADX≤47.5 RR2.5",
+      "profile": "long_extension_adx47_5",
+      "direction_scope": "LONG",
+      "reward_risk": 2.5,
+      "stop_atr_multiple": 1.25,
+      "max_holding_hours": 36,
+      "is_baseline": false,
+      "signals": 17,
+      "long_signals": 17,
+      "short_signals": 0
+    },
+    {
+      "channel_id": "60m_long_extension_adx50_rr2_5",
+      "channel_label": "多头独立策略·延伸保护+ADX≤50 RR2.5",
+      "profile": "long_extension_adx50",
+      "direction_scope": "LONG",
+      "reward_risk": 2.5,
+      "stop_atr_multiple": 1.25,
+      "max_holding_hours": 36,
+      "is_baseline": false,
+      "signals": 17,
+      "long_signals": 17,
+      "short_signals": 0
+    },
+    {
+      "channel_id": "60m_short_persistence_reference_rr2_5",
+      "channel_label": "空头冻结参考·趋势持续性 RR2.5",
+      "profile": "short_persistence_reference",
+      "direction_scope": "SHORT",
+      "reward_risk": 2.5,
+      "stop_atr_multiple": 1.25,
+      "max_holding_hours": 48,
+      "is_baseline": true,
+      "signals": 7,
+      "long_signals": 0,
+      "short_signals": 7
+    },
+    {
+      "channel_id": "60m_short_persistence_adx_relax_frozen_rr2_5",
+      "channel_label": "空头冻结优化·ADX衰减≥-4 RR2.5",
+      "profile": "short_persistence_adx_relax_frozen",
+      "direction_scope": "SHORT",
+      "reward_risk": 2.5,
+      "stop_atr_multiple": 1.25,
+      "max_holding_hours": 48,
+      "is_baseline": false,
+      "signals": 8,
+      "long_signals": 0,
+      "short_signals": 8
+    },
+    {
+      "channel_id": "60m_split_portfolio_v104_leader",
+      "channel_label": "多空组合冻结基线·多ADX45/空原始",
+      "profile": "split_portfolio_v104_leader",
+      "direction_scope": "BOTH",
+      "reward_risk": "ASYMMETRIC",
+      "stop_atr_multiple": "ASYMMETRIC",
+      "max_holding_hours": "ASYMMETRIC",
+      "is_baseline": true,
+      "signals": 23,
+      "long_signals": 16,
+      "short_signals": 7
+    },
+    {
+      "channel_id": "60m_split_portfolio_interaction_45",
+      "channel_label": "多空交互组合·多ADX45/空ADX-4",
+      "profile": "split_portfolio_interaction_45",
+      "direction_scope": "BOTH",
+      "reward_risk": "ASYMMETRIC",
+      "stop_atr_multiple": "ASYMMETRIC",
+      "max_holding_hours": "ASYMMETRIC",
+      "is_baseline": false,
+      "signals": 24,
+      "long_signals": 16,
+      "short_signals": 8
+    },
+    {
+      "channel_id": "60m_split_portfolio_long47_reference",
+      "channel_label": "多空对照组合·多ADX47.5/空原始",
+      "profile": "split_portfolio_long47_reference",
+      "direction_scope": "BOTH",
+      "reward_risk": "ASYMMETRIC",
+      "stop_atr_multiple": "ASYMMETRIC",
+      "max_holding_hours": "ASYMMETRIC",
+      "is_baseline": false,
+      "signals": 24,
+      "long_signals": 17,
+      "short_signals": 7
+    },
+    {
+      "channel_id": "60m_split_portfolio_interaction_47_5",
+      "channel_label": "多空交互组合·多ADX47.5/空ADX-4",
+      "profile": "split_portfolio_interaction_47_5",
+      "direction_scope": "BOTH",
+      "reward_risk": "ASYMMETRIC",
+      "stop_atr_multiple": "ASYMMETRIC",
+      "max_holding_hours": "ASYMMETRIC",
+      "is_baseline": false,
+      "signals": 25,
+      "long_signals": 17,
+      "short_signals": 8
+    },
+    {
+      "channel_id": "60m_split_portfolio_long50_reference",
+      "channel_label": "多空对照组合·多ADX50/空原始",
+      "profile": "split_portfolio_long50_reference",
+      "direction_scope": "BOTH",
+      "reward_risk": "ASYMMETRIC",
+      "stop_atr_multiple": "ASYMMETRIC",
+      "max_holding_hours": "ASYMMETRIC",
+      "is_baseline": false,
+      "signals": 24,
+      "long_signals": 17,
+      "short_signals": 7
+    },
+    {
+      "channel_id": "60m_split_portfolio_interaction_50",
+      "channel_label": "多空交互组合·多ADX50/空ADX-4",
+      "profile": "split_portfolio_interaction_50",
+      "direction_scope": "BOTH",
+      "reward_risk": "ASYMMETRIC",
+      "stop_atr_multiple": "ASYMMETRIC",
+      "max_holding_hours": "ASYMMETRIC",
+      "is_baseline": false,
+      "signals": 25,
+      "long_signals": 17,
+      "short_signals": 8
+    }
+  ],
+  "portfolio_overlap": [
+    {
+      "channel_id": "60m_split_portfolio_v104_leader",
+      "long_component_id": "60m_long_extension_adx45_rr2_5",
+      "short_component_id": "60m_short_persistence_reference_rr2_5",
+      "long_component_signals": 16,
+      "short_component_signals": 7,
+      "conflict_timestamps": 0,
+      "portfolio_signals": 23
+    },
+    {
+      "channel_id": "60m_split_portfolio_interaction_45",
+      "long_component_id": "60m_long_extension_adx45_rr2_5",
+      "short_component_id": "60m_short_persistence_adx_relax_frozen_rr2_5",
+      "long_component_signals": 16,
+      "short_component_signals": 8,
+      "conflict_timestamps": 0,
+      "portfolio_signals": 24
+    },
+    {
+      "channel_id": "60m_split_portfolio_long47_reference",
+      "long_component_id": "60m_long_extension_adx47_5_rr2_5",
+      "short_component_id": "60m_short_persistence_reference_rr2_5",
+      "long_component_signals": 17,
+      "short_component_signals": 7,
+      "conflict_timestamps": 0,
+      "portfolio_signals": 24
+    },
+    {
+      "channel_id": "60m_split_portfolio_interaction_47_5",
+      "long_component_id": "60m_long_extension_adx47_5_rr2_5",
+      "short_component_id": "60m_short_persistence_adx_relax_frozen_rr2_5",
+      "long_component_signals": 17,
+      "short_component_signals": 8,
+      "conflict_timestamps": 0,
+      "portfolio_signals": 25
+    },
+    {
+      "channel_id": "60m_split_portfolio_long50_reference",
+      "long_component_id": "60m_long_extension_adx50_rr2_5",
+      "short_component_id": "60m_short_persistence_reference_rr2_5",
+      "long_component_signals": 17,
+      "short_component_signals": 7,
+      "conflict_timestamps": 0,
+      "portfolio_signals": 24
+    },
+    {
+      "channel_id": "60m_split_portfolio_interaction_50",
+      "long_component_id": "60m_long_extension_adx50_rr2_5",
+      "short_component_id": "60m_short_persistence_adx_relax_frozen_rr2_5",
+      "long_component_signals": 17,
+      "short_component_signals": 8,
+      "conflict_timestamps": 0,
+      "portfolio_signals": 25
+    }
+  ],
+  "parameter_change_audit": [
+    {
+      "channel_id": "60m_long_extension_adx47_5_rr2_5",
+      "baseline_channel_id": "60m_long_extension_adx45_rr2_5",
+      "direction": "LONG",
+      "changed_condition_count": 1,
+      "changed_condition": "adx14 upper cap 45.0 -> 47.5",
+      "change_type": "RELAX_ONE_FILTER"
+    },
+    {
+      "channel_id": "60m_long_extension_adx50_rr2_5",
+      "baseline_channel_id": "60m_long_extension_adx45_rr2_5",
+      "direction": "LONG",
+      "changed_condition_count": 1,
+      "changed_condition": "adx14 upper cap 45.0 -> 50.0",
+      "change_type": "RELAX_ONE_FILTER"
+    },
+    {
+      "channel_id": "60m_short_persistence_adx_relax_frozen_rr2_5",
+      "baseline_channel_id": "60m_short_persistence_reference_rr2_5",
+      "direction": "SHORT",
+      "changed_condition_count": 1,
+      "changed_condition": "adx_change_3 minimum -3.0 -> -4.0",
+      "change_type": "FROZEN_EFFECTIVE_RELAXATION"
+    }
+  ],
+  "portfolio_factor_grid": [
+    {
+      "channel_id": "60m_split_portfolio_v104_leader",
+      "long_adx_cap": 45.0,
+      "short_mode": "REFERENCE_-3",
+      "is_v104_control": true
+    },
+    {
+      "channel_id": "60m_split_portfolio_interaction_45",
+      "long_adx_cap": 45.0,
+      "short_mode": "RELAXED_-4",
+      "is_v104_control": false
+    },
+    {
+      "channel_id": "60m_split_portfolio_long47_reference",
+      "long_adx_cap": 47.5,
+      "short_mode": "REFERENCE_-3",
+      "is_v104_control": false
+    },
+    {
+      "channel_id": "60m_split_portfolio_interaction_47_5",
+      "long_adx_cap": 47.5,
+      "short_mode": "RELAXED_-4",
+      "is_v104_control": false
+    },
+    {
+      "channel_id": "60m_split_portfolio_long50_reference",
+      "long_adx_cap": 50.0,
+      "short_mode": "REFERENCE_-3",
+      "is_v104_control": false
+    },
+    {
+      "channel_id": "60m_split_portfolio_interaction_50",
+      "long_adx_cap": 50.0,
+      "short_mode": "RELAXED_-4",
+      "is_v104_control": false
+    }
+  ]
+}
