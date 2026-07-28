@@ -1,0 +1,198 @@
+name: BTCUSDT V10.2 hourly regime robustness
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "autonomous_backtest_v10_2.py"
+      - "_v102_engine.py"
+      - "request.v10_2.json"
+      - ".github/workflows/v10-2-hourly-regime-robustness.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: btcusdt-v10-2-hourly-regime-robustness
+  cancel-in-progress: false
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install numpy==1.26.4 pandas==2.2.2 requests==2.32.3
+
+      - name: Verify exact V10.2 files
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(sha256sum autonomous_backtest_v10_2.py | awk '{print $1}')" = "9a4935785c6e68a3a68ed6194a627c0b2ea7ac28ea995dbab5075332c5b956d6"
+          test "$(sha256sum _v102_engine.py | awk '{print $1}')" = "c1e59bc04f0ad7d84bdba9691cfb93d56ecc36a182d722fb18494bd6ff990328"
+          test "$(sha256sum request.v10_2.json | awk '{print $1}')" = "14f201fef29ed4bead9c8dd6facee838fd19237da45bcfb36d984fd1b9e29561"
+          grep -F '"signal_timeframe_minutes": 60' request.v10_2.json
+          grep -F '"channel_count": 8' request.v10_2.json
+          grep -F '"baseline_channel_count": 2' request.v10_2.json
+          grep -F '"optimized_channel_count": 6' request.v10_2.json
+          grep -F '"trend_pullback_only": true' request.v10_2.json
+          grep -F '"range_reversal_removed": true' request.v10_2.json
+          grep -F '"reward_risk_grid": [2.5, 3.0]' request.v10_2.json
+          grep -F 'NEXT_5M_OPEN_AFTER_CLOSED_1H_SIGNAL_BAR' request.v10_2.json
+          grep -F 'STOP_FIRST_CONSERVATIVE' request.v10_2.json
+          ! grep -R -F 'fapi.binance.com' autonomous_backtest_v10_2.py _v102_engine.py request.v10_2.json
+
+      - name: Syntax and offline tests
+        shell: bash
+        env:
+          BACKTEST_REQUEST_FILE: request.v10_2.json
+        run: |
+          set -euo pipefail
+          python -m py_compile autonomous_backtest_v10_2.py _v102_engine.py
+          python autonomous_backtest_v10_2.py --self-test 2>&1 | tee v10-2-self-test.log
+          python autonomous_backtest_v10_2.py --pipeline-smoke 2>&1 | tee v10-2-pipeline-smoke.log
+          python - <<'PYCODE'
+          import json
+          from pathlib import Path
+          request=json.loads(Path('request.v10_2.json').read_text(encoding='utf-8'))
+          assert request['release']['version']=='10.2'
+          assert request['signal_timeframe_minutes']==60
+          assert request['channel_count']==8
+          assert request['baseline_channel_count']==2
+          assert request['optimized_channel_count']==6
+          assert len(request['channels'])==8
+          assert all(row['timeframe_minutes']==60 for row in request['channels'])
+          assert all(row['family']=='trend_pullback' for row in request['channels'])
+          assert sorted(set(row['reward_risk'] for row in request['channels']))==[2.5,3.0]
+          assert sum(bool(row['is_baseline']) for row in request['channels'])==2
+          assert request['historical_diagnostic_only'] is True
+          assert request['winner_selection_enabled'] is False
+          assert request['execution']['one_open_trade_per_channel'] is True
+          assert request['execution']['partial_exits'] is False
+          assert request['execution']['entry_rule']=='NEXT_5M_OPEN_AFTER_CLOSED_1H_SIGNAL_BAR'
+          assert request['execution']['same_bar_stop_target_rule']=='STOP_FIRST_CONSERVATIVE'
+          assert request['no_lookahead_rules']['rolling_percentiles_use_shifted_past_data_only'] is True
+          assert request['research_candidate_thresholds']['minimum_positive_phases']==3
+          assert request['research_candidate_thresholds']['minimum_historical_test_profit_factor']==1.0
+          print('V102_CONFIG_OK')
+          PYCODE
+
+      - name: Run V10.2 real hourly robustness backtest
+        shell: bash
+        env:
+          BACKTEST_REQUEST_FILE: request.v10_2.json
+          PYTHONUNBUFFERED: "1"
+        run: |
+          set -euo pipefail
+          rm -rf results_v10_2
+          python autonomous_backtest_v10_2.py 2>&1 | tee v10-2-run.log
+
+      - name: Upload failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: btcusdt-v10-2-failure-diagnostics
+          path: |
+            v10-2-self-test.log
+            v10-2-pipeline-smoke.log
+            v10-2-run.log
+            results_v10_2/
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Verify V10.2 outputs
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          for f in status.json report.md benchmark_summary.json data_audit.json resample_and_signal_audit.json robustness_audit.json strategy_spec.json run_identity.json run_identity.txt channel_summary.csv baseline_comparison.csv channel_phase_summary.csv channel_monthly_summary.csv direction_summary.csv rolling_quarter_summary.csv historical_test_trade_diagnostics.csv trade_ledger.csv signal_counts.csv; do
+            test -f "results_v10_2/$f"
+          done
+          python - <<'PYCODE'
+          import json
+          from pathlib import Path
+          import pandas as pd
+          root=Path('results_v10_2')
+          status=json.loads((root/'status.json').read_text(encoding='utf-8'))
+          audit=json.loads((root/'data_audit.json').read_text(encoding='utf-8'))
+          benchmark=json.loads((root/'benchmark_summary.json').read_text(encoding='utf-8'))
+          signal_audit=json.loads((root/'resample_and_signal_audit.json').read_text(encoding='utf-8'))
+          summary=pd.read_csv(root/'channel_summary.csv')
+          comparison=pd.read_csv(root/'baseline_comparison.csv')
+          phases=pd.read_csv(root/'channel_phase_summary.csv')
+          directions=pd.read_csv(root/'direction_summary.csv')
+          quarters=pd.read_csv(root/'rolling_quarter_summary.csv')
+          trades=pd.read_csv(root/'trade_ledger.csv')
+          recent=pd.read_csv(root/'historical_test_trade_diagnostics.csv')
+          assert status['release_version']=='10.2'
+          assert status['qualified_for_live_trading'] is False
+          assert status['historical_diagnostic_only'] is True
+          assert status['signal_timeframe_minutes']==60
+          assert status['strategy_family']=='trend_pullback_only'
+          assert status['channel_count']==8
+          assert status['baseline_channel_count']==2
+          assert status['optimized_channel_count']==6
+          assert status['reward_risk_grid']==[2.5,3.0]
+          assert status['winner_selection_enabled'] is False
+          assert audit['passed'] is True
+          assert audit['missing_rows']==0
+          assert audit['duplicate_timestamps']==0
+          assert audit['uses_rest_fallback'] is False
+          assert len(summary)==8
+          assert summary['channel_id'].nunique()==8
+          assert set(summary['timeframe_minutes'])=={60}
+          assert set(summary['family'])=={'trend_pullback'}
+          assert len(comparison)==8
+          assert set(phases['phase'])=={'development','validation','historical_test'}
+          assert len(phases)==24
+          assert len(signal_audit['channels'])==8
+          assert not quarters.empty
+          assert set(quarters['channel_id'])==set(summary['channel_id'])
+          assert benchmark['winner_decision']=='HISTORICAL_HOURLY_ROBUSTNESS_ONLY_NO_AUTOMATIC_WINNER'
+          if not directions.empty:
+              assert set(directions['direction']).issubset({'LONG','SHORT'})
+          if not recent.empty:
+              assert set(recent['phase'])=={'historical_test'}
+          if not trades.empty:
+              entries=pd.to_datetime(trades['entry_time_utc'],utc=True)
+              signals=pd.to_datetime(trades['signal_time_utc'],utc=True)
+              exits=pd.to_datetime(trades['exit_time_utc'],utc=True)
+              assert (entries>=signals).all()
+              assert (exits>=entries).all()
+              assert set(trades['channel_id']).issubset(set(summary['channel_id']))
+          print(json.dumps({
+              'leader':status['research_leader'],
+              'candidate_channels':status['research_candidate_channels'],
+              'robustness_improvements':status['channels_improving_q2_tail_and_drawdown'],
+          },ensure_ascii=False,indent=2))
+          PYCODE
+
+      - name: Upload V10.2 results
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: btcusdt-v10-2-hourly-regime-robustness-results
+          path: results_v10_2/
+          retention-days: 30
+
+      - name: Commit readable V10.2 results
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add results_v10_2
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Add V10.2 hourly regime robustness result $(date -u +%Y%m%dT%H%M%SZ)-${{ github.run_id }} [skip ci]"
+          git push
