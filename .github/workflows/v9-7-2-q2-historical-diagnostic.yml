@@ -40,16 +40,16 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(sha256sum autonomous_backtest_v9_7_2.py | awk '{print $1}')" = "4d2e31f37313e9a7a5a2060fb78e1da40415918fff596ebb832844caf9016d14"
+          test "$(sha256sum autonomous_backtest_v9_7_2.py | awk '{print $1}')" = "4af20537b706d59501c4dc0f3ed78a6172024e27baa886c02bd2682e06f034f6"
           test "$(sha256sum _v972_strategy_core.py | awk '{print $1}')" = "a8353b07b3e9a44d54c40c617d23f136648be7ddbceb5f7fb7fc4ce74eaec285"
           test "$(sha256sum _v961_reference_strategy.py | awk '{print $1}')" = "0895398fa92f471d3d1bedb7bb50430201c4cb02d33e7120d3847f75f6dc260d"
           test "$(sha256sum _v972_base_engine.py | awk '{print $1}')" = "a0a66bbd8ba45338b401d03ade74b55835a97ba03b4ea7239bc2a7c3f03d1398"
-          test "$(sha256sum request.v9_7_2.json | awk '{print $1}')" = "3f7d2d972e643d621f5c79df3d2551bc375238c94112760587893bfcf79f0210"
+          test "$(sha256sum request.v9_7_2.json | awk '{print $1}')" = "af0423403d8eb3a1922c44c7bc93b993de3420da495a7d53b34f7138b8697bb3"
           grep -F 'FULL_MONTH_HISTORICAL_DIAGNOSTIC' request.v9_7_2.json
           grep -F '2026-04-01T00:00:00Z' request.v9_7_2.json
           grep -F '2026-06-30T23:59:59Z' request.v9_7_2.json
-          grep -F '"uses_monthly_archives_only": true' request.v9_7_2.json
-          grep -F '"uses_daily_archives": false' request.v9_7_2.json
+          grep -F '"uses_monthly_archives_as_primary": true' request.v9_7_2.json
+          grep -F '"daily_archives_for_premium_gap_repair_only": true' request.v9_7_2.json
           grep -F '"uses_rest_fallback": false' request.v9_7_2.json
           ! grep -F 'fapi.binance.com' autonomous_backtest_v9_7_2.py
           grep -F '_load_q2_monthly_frames' autonomous_backtest_v9_7_2.py
@@ -78,9 +78,15 @@ jobs:
           assert d['start_month']=='2026-04' and d['end_month']=='2026-06'
           assert d['window_start_utc']=='2026-04-01T00:00:00Z'
           assert d['window_end_utc']=='2026-06-30T23:59:59Z'
-          assert d['uses_monthly_archives_only'] is True
-          assert d['uses_daily_archives'] is False
+          assert d['uses_monthly_archives_only'] is False
+          assert d['uses_monthly_archives_as_primary'] is True
+          assert d['uses_daily_archives'] is True
+          assert d['daily_archives_for_premium_gap_repair_only'] is True
           assert d['uses_rest_fallback'] is False
+          assert d['premium_gap_repair']['enabled'] is True
+          assert d['premium_gap_repair']['checksum_required'] is True
+          assert d['premium_gap_repair']['rest_fallback_allowed'] is False
+          assert d['premium_gap_repair']['imputation_allowed'] is False
           assert d['winner_selection_enabled'] is False
           assert d['automatic_tier_activation_enabled'] is False
           q=d['monthly_data_quality']
@@ -155,8 +161,10 @@ jobs:
           assert p['window_months']==['2026-04','2026-05','2026-06']
           assert p['complete_month_count']==3
           assert p['winner_decision']=='HISTORICAL_DIAGNOSTIC_ONLY_NO_WINNER'
-          assert i['uses_monthly_archives_only'] is True
-          assert i['uses_daily_archives'] is False
+          assert i['uses_monthly_archives_only'] is False
+          assert i['uses_monthly_archives_as_primary'] is True
+          assert i['uses_daily_archives'] is True
+          assert i['daily_archives_for_premium_gap_repair_only'] is True
           assert i['uses_rest_fallback'] is False
           assert i['all_recorded_exits_at_or_before_window_end'] is True
           assert i['monthly_data_audit']['official_monthly_audit']['passed'] is True
@@ -169,9 +177,19 @@ jobs:
           assert premium_audit['missing_ratio'] <= 0.002
           assert premium_audit['max_missing_rows'] == 288
           assert premium_audit['max_missing_ratio'] == 0.002
+          repair=i['monthly_data_audit']['premium_daily_repair_audit']
+          assert repair['enabled'] is True
+          assert repair['uses_rest_fallback'] is False
+          assert repair['missing_rows_before'] == 288
+          assert repair['missing_rows_after'] == 0
+          assert repair['repair_passed'] is True
+          assert len(repair['files']) == 1
           assert w['months_included']==['2026-04','2026-05','2026-06']
           assert w['days_included']==91
-          assert w['uses_monthly_archives_only'] is True
+          assert w['uses_monthly_archives_only'] is False
+          assert w['uses_monthly_archives_as_primary'] is True
+          assert w['uses_daily_archives'] is True
+          assert w['daily_archives_for_premium_gap_repair_only'] is True
           assert set(registry['month'].astype(str))=={'2026-04','2026-05','2026-06'}
           assert registry['calendar_complete'].astype(bool).all()
           allowed={'2026-04','2026-05','2026-06'}
