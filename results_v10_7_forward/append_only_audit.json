@@ -1,5 +1,5 @@
 {
-  "run_utc": "2026-07-28T11:07:45.443238+00:00",
+  "run_utc": "2026-07-28T17:14:37.276516+00:00",
   "trades": {
     "existing_records": 0,
     "recomputed_records": 0,
@@ -17,14 +17,14 @@
     "append_only_passed": true
   },
   "snapshots": {
-    "existing_records": 0,
+    "existing_records": 1,
     "recomputed_records": 1,
-    "new_records_appended": 1,
+    "new_records_appended": 0,
     "final_records": 1,
     "final_chain_sha256": "4255ecd512d065f75d8b79f7a4a1e657db38f254447c5957b844c372fba08ef3",
     "append_only_passed": true
   },
-  "previous_effective_data_end_date": null,
+  "previous_effective_data_end_date": "2026-07-27",
   "current_effective_data_end_date": "2026-07-27",
   "strategy_lock_sha256": "aa91c73fdb0036828c018ed2e65c1926acf8b698a9d8ffb191709b66db175998",
   "append_only_passed": true
