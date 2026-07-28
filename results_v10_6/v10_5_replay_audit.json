@@ -1,0 +1,74 @@
+{
+  "passed": true,
+  "reference_start_utc": "2025-01-01T00:00:00+00:00",
+  "reference_end_utc": "2026-06-30T23:59:59+00:00",
+  "numeric_tolerance": 1e-08,
+  "channels": [
+    {
+      "channel_id": "60m_long_frozen_adx45_rr2_5",
+      "channel_label": "V10.6冻结多头·延伸保护+ADX≤45 RR2.5",
+      "passed": true,
+      "expected_trades": 15,
+      "actual_trades": 15,
+      "expected_win_rate": 0.5333333333333333,
+      "actual_win_rate": 0.5333333333333333,
+      "expected_profit_factor": 2.1813316165502523,
+      "actual_profit_factor": 2.1813316165502523,
+      "expected_net_R": 9.27233992874864,
+      "actual_net_R": 9.27233992874864,
+      "expected_max_drawdown_R": 3.315568851439348,
+      "actual_max_drawdown_R": 3.315568851439348,
+      "checks": {
+        "trades": true,
+        "win_rate": true,
+        "profit_factor": true,
+        "net_R": true,
+        "max_drawdown_R": true
+      }
+    },
+    {
+      "channel_id": "60m_short_frozen_adx_decay_minus4_rr2_5",
+      "channel_label": "V10.6冻结空头·趋势持续性+ADX衰减≥-4 RR2.5",
+      "passed": true,
+      "expected_trades": 8,
+      "actual_trades": 8,
+      "expected_win_rate": 0.625,
+      "actual_win_rate": 0.625,
+      "expected_profit_factor": 3.5464591884327454,
+      "actual_profit_factor": 3.5464591884327454,
+      "expected_net_R": 8.458689847732927,
+      "actual_net_R": 8.458689847732927,
+      "expected_max_drawdown_R": 1.1229131643302268,
+      "actual_max_drawdown_R": 1.1229131643302268,
+      "checks": {
+        "trades": true,
+        "win_rate": true,
+        "profit_factor": true,
+        "net_R": true,
+        "max_drawdown_R": true
+      }
+    },
+    {
+      "channel_id": "60m_portfolio_frozen_v10_6",
+      "channel_label": "V10.6冻结多空组合·共享单一仓位",
+      "passed": true,
+      "expected_trades": 23,
+      "actual_trades": 23,
+      "expected_win_rate": 0.5652173913043478,
+      "actual_win_rate": 0.5652173913043478,
+      "expected_profit_factor": 2.5872654161911597,
+      "actual_profit_factor": 2.5872654161911597,
+      "expected_net_R": 17.731029776481567,
+      "actual_net_R": 17.731029776481567,
+      "expected_max_drawdown_R": 4.438482015769575,
+      "actual_max_drawdown_R": 4.438482015769575,
+      "checks": {
+        "trades": true,
+        "win_rate": true,
+        "profit_factor": true,
+        "net_R": true,
+        "max_drawdown_R": true
+      }
+    }
+  ]
+}

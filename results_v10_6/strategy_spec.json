@@ -1,0 +1,212 @@
+{
+  "channels": [
+    {
+      "channel_id": "60m_long_frozen_adx45_rr2_5",
+      "direction_scope": "LONG",
+      "profile": "long_frozen_adx45",
+      "reward_risk": 2.5,
+      "stop_atr_multiple": 1.25,
+      "max_holding_hours": 36,
+      "is_baseline": true
+    },
+    {
+      "channel_id": "60m_short_frozen_adx_decay_minus4_rr2_5",
+      "direction_scope": "SHORT",
+      "profile": "short_frozen_adx_decay_minus4",
+      "reward_risk": 2.5,
+      "stop_atr_multiple": 1.25,
+      "max_holding_hours": 48,
+      "is_baseline": true
+    },
+    {
+      "channel_id": "60m_portfolio_frozen_v10_6",
+      "direction_scope": "BOTH",
+      "profile": "portfolio_frozen_v10_6",
+      "long_component_id": "60m_long_frozen_adx45_rr2_5",
+      "short_component_id": "60m_short_frozen_adx_decay_minus4_rr2_5",
+      "is_baseline": true
+    }
+  ],
+  "direction_specific_parameters": {
+    "long_frozen": {
+      "source": "V10.5 selected long component",
+      "base_signal": "V10.1 hourly long quality pullback",
+      "maximum_price_extension_from_ema20_atr": 1.2,
+      "maximum_adx14": 45.0,
+      "stop_atr_multiple": 1.25,
+      "reward_risk": 2.5,
+      "max_holding_hours": 36,
+      "all_parameters_locked": true
+    },
+    "short_frozen": {
+      "source": "V10.5 selected short component",
+      "base_signal": "V10.2 hourly short trend persistence",
+      "adx_range": [
+        23.0,
+        45.0
+      ],
+      "minimum_adx_change_3": -4.0,
+      "volume_ratio_range": [
+        0.7,
+        2.2
+      ],
+      "channel_width_atr_range": [
+        3.0,
+        8.0
+      ],
+      "maximum_price_extension_from_ema20_atr": 0.8,
+      "trend_age_hours_range": [
+        8,
+        120
+      ],
+      "maximum_ema50_slope_6_atr": -0.04,
+      "minimum_two_of_last_three_closes_below_ema20": true,
+      "stop_atr_multiple": 1.25,
+      "reward_risk": 2.5,
+      "max_holding_hours": 48,
+      "all_parameters_locked": true
+    }
+  },
+  "portfolio_rules": {
+    "components_keep_their_own_parameters": true,
+    "one_shared_open_position": true,
+    "same_timestamp_opposite_direction_conflict": "DROP_BOTH_CONSERVATIVE",
+    "long_component": "60m_long_frozen_adx45_rr2_5",
+    "short_component": "60m_short_frozen_adx_decay_minus4_rr2_5",
+    "no_component_or_parameter_substitution": true
+  },
+  "execution": {
+    "fee_rate_per_side": 0.0005,
+    "tick_size": 0.1,
+    "slippage_ticks_per_fill": 2,
+    "minimum_stop_distance_pct": 0.002,
+    "same_bar_stop_target_rule": "STOP_FIRST_CONSERVATIVE",
+    "entry_rule": "NEXT_5M_OPEN_AFTER_CLOSED_1H_SIGNAL_BAR",
+    "one_open_trade_per_channel": true,
+    "portfolio_one_shared_open_position": true,
+    "cross_channel_positions_are_independent_for_research": true,
+    "partial_exits": false,
+    "break_even_stop": false
+  },
+  "phases": {
+    "backcast_2020_2021": {
+      "start_utc": "2020-01-01T00:00:00Z",
+      "end_utc": "2021-12-31T23:59:59Z"
+    },
+    "backcast_2022": {
+      "start_utc": "2022-01-01T00:00:00Z",
+      "end_utc": "2022-12-31T23:59:59Z"
+    },
+    "backcast_2023_2024": {
+      "start_utc": "2023-01-01T00:00:00Z",
+      "end_utc": "2024-12-31T23:59:59Z"
+    },
+    "v10_development": {
+      "start_utc": "2025-01-01T00:00:00Z",
+      "end_utc": "2025-09-30T23:59:59Z"
+    },
+    "v10_validation": {
+      "start_utc": "2025-10-01T00:00:00Z",
+      "end_utc": "2026-03-31T23:59:59Z"
+    },
+    "v10_historical_test": {
+      "start_utc": "2026-04-01T00:00:00Z",
+      "end_utc": "2026-06-30T23:59:59Z"
+    },
+    "unseen_holdout": {
+      "start_utc": "2026-07-01T00:00:00Z",
+      "end_utc": "2026-07-26T23:59:59Z"
+    }
+  },
+  "unseen_holdout": {
+    "start_utc": "2026-07-01T00:00:00Z",
+    "end_utc": "2026-07-26T23:59:59Z",
+    "source_file_mode": "BINANCE_OFFICIAL_VERIFIED_DAILY_ARCHIVES",
+    "parameters_frozen_before_start": false,
+    "minimum_complete_utc_day_only": true,
+    "not_used_for_parameter_selection": true,
+    "chronologically_prospective": false,
+    "description": "July data was not used in tuning, but the period had already elapsed when V10.6 was created; this is an untouched post-period holdout, not a true prospective test."
+  },
+  "cost_stress_scenarios": [
+    {
+      "scenario_id": "base_cost",
+      "fee_multiplier": 1.0,
+      "slippage_multiplier": 1.0
+    },
+    {
+      "scenario_id": "cost_1_5x",
+      "fee_multiplier": 1.5,
+      "slippage_multiplier": 1.5
+    },
+    {
+      "scenario_id": "cost_2x",
+      "fee_multiplier": 2.0,
+      "slippage_multiplier": 2.0
+    }
+  ],
+  "cross_year_thresholds": {
+    "long": {
+      "minimum_trades": 40,
+      "minimum_win_rate": 0.45,
+      "minimum_avg_win_loss_ratio": 1.7,
+      "minimum_profit_factor": 1.3,
+      "minimum_expectancy_R": 0.1,
+      "maximum_drawdown_R": 10.0,
+      "minimum_positive_years": 4,
+      "minimum_positive_phases": 4,
+      "remove_best_fraction": 0.1,
+      "maximum_single_positive_year_share": 0.4,
+      "minimum_positive_rolling_12m_ratio": 0.55,
+      "minimum_worst_rolling_12m_net_R": -5.0,
+      "minimum_backcast_profit_factor": 1.1,
+      "minimum_cost_1_5x_profit_factor": 1.15,
+      "minimum_unseen_holdout_trades": 1
+    },
+    "short": {
+      "minimum_trades": 20,
+      "minimum_win_rate": 0.45,
+      "minimum_avg_win_loss_ratio": 1.8,
+      "minimum_profit_factor": 1.5,
+      "minimum_expectancy_R": 0.15,
+      "maximum_drawdown_R": 8.0,
+      "minimum_positive_years": 3,
+      "minimum_positive_phases": 3,
+      "remove_best_fraction": 0.1,
+      "maximum_single_positive_year_share": 0.45,
+      "minimum_positive_rolling_12m_ratio": 0.5,
+      "minimum_worst_rolling_12m_net_R": -4.0,
+      "minimum_backcast_profit_factor": 1.15,
+      "minimum_cost_1_5x_profit_factor": 1.25,
+      "minimum_unseen_holdout_trades": 1
+    },
+    "portfolio": {
+      "minimum_trades": 60,
+      "minimum_win_rate": 0.45,
+      "minimum_avg_win_loss_ratio": 1.8,
+      "minimum_profit_factor": 1.4,
+      "minimum_expectancy_R": 0.15,
+      "maximum_drawdown_R": 15.0,
+      "minimum_positive_years": 5,
+      "minimum_positive_phases": 5,
+      "remove_best_fraction": 0.1,
+      "maximum_single_positive_year_share": 0.35,
+      "minimum_positive_rolling_12m_ratio": 0.6,
+      "minimum_worst_rolling_12m_net_R": -7.0,
+      "minimum_backcast_profit_factor": 1.15,
+      "minimum_cost_1_5x_profit_factor": 1.2,
+      "minimum_unseen_holdout_trades": 2
+    }
+  },
+  "no_lookahead_rules": {
+    "aggregate_only_from_complete_5m_bars": true,
+    "signal_uses_only_closed_1h_bar": true,
+    "entry_is_next_5m_open": true,
+    "one_signal_one_complete_trade": true,
+    "same_bar_ambiguity_is_stop_first": true,
+    "future_data_is_never_backfilled": true,
+    "direction_specific_parameters_are_frozen_before_execution": true,
+    "unseen_holdout_never_used_for_parameter_selection": true,
+    "true_forward_data_begins_after_package_freeze": true
+  }
+}

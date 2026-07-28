@@ -1,0 +1,4 @@
+channel_id,channel_label,profile,direction_scope,signals,long_signals,short_signals,reward_risk,stop_atr_multiple,max_holding_hours,is_frozen
+60m_long_frozen_adx45_rr2_5,V10.6冻结多头·延伸保护+ADX≤45 RR2.5,long_frozen_adx45,LONG,115,115,0,2.5,1.25,36,True
+60m_short_frozen_adx_decay_minus4_rr2_5,V10.6冻结空头·趋势持续性+ADX衰减≥-4 RR2.5,short_frozen_adx_decay_minus4,SHORT,36,0,36,2.5,1.25,48,True
+60m_portfolio_frozen_v10_6,V10.6冻结多空组合·共享单一仓位,portfolio_frozen_v10_6,BOTH,151,115,36,ASYMMETRIC_COMPONENT_FROZEN,ASYMMETRIC_COMPONENT_FROZEN,ASYMMETRIC_COMPONENT_FROZEN,True

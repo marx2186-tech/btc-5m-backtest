@@ -1,0 +1,2 @@
+channel_id,long_component_id,short_component_id,long_component_signals,short_component_signals,conflict_timestamps,portfolio_signals
+60m_portfolio_frozen_v10_6,60m_long_frozen_adx45_rr2_5,60m_short_frozen_adx_decay_minus4_rr2_5,115,36,0,151

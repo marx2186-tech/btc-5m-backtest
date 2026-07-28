@@ -1,0 +1,62 @@
+{
+  "resample": {
+    "60": {
+      "rows": 57576,
+      "first_bar_close_utc": "2020-01-01T01:00:00+00:00",
+      "last_bar_close_utc": "2026-07-27T00:00:00+00:00",
+      "source_rows_per_bar": 12
+    }
+  },
+  "channels": [
+    {
+      "channel_id": "60m_long_frozen_adx45_rr2_5",
+      "channel_label": "V10.6冻结多头·延伸保护+ADX≤45 RR2.5",
+      "profile": "long_frozen_adx45",
+      "direction_scope": "LONG",
+      "signals": 115,
+      "long_signals": 115,
+      "short_signals": 0,
+      "reward_risk": 2.5,
+      "stop_atr_multiple": 1.25,
+      "max_holding_hours": 36,
+      "is_frozen": true
+    },
+    {
+      "channel_id": "60m_short_frozen_adx_decay_minus4_rr2_5",
+      "channel_label": "V10.6冻结空头·趋势持续性+ADX衰减≥-4 RR2.5",
+      "profile": "short_frozen_adx_decay_minus4",
+      "direction_scope": "SHORT",
+      "signals": 36,
+      "long_signals": 0,
+      "short_signals": 36,
+      "reward_risk": 2.5,
+      "stop_atr_multiple": 1.25,
+      "max_holding_hours": 48,
+      "is_frozen": true
+    },
+    {
+      "channel_id": "60m_portfolio_frozen_v10_6",
+      "channel_label": "V10.6冻结多空组合·共享单一仓位",
+      "profile": "portfolio_frozen_v10_6",
+      "direction_scope": "BOTH",
+      "signals": 151,
+      "long_signals": 115,
+      "short_signals": 36,
+      "reward_risk": "ASYMMETRIC_COMPONENT_FROZEN",
+      "stop_atr_multiple": "ASYMMETRIC_COMPONENT_FROZEN",
+      "max_holding_hours": "ASYMMETRIC_COMPONENT_FROZEN",
+      "is_frozen": true
+    }
+  ],
+  "portfolio_overlap": [
+    {
+      "channel_id": "60m_portfolio_frozen_v10_6",
+      "long_component_id": "60m_long_frozen_adx45_rr2_5",
+      "short_component_id": "60m_short_frozen_adx_decay_minus4_rr2_5",
+      "long_component_signals": 115,
+      "short_component_signals": 36,
+      "conflict_timestamps": 0,
+      "portfolio_signals": 151
+    }
+  ]
+}

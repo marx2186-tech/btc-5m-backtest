@@ -1,0 +1,4 @@
+channel_id,channel_label,continuous_history_trades,isolated_window_trades,common_entry_times,continuous_only_entry_times,isolated_only_entry_times,delta_net_R_continuous_minus_isolated,delta_profit_factor_continuous_minus_isolated,exact_entry_set_match
+60m_long_frozen_adx45_rr2_5,V10.6冻结多头·延伸保护+ADX≤45 RR2.5,15,15,15,0,0,-5.400124791776761e-13,-6.794564910705958e-14,True
+60m_short_frozen_adx_decay_minus4_rr2_5,V10.6冻结空头·趋势持续性+ADX衰减≥-4 RR2.5,8,8,8,0,0,0.0,0.0,True
+60m_portfolio_frozen_v10_6,V10.6冻结多空组合·共享单一仓位,23,23,23,0,0,-5.400124791776761e-13,-4.75175454539567e-14,True

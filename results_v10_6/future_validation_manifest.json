@@ -1,0 +1,12 @@
+{
+  "strategy_version": "10.6",
+  "parameters_frozen": true,
+  "parameter_lock_sha256": "93de0eae77afb536cf5f953ff73e2df439899ff5d8a99457256e659e22e732d9",
+  "holdout_start_utc": "2026-07-01T00:00:00Z",
+  "holdout_end_utc": "2026-07-26T23:59:59Z",
+  "holdout_used_for_parameter_selection": false,
+  "holdout_chronologically_prospective": false,
+  "true_forward_observation_start_utc": "2026-07-29T00:00:00Z",
+  "append_only_rule": "Only data from the true forward observation start onward may be appended; frozen strategy parameters may not be changed.",
+  "failure_rule": "A failed holdout is not repaired by retuning on the same holdout."
+}
