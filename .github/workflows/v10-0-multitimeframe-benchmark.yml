@@ -1,0 +1,166 @@
+name: BTCUSDT V10.0 multi-timeframe benchmark
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "autonomous_backtest_v10_0.py"
+      - "_v100_engine.py"
+      - "request.v10_0.json"
+      - ".github/workflows/v10-0-multitimeframe-benchmark.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: btcusdt-v10-0-multitimeframe-benchmark
+  cancel-in-progress: false
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install numpy==1.26.4 pandas==2.2.2 requests==2.32.3
+
+      - name: Verify exact V10.0 files
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(sha256sum autonomous_backtest_v10_0.py | awk '{print $1}')" = "a39386e2515e49ee2f689a048ca586142759608010d377b398e55911d2c7bcf1"
+          test "$(sha256sum _v100_engine.py | awk '{print $1}')" = "5ded8410aff5d7d5a89a51bbd6fbedf8eb734bddf611766a9affec1e4ccfa6b5"
+          test "$(sha256sum request.v10_0.json | awk '{print $1}')" = "41c90b9128042a0b195d2c4256f1e1d98d8233ce2e6269a2c12cb1d1d2d5d7bd"
+          grep -F '"timeframes_minutes": [15, 30, 60]' request.v10_0.json
+          grep -F '"channel_count": 10' request.v10_0.json
+          grep -F '"uses_v9_40_expert_system": false' request.v10_0.json
+          grep -F 'NEXT_5M_OPEN_AFTER_CLOSED_SIGNAL_BAR' request.v10_0.json
+          grep -F 'STOP_FIRST_CONSERVATIVE' request.v10_0.json
+          ! grep -R -F 'fapi.binance.com' autonomous_backtest_v10_0.py _v100_engine.py request.v10_0.json
+
+      - name: Syntax and offline tests
+        shell: bash
+        env:
+          BACKTEST_REQUEST_FILE: request.v10_0.json
+        run: |
+          set -euo pipefail
+          python -m py_compile autonomous_backtest_v10_0.py _v100_engine.py
+          python autonomous_backtest_v10_0.py --self-test 2>&1 | tee v10-0-self-test.log
+          python autonomous_backtest_v10_0.py --pipeline-smoke 2>&1 | tee v10-0-pipeline-smoke.log
+          python - <<'PYCODE'
+          import json
+          from pathlib import Path
+          request=json.loads(Path('request.v10_0.json').read_text(encoding='utf-8'))
+          assert request['release']['version']=='10.0'
+          assert request['timeframes_minutes']==[15,30,60]
+          assert request['channel_count']==10
+          assert len(request['channels'])==10
+          assert request['historical_diagnostic_only'] is True
+          assert request['winner_selection_enabled'] is False
+          assert request['execution']['one_open_trade_per_channel'] is True
+          assert request['execution']['entry_rule']=='NEXT_5M_OPEN_AFTER_CLOSED_SIGNAL_BAR'
+          assert request['execution']['same_bar_stop_target_rule']=='STOP_FIRST_CONSERVATIVE'
+          assert request['research_candidate_thresholds']['minimum_trades']==80
+          assert request['research_candidate_thresholds']['minimum_profit_factor']==1.3
+          assert request['research_candidate_thresholds']['minimum_expectancy_R']==0.1
+          print('V100_CONFIG_OK')
+          PYCODE
+
+      - name: Run V10.0 real benchmark
+        shell: bash
+        env:
+          BACKTEST_REQUEST_FILE: request.v10_0.json
+          PYTHONUNBUFFERED: "1"
+        run: |
+          set -euo pipefail
+          rm -rf results_v10_0
+          python autonomous_backtest_v10_0.py 2>&1 | tee v10-0-run.log
+
+      - name: Upload failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: btcusdt-v10-0-failure-diagnostics
+          path: |
+            v10-0-self-test.log
+            v10-0-pipeline-smoke.log
+            v10-0-run.log
+            results_v10_0/
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Verify V10.0 outputs
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          for f in status.json report.md benchmark_summary.json data_audit.json resample_and_signal_audit.json robustness_audit.json strategy_spec.json run_identity.json run_identity.txt channel_summary.csv channel_phase_summary.csv channel_monthly_summary.csv trade_ledger.csv signal_counts.csv; do
+            test -f "results_v10_0/$f"
+          done
+          python - <<'PYCODE'
+          import json
+          from pathlib import Path
+          import pandas as pd
+          root=Path('results_v10_0')
+          status=json.loads((root/'status.json').read_text(encoding='utf-8'))
+          audit=json.loads((root/'data_audit.json').read_text(encoding='utf-8'))
+          benchmark=json.loads((root/'benchmark_summary.json').read_text(encoding='utf-8'))
+          signal_audit=json.loads((root/'resample_and_signal_audit.json').read_text(encoding='utf-8'))
+          summary=pd.read_csv(root/'channel_summary.csv')
+          phases=pd.read_csv(root/'channel_phase_summary.csv')
+          trades=pd.read_csv(root/'trade_ledger.csv')
+          assert status['release_version']=='10.0'
+          assert status['qualified_for_live_trading'] is False
+          assert status['historical_diagnostic_only'] is True
+          assert status['timeframes_tested_minutes']==[15,30,60]
+          assert status['channel_count']==10
+          assert status['winner_selection_enabled'] is False
+          assert audit['passed'] is True
+          assert audit['missing_rows']==0
+          assert audit['duplicate_timestamps']==0
+          assert audit['uses_rest_fallback'] is False
+          assert len(summary)==10
+          assert summary['channel_id'].nunique()==10
+          assert set(phases['phase'])=={'development','validation','historical_test'}
+          assert len(phases)==30
+          assert len(signal_audit['channels'])==10
+          assert benchmark['winner_decision']=='HISTORICAL_DIRECTIONAL_RESEARCH_ONLY'
+          if not trades.empty:
+              entries=pd.to_datetime(trades['entry_time_utc'],utc=True)
+              signals=pd.to_datetime(trades['signal_time_utc'],utc=True)
+              exits=pd.to_datetime(trades['exit_time_utc'],utc=True)
+              assert (entries>=signals).all()
+              assert (exits>=entries).all()
+              assert set(trades['channel_id']).issubset(set(summary['channel_id']))
+          print(json.dumps({'leader':status['research_leader'],'candidate_channels':status['research_candidate_channels']},ensure_ascii=False,indent=2))
+          PYCODE
+
+      - name: Upload V10.0 results
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: btcusdt-v10-0-multitimeframe-results
+          path: results_v10_0/
+          retention-days: 30
+
+      - name: Commit readable V10.0 results
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add results_v10_0
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Add V10.0 multi-timeframe benchmark result $(date -u +%Y%m%dT%H%M%SZ)-${{ github.run_id }} [skip ci]"
+          git push
