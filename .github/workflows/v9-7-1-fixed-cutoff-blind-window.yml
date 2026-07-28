@@ -1,0 +1,182 @@
+name: BTC 5m V9.7.1 fixed-cutoff partial blind window
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "autonomous_backtest_v9_7_1.py"
+      - "_v971_strategy_core.py"
+      - "_v961_reference_strategy.py"
+      - "_v971_base_engine.py"
+      - "request.v9_7_1.json"
+      - ".github/workflows/v9-7-1-fixed-cutoff-blind-window.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: btc-5m-v9-7-1-fixed-cutoff
+  cancel-in-progress: false
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 480
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install numpy==1.26.4 pandas==2.2.2 requests==2.32.3 numba==0.60.0 scikit-learn==1.5.1 pyyaml==6.0.2
+
+      - name: Verify exact V9.7.1 files
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(sha256sum autonomous_backtest_v9_7_1.py | awk '{print $1}')" = "2bc75a24fc48a49cb1386f18c63deaaf26f52e0591cbac8053bf5f9a4a4dbd1d"
+          test "$(sha256sum _v971_strategy_core.py | awk '{print $1}')" = "3efafa9447f3a2da75809a60a8fddd419cf6f91b44b0df0bf08a5f4cababa77f"
+          test "$(sha256sum _v961_reference_strategy.py | awk '{print $1}')" = "b5b2f7b4cb737399ae2ccd060fd93cce1b91f1516ffc6c89ecabb96d6ed7bcec"
+          test "$(sha256sum _v971_base_engine.py | awk '{print $1}')" = "c4d9d00d83856ede72f059bc4302384920ca75c9c802d781f8753c672df8a582"
+          test "$(sha256sum request.v9_7_1.json | awk '{print $1}')" = "769a5e933e8371ae0200cb6d47f32d09439ccead8834b5ad36e33236035ab8a6"
+          grep -F 'FIXED_PARTIAL_CUTOFF' request.v9_7_1.json
+          grep -F '2026-07-27T23:59:59Z' request.v9_7_1.json
+          grep -F '_load_fixed_cutoff_frames' autonomous_backtest_v9_7_1.py
+          grep -F 'blind_fixed_window_summary.json' autonomous_backtest_v9_7_1.py
+          grep -F 'right_censored_trades_excluded' autonomous_backtest_v9_7_1.py
+          grep -F 'feature_frame_column_found' autonomous_backtest_v9_7_1.py
+
+      - name: Syntax and offline tests
+        shell: bash
+        env:
+          BACKTEST_REQUEST_FILE: request.v9_7_1.json
+        run: |
+          set -euo pipefail
+          python -m py_compile autonomous_backtest_v9_7_1.py _v971_strategy_core.py _v961_reference_strategy.py _v971_base_engine.py
+          python autonomous_backtest_v9_7_1.py --self-test 2>&1 | tee v9-7-1-self-test.log
+          python autonomous_backtest_v9_7_1.py --pipeline-smoke 2>&1 | tee v9-7-1-pipeline-smoke.log
+          python - <<'PYCODE'
+          import json
+          from pathlib import Path
+          import yaml
+          r=json.loads(Path('request.v9_7_1.json').read_text(encoding='utf-8'))
+          b=r['blind_evidence']
+          assert r['release']['version']=='9.7.1'
+          assert r['release']['signal_logic_changed'] is False
+          assert r['release']['thresholds_changed'] is False
+          assert r['release']['policy_selection_changed'] is False
+          assert b['window_type']=='FIXED_PARTIAL_CUTOFF'
+          assert b['window_start_utc']=='2026-07-01T00:00:00Z'
+          assert b['fixed_cutoff_utc']=='2026-07-27T23:59:59Z'
+          assert b['daily_archive_last_date']=='2026-07-27'
+          assert b['partial_window_counts_as_complete_month'] is False
+          assert b['exclude_right_censored_trades'] is True
+          assert b['winner_selection_enabled'] is False
+          assert b['automatic_tier_activation_enabled'] is False
+          c=r['expert_coverage']
+          assert set(c['required_expert_ids'])==set(range(40))
+          assert set(c['v961_reference_ids'])==set(range(32))
+          assert set(c['extended_original_ids'])==set(range(32,40))
+          y=yaml.safe_load(Path('.github/workflows/v9-7-1-fixed-cutoff-blind-window.yml').read_text(encoding='utf-8'))
+          assert 'backtest' in y['jobs']
+          print('V971_FIXED_CUTOFF_CONFIG_AND_YAML_OK')
+          PYCODE
+
+      - name: Run V9.7.1 real backtest
+        shell: bash
+        env:
+          BACKTEST_REQUEST_FILE: request.v9_7_1.json
+          PYTHONUNBUFFERED: "1"
+        run: |
+          set -o pipefail
+          python autonomous_backtest_v9_7_1.py 2>&1 | tee v9-7-1-run.log
+
+      - name: Upload failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: btc-5m-v9-7-1-failure-diagnostics
+          path: |
+            v9-7-1-self-test.log
+            v9-7-1-pipeline-smoke.log
+            v9-7-1-run.log
+            results_v9_7_1/
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Verify V9.7.1 outputs
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          for f in status.json report.md run_identity.txt expert_tier_audit.csv strategy_snapshot.json snapshot_replay_audit.json v961_reference_reproduction.json signal_selection_independence_audit.json rating_source_policy_coverage.csv rating_data_source_audit.json risk_budget_dual_track_validation.json blind_month_registry.csv blind_expert_trade_ledger.csv blind_risk_budget_trade_ledger.csv blind_fixed_window_summary.json blind_evidence_progress.json blind_integrity_audit.json blind_provisional_tier_audit.csv blind_decision_readiness.json; do
+            test -f "results_v9_7_1/$f"
+          done
+          python - <<'PYCODE'
+          import json
+          from pathlib import Path
+          import pandas as pd
+          root=Path('results_v9_7_1')
+          s=json.loads((root/'status.json').read_text(encoding='utf-8'))
+          p=json.loads((root/'blind_evidence_progress.json').read_text(encoding='utf-8'))
+          i=json.loads((root/'blind_integrity_audit.json').read_text(encoding='utf-8'))
+          w=json.loads((root/'blind_fixed_window_summary.json').read_text(encoding='utf-8'))
+          registry=pd.read_csv(root/'blind_month_registry.csv')
+          expert=pd.read_csv(root/'blind_expert_trade_ledger.csv')
+          risk=pd.read_csv(root/'blind_risk_budget_trade_ledger.csv')
+          assert s['engine']=='BTC 5m fixed-cutoff partial blind window through 2026-07-27 V9.7.1'
+          assert s['release_version']=='9.7.1'
+          assert s['release_type']=='fixed_cutoff_partial_blind_window'
+          assert s['blind_window_type']=='FIXED_PARTIAL_CUTOFF'
+          assert s['blind_fixed_cutoff_utc']=='2026-07-27T23:59:59Z'
+          assert s['blind_partial_window_evaluated'] is True
+          assert s['blind_complete_month_count']==0
+          assert s['blind_fixed_partial_window_count']==1
+          assert s['blind_winner_selection_enabled'] is False
+          assert s['blind_automatic_tier_activation_enabled'] is False
+          assert p['window_evaluated'] is True
+          assert p['complete_blind_month_count']==0
+          assert p['fixed_partial_window_count']==1
+          assert p['winner_decision']=='FIXED_PARTIAL_WINDOW_DIAGNOSTIC_ONLY'
+          assert i['append_only_enabled'] is True
+          assert i['expert_ledger']['append_only_pass'] is True
+          assert i['risk_budget_ledger']['append_only_pass'] is True
+          assert i['all_recorded_exits_at_or_before_cutoff'] is True
+          assert i['fixed_cutoff_data_audit']['official_combined_audit']['passed'] is True
+          assert i['fixed_cutoff_data_audit']['eth_combined_audit']['passed'] is True
+          assert i['fixed_cutoff_data_audit']['premium_combined_audit']['passed'] is True
+          assert w['days_included']==27
+          assert w['partial_window_counts_as_complete_month'] is False
+          assert registry.loc[0,'state']=='FIXED_PARTIAL_CUTOFF_EVALUATED'
+          cutoff=pd.Timestamp('2026-07-27T23:59:59Z')
+          for frame in (expert,risk):
+              if not frame.empty:
+                  assert (pd.to_datetime(frame['exit_time_utc'],utc=True)<=cutoff).all()
+          print(json.dumps({'tiers':s['tier_counts'],'risk_lanes':p['risk_lanes'],'window':w},ensure_ascii=False,indent=2))
+          PYCODE
+
+      - name: Upload V9.7.1 results
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: btc-5m-v9-7-1-fixed-cutoff-results
+          path: results_v9_7_1/
+          retention-days: 30
+
+      - name: Commit readable V9.7.1 results
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add results_v9_7_1
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Add V9.7.1 fixed-cutoff result $(date -u +%Y%m%dT%H%M%SZ)-${{ github.run_id }} [skip ci]"
+          git push
