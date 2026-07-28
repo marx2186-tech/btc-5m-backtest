@@ -1,0 +1,4 @@
+channel_id,channel_label,profile,signals,long_signals,short_signals,unique_signal_times,unique_setup_ids
+baseline_1h_shared_v10_6,基准·V10.6原1小时多空共享组合 RR2.5,baseline_1h_shared_v10_6,10,7,3,10,10
+strict_state_4h_1h_15m_fixed_rr2_0,主实验·4H趋势腿+1H推动回踩状态机+15M突破 RR2.0,strict_state_fixed_rr2_0,1,1,0,1,1
+strict_state_4h_1h_15m_be1_shadow_rr2_0,影子管理·同信号达到1R后下一根5M启用保本 RR2.0,strict_state_be1_shadow_rr2_0,1,1,0,1,1

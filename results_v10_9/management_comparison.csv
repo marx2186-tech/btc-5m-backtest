@@ -1,0 +1,8 @@
+metric,fixed_value,break_even_shadow_value,delta_shadow_minus_fixed
+trades,1.0,1.0,0.0
+win_rate,0.0,0.0,0.0
+avg_win_loss_ratio,0.0,0.0,0.0
+profit_factor,0.0,0.0,0.0
+net_R,-1.1700361511603075,-1.1700361511603075,0.0
+max_drawdown_R,1.1700361511603075,1.1700361511603075,0.0
+expectancy_R,-1.1700361511603075,-1.1700361511603075,0.0

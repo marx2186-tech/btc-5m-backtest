@@ -1,0 +1,52 @@
+{
+  "resample": {
+    "15m_rows": 52416,
+    "1h_rows": 13104,
+    "4h_rows": 3276,
+    "no_lookahead_alignment": "BACKWARD_ASOF_ONLY_CLOSED_BARS"
+  },
+  "channels": [
+    {
+      "channel_id": "baseline_1h_shared_v10_6",
+      "channel_label": "基准·V10.6原1小时多空共享组合 RR2.5",
+      "profile": "baseline_1h_shared_v10_6",
+      "signals": 10,
+      "long_signals": 7,
+      "short_signals": 3,
+      "unique_signal_times": 10,
+      "unique_setup_ids": 10
+    },
+    {
+      "channel_id": "strict_state_4h_1h_15m_fixed_rr2_0",
+      "channel_label": "主实验·4H趋势腿+1H推动回踩状态机+15M突破 RR2.0",
+      "profile": "strict_state_fixed_rr2_0",
+      "signals": 1,
+      "long_signals": 1,
+      "short_signals": 0,
+      "unique_signal_times": 1,
+      "unique_setup_ids": 1
+    },
+    {
+      "channel_id": "strict_state_4h_1h_15m_be1_shadow_rr2_0",
+      "channel_label": "影子管理·同信号达到1R后下一根5M启用保本 RR2.0",
+      "profile": "strict_state_be1_shadow_rr2_0",
+      "signals": 1,
+      "long_signals": 1,
+      "short_signals": 0,
+      "unique_signal_times": 1,
+      "unique_setup_ids": 1
+    }
+  ],
+  "state_machine": {
+    "environment_legs": 122,
+    "confirmation_setups": 12,
+    "strict_triggers": 1,
+    "one_setup_per_cycle": true,
+    "fixed_and_shadow_signals_identical": true
+  },
+  "evaluation_window": {
+    "start_utc": "2026-01-01T00:00:00Z",
+    "end_utc": "2026-06-30T23:59:59Z",
+    "entries_outside_window_are_excluded": true
+  }
+}
