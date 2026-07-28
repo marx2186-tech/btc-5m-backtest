@@ -1187,6 +1187,111 @@ def _audit_monthly_klines(
     return data, audit
 
 
+def _expected_grid(start: pd.Timestamp, last_open: pd.Timestamp) -> np.ndarray:
+    return np.arange(
+        int(start.timestamp() * 1000),
+        int(last_open.timestamp() * 1000) + core.base.STEP_MS,
+        core.base.STEP_MS,
+        dtype=np.int64,
+    )
+
+
+def _missing_grid_times(data: pd.DataFrame, start: pd.Timestamp, last_open: pd.Timestamp) -> np.ndarray:
+    expected = _expected_grid(start, last_open)
+    actual = pd.to_numeric(data["open_time"], errors="coerce").dropna().astype("int64").to_numpy()
+    return np.setdiff1d(expected, np.unique(actual))
+
+
+def _repair_premium_from_verified_daily_archives(
+    premium: pd.DataFrame,
+) -> tuple[pd.DataFrame, dict[str, Any]]:
+    """Patch historical premium gaps with Binance verified DAILY archives only.
+
+    No REST endpoint is used. The daily ZIP and its CHECKSUM are both verified by
+    the frozen base-engine downloader. This is a source repair, not imputation.
+    """
+    repair_cfg = DIAGNOSTIC.get("premium_gap_repair", {})
+    enabled = bool(repair_cfg.get("enabled", False))
+    start = pd.Timestamp("2025-01-01T00:00:00Z")
+    last_open = _window_cutoff().floor("5min")
+    missing_before = _missing_grid_times(premium, start, last_open)
+    days = sorted({pd.to_datetime(v, unit="ms", utc=True).strftime("%Y-%m-%d") for v in missing_before})
+    audit: dict[str, Any] = {
+        "enabled": enabled,
+        "source": "Binance USDⓈ-M Futures verified daily premiumIndexKlines archives",
+        "uses_rest_fallback": False,
+        "missing_rows_before": int(len(missing_before)),
+        "missing_days_before": days,
+        "max_repair_days": int(repair_cfg.get("max_repair_days", 0)),
+        "files": [],
+    }
+    if not missing_before.size:
+        audit.update({"missing_rows_after": 0, "missing_days_after": [], "repair_passed": True})
+        return premium, audit
+    if not enabled:
+        raise RuntimeError(
+            "PREMIUM_DAILY_GAP_REPAIR_DISABLED: verified monthly premium archive has "
+            f"{len(missing_before)} missing rows across {days}"
+        )
+    max_days = int(repair_cfg.get("max_repair_days", 1))
+    if len(days) > max_days:
+        raise RuntimeError(
+            f"PREMIUM_DAILY_GAP_REPAIR_LIMIT: missing days={days}, max_repair_days={max_days}"
+        )
+
+    frames = [premium.copy()]
+    for day in days:
+        name = f"{core.SYMBOL}-{core.INTERVAL}-{day}.zip"
+        base = (
+            "https://data.binance.vision/data/futures/um/daily/"
+            f"premiumIndexKlines/{core.SYMBOL}/{core.INTERVAL}"
+        )
+        try:
+            raw, digest = core.base.read_verified_zip(
+                f"{base}/{name}",
+                f"{base}/{name}.CHECKSUM",
+                f"daily-premiumIndexKlines-{name}",
+            )
+            frame = core.base.parse_kline_csv(core.base.read_single_csv_zip(raw, name))
+        except Exception as exc:  # noqa: BLE001
+            raise RuntimeError(
+                "PREMIUM_VERIFIED_DAILY_ARCHIVE_UNAVAILABLE: "
+                f"{day}; monthly gap cannot be repaired without changing frozen features; "
+                f"{type(exc).__name__}: {exc}"
+            ) from exc
+        day_start = int(pd.Timestamp(f"{day}T00:00:00Z").timestamp() * 1000)
+        day_end = day_start + 24 * 60 * 60 * 1000
+        frame = frame[
+            (pd.to_numeric(frame["open_time"], errors="coerce") >= day_start)
+            & (pd.to_numeric(frame["open_time"], errors="coerce") < day_end)
+        ].copy()
+        if frame.empty:
+            raise RuntimeError(f"PREMIUM_DAILY_ARCHIVE_EMPTY: {day}")
+        frames.append(frame)
+        audit["files"].append({"file": name, "sha256": digest, "rows": int(len(frame))})
+
+    repaired = (
+        pd.concat(frames, ignore_index=True, sort=False)
+        .sort_values("open_time")
+        .drop_duplicates("open_time", keep="last")
+        .reset_index(drop=True)
+    )
+    missing_after = _missing_grid_times(repaired, start, last_open)
+    days_after = sorted({pd.to_datetime(v, unit="ms", utc=True).strftime("%Y-%m-%d") for v in missing_after})
+    audit.update({
+        "missing_rows_after": int(len(missing_after)),
+        "missing_days_after": days_after,
+        "repaired_rows_added": int(len(repaired) - len(premium)),
+        "repair_passed": bool(len(missing_after) == 0),
+    })
+    if missing_after.size:
+        raise RuntimeError(
+            "PREMIUM_DAILY_GAP_REPAIR_INCOMPLETE: "
+            f"remaining_rows={len(missing_after)}, remaining_days={days_after}"
+        )
+    return repaired, audit
+
+
 def _monthly_quality_budget(label: str) -> tuple[int, float]:
     rule = MONTHLY_DATA_QUALITY.get(label)
     if not isinstance(rule, dict):
@@ -1208,6 +1313,8 @@ def _load_q2_monthly_frames(ref: Any) -> tuple[pd.DataFrame, pd.DataFrame, dict[
     finally:
         core.base.MONTHS = old_core_months
         ref.base.MONTHS = old_ref_months
+
+    premium, premium_daily_repair_audit = _repair_premium_from_verified_daily_archives(premium)
 
     raw_budget = _monthly_quality_budget("BTCUSDT_5m")
     eth_budget = _monthly_quality_budget("ETHUSDT_5m")
@@ -1247,9 +1354,15 @@ def _load_q2_monthly_frames(ref: Any) -> tuple[pd.DataFrame, pd.DataFrame, dict[
         "last_usable_feature_bar_utc": pd.Timestamp(x.index[-1]).isoformat(),
         "feature_tail_gap_minutes": float(feature_tail_gap / pd.Timedelta(minutes=1)),
         "monthly_months": monthly_months,
-        "uses_monthly_archives_only": True, "uses_daily_archives": False, "uses_rest_fallback": False,
+        "uses_monthly_archives_only": False,
+        "uses_monthly_archives_as_primary": True,
+        "uses_daily_archives": bool(premium_daily_repair_audit.get("files")),
+        "daily_archives_for_premium_gap_repair_only": True,
+        "uses_rest_fallback": False,
         "official_source_audit": raw_source_audit, "eth_source_audit": eth_source_audit,
-        "premium_source_audit": premium_source_audit, "funding_source_audit": funding_source_audit,
+        "premium_source_audit": premium_source_audit,
+        "premium_daily_repair_audit": premium_daily_repair_audit,
+        "funding_source_audit": funding_source_audit,
         "official_monthly_audit": raw_audit, "eth_monthly_audit": eth_audit,
         "premium_monthly_audit": premium_audit, "funding_rows": int(len(funding)),
         "extended_alignment": align, "reference_alignment": ralign,
@@ -1349,7 +1462,9 @@ def _q2_outputs(previous_q2_expert_ledger: pd.DataFrame, previous_q2_risk_ledger
         "last_usable_feature_bar_utc":data_audit["last_usable_feature_bar_utc"],
         "feature_tail_gap_minutes":data_audit["feature_tail_gap_minutes"],
         "expert_shadow_trades":int(len(expert_ledger)),"risk_budget_trades":int(len(risk_ledger)),
-        "uses_monthly_archives_only":True,"uses_daily_archives":False,"uses_rest_fallback":False,
+        "uses_monthly_archives_only":False,"uses_monthly_archives_as_primary":True,
+        "uses_daily_archives":bool(data_audit.get("premium_daily_repair_audit",{}).get("files")),
+        "daily_archives_for_premium_gap_repair_only":True,"uses_rest_fallback":False,
         "historical_diagnostic_only":True,
     }
     (RESULTS/"q2_diagnostic_summary.json").write_text(json.dumps(summary,ensure_ascii=False,indent=2),encoding="utf-8")
@@ -1358,12 +1473,30 @@ def _q2_outputs(previous_q2_expert_ledger: pd.DataFrame, previous_q2_risk_ledger
         "risk_budget_ledger_rows":int(len(risk_ledger)),"monthly_data_audit":data_audit,
         "window_start_utc":_window_start().isoformat(),"window_end_utc":_window_cutoff().isoformat(),
         "all_recorded_exits_at_or_before_window_end":True,
-        "uses_monthly_archives_only":True,"uses_daily_archives":False,"uses_rest_fallback":False,
+        "uses_monthly_archives_only":False,"uses_monthly_archives_as_primary":True,
+        "uses_daily_archives":bool(data_audit.get("premium_daily_repair_audit",{}).get("files")),
+        "daily_archives_for_premium_gap_repair_only":True,"uses_rest_fallback":False,
         "data_used_for_policy_search":False,"data_used_for_threshold_tuning":False,
         "data_used_for_signal_formula_changes":False,
     }
     (RESULTS/"q2_integrity_audit.json").write_text(json.dumps(integrity,ensure_ascii=False,indent=2,default=str),encoding="utf-8")
     return {"progress":progress,"integrity":integrity,"expert_audit":expert_audit}
+
+def premium_daily_gap_repair_self_test() -> None:
+    start = pd.Timestamp("2026-06-01T00:00:00Z")
+    end = pd.Timestamp("2026-06-02T23:55:00Z")
+    full = _expected_grid(start, end)
+    gap_start = int(pd.Timestamp("2026-06-02T00:00:00Z").timestamp() * 1000)
+    gap_end = gap_start + 24 * 60 * 60 * 1000
+    partial = full[(full < gap_start) | (full >= gap_end)]
+    frame = pd.DataFrame({"open_time": partial})
+    missing = _missing_grid_times(frame, start, end)
+    assert len(missing) == 288
+    patch = pd.DataFrame({"open_time": full[(full >= gap_start) & (full < gap_end)]})
+    merged = pd.concat([frame, patch], ignore_index=True).drop_duplicates("open_time")
+    assert len(_missing_grid_times(merged, start, end)) == 0
+    print("V972_PREMIUM_VERIFIED_DAILY_GAP_REPAIR_SELF_TEST_OK")
+
 
 def q2_diagnostic_self_test() -> None:
     assert _periods("2026-04", "2026-06") == ["2026-04", "2026-05", "2026-06"]
@@ -1373,9 +1506,15 @@ def q2_diagnostic_self_test() -> None:
     assert _daily_window_dates()[0] == "2026-04-01"
     assert _daily_window_dates()[-1] == "2026-06-30"
     assert DIAGNOSTIC["window_type"] == "FULL_MONTH_HISTORICAL_DIAGNOSTIC"
-    assert DIAGNOSTIC["uses_monthly_archives_only"] is True
-    assert DIAGNOSTIC["uses_daily_archives"] is False
+    assert DIAGNOSTIC["uses_monthly_archives_only"] is False
+    assert DIAGNOSTIC["uses_monthly_archives_as_primary"] is True
+    assert DIAGNOSTIC["uses_daily_archives"] is True
+    assert DIAGNOSTIC["daily_archives_for_premium_gap_repair_only"] is True
     assert DIAGNOSTIC["uses_rest_fallback"] is False
+    assert DIAGNOSTIC["premium_gap_repair"]["enabled"] is True
+    assert DIAGNOSTIC["premium_gap_repair"]["checksum_required"] is True
+    assert DIAGNOSTIC["premium_gap_repair"]["rest_fallback_allowed"] is False
+    assert DIAGNOSTIC["premium_gap_repair"]["imputation_allowed"] is False
     start_ms=int(pd.Timestamp("2025-01-01T00:00:00Z").timestamp()*1000)
     last_ms=int(pd.Timestamp("2026-06-30T23:55:00Z").timestamp()*1000)
     times=np.arange(start_ms,last_ms+core.base.STEP_MS,core.base.STEP_MS,dtype=np.int64)
@@ -1978,8 +2117,8 @@ def main()->None:
 | 纳入自然日 | {len(_daily_window_dates())} |
 | 最后一根原始K线 | {diagnostic_result['integrity']['monthly_data_audit']['last_raw_5m_bar_utc']} |
 | 最后一根可用特征K线 | {diagnostic_result['integrity']['monthly_data_audit']['last_usable_feature_bar_utc']} |
-| 月度归档模式 | 是 |
-| 日度归档 | 否 |
+| 月度归档主源 | 是 |
+| 日度归档 | 仅修复Premium历史缺口 |
 | REST备用接口 | 否 |
 
 重点结果文件：`q2_risk_budget_trade_ledger.csv`、`q2_expert_trade_ledger.csv`、`q2_diagnostic_summary.json`、`q2_integrity_audit.json`。
@@ -1987,7 +2126,7 @@ def main()->None:
     (RESULTS / "report.md").write_text(report, encoding="utf-8")
     (RESULTS / "run_identity.txt").write_text(
         f"{ENGINE_NAME}\noutput=results_v9_7_2\nwindow=2026-04-01T00:00:00Z..2026-06-30T23:59:59Z\n"
-        f"monthly_archives_only=True\ndaily_archives=False\nrest_fallback=False\n"
+        f"monthly_archives_primary=True\ndaily_archives=premium_gap_repair_only\nrest_fallback=False\n"
         f"snapshot_replay_exact={replay_audit['exact_match']}\nv961_reference_exact={exact_expected}\n"
         f"signal_selection_independent_of_tier={gate_independent}\nwinner_selection_enabled=False\n",
         encoding="utf-8"
@@ -2013,7 +2152,7 @@ def main()->None:
 if __name__=="__main__":
     parser=argparse.ArgumentParser();parser.add_argument("--self-test",action="store_true");parser.add_argument("--pipeline-smoke",action="store_true");args=parser.parse_args()
     if args.self_test:
-        core.synthetic_smoke();statistical_self_test();attribution_self_test();shrinkage_allocation_self_test();original_gate_self_test();rating_source_self_test();q2_diagnostic_self_test()
+        core.synthetic_smoke();statistical_self_test();attribution_self_test();shrinkage_allocation_self_test();original_gate_self_test();rating_source_self_test();premium_daily_gap_repair_self_test();q2_diagnostic_self_test()
     elif args.pipeline_smoke:
-        core.pipeline_smoke();statistical_self_test();attribution_self_test();shrinkage_allocation_self_test();original_gate_self_test();rating_source_self_test();q2_diagnostic_self_test()
+        core.pipeline_smoke();statistical_self_test();attribution_self_test();shrinkage_allocation_self_test();original_gate_self_test();rating_source_self_test();premium_daily_gap_repair_self_test();q2_diagnostic_self_test()
     else:main()

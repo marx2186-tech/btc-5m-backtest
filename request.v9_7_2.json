@@ -520,8 +520,8 @@
     "window_end_utc": "2026-06-30T23:59:59Z",
     "monthly_archive_start": "2026-04",
     "monthly_archive_end": "2026-06",
-    "uses_monthly_archives_only": true,
-    "uses_daily_archives": false,
+    "uses_monthly_archives_only": false,
+    "uses_daily_archives": true,
     "uses_rest_fallback": false,
     "historical_warmup_start": "2025-01",
     "historical_data_used_for_policy_search": false,
@@ -549,6 +549,16 @@
         "role": "auxiliary_derivatives_series",
         "handling": "verified_archive_controlled_gap_then_frozen_past_only_fill_max_60m"
       }
+    },
+    "uses_monthly_archives_as_primary": true,
+    "daily_archives_for_premium_gap_repair_only": true,
+    "premium_gap_repair": {
+      "enabled": true,
+      "source": "Binance USD-M Futures verified daily premiumIndexKlines archive",
+      "max_repair_days": 1,
+      "checksum_required": true,
+      "rest_fallback_allowed": false,
+      "imputation_allowed": false
     }
   }
 }
