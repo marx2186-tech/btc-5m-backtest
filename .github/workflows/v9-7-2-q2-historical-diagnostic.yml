@@ -40,11 +40,11 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          test "$(sha256sum autonomous_backtest_v9_7_2.py | awk '{print $1}')" = "9bd9b673b0eda9e08f82850509693d435af76398fc32e2dabe5a7feed8140c18"
+          test "$(sha256sum autonomous_backtest_v9_7_2.py | awk '{print $1}')" = "4d2e31f37313e9a7a5a2060fb78e1da40415918fff596ebb832844caf9016d14"
           test "$(sha256sum _v972_strategy_core.py | awk '{print $1}')" = "a8353b07b3e9a44d54c40c617d23f136648be7ddbceb5f7fb7fc4ce74eaec285"
           test "$(sha256sum _v961_reference_strategy.py | awk '{print $1}')" = "0895398fa92f471d3d1bedb7bb50430201c4cb02d33e7120d3847f75f6dc260d"
           test "$(sha256sum _v972_base_engine.py | awk '{print $1}')" = "a0a66bbd8ba45338b401d03ade74b55835a97ba03b4ea7239bc2a7c3f03d1398"
-          test "$(sha256sum request.v9_7_2.json | awk '{print $1}')" = "30485065de58f84f6fce53bfce10193f226d0aed461b8aa84c19e53743b64c21"
+          test "$(sha256sum request.v9_7_2.json | awk '{print $1}')" = "3f7d2d972e643d621f5c79df3d2551bc375238c94112760587893bfcf79f0210"
           grep -F 'FULL_MONTH_HISTORICAL_DIAGNOSTIC' request.v9_7_2.json
           grep -F '2026-04-01T00:00:00Z' request.v9_7_2.json
           grep -F '2026-06-30T23:59:59Z' request.v9_7_2.json
@@ -83,6 +83,13 @@ jobs:
           assert d['uses_rest_fallback'] is False
           assert d['winner_selection_enabled'] is False
           assert d['automatic_tier_activation_enabled'] is False
+          q=d['monthly_data_quality']
+          assert q['BTCUSDT_5m']['max_missing_rows']==0
+          assert q['BTCUSDT_5m']['max_missing_ratio']==0.0
+          assert q['ETHUSDT_5m']['max_missing_rows']==0
+          assert q['ETHUSDT_5m']['max_missing_ratio']==0.0
+          assert q['BTCUSDT_premiumIndexKlines_5m']['max_missing_rows']==288
+          assert q['BTCUSDT_premiumIndexKlines_5m']['max_missing_ratio']==0.002
           c=r['expert_coverage']
           assert set(c['required_expert_ids'])==set(range(40))
           assert set(c['v961_reference_ids'])==set(range(32))
@@ -154,7 +161,14 @@ jobs:
           assert i['all_recorded_exits_at_or_before_window_end'] is True
           assert i['monthly_data_audit']['official_monthly_audit']['passed'] is True
           assert i['monthly_data_audit']['eth_monthly_audit']['passed'] is True
-          assert i['monthly_data_audit']['premium_monthly_audit']['passed'] is True
+          premium_audit=i['monthly_data_audit']['premium_monthly_audit']
+          assert premium_audit['passed'] is True
+          assert premium_audit['structural_integrity_passed'] is True
+          assert premium_audit['gap_budget_passed'] is True
+          assert premium_audit['missing_rows'] <= 288
+          assert premium_audit['missing_ratio'] <= 0.002
+          assert premium_audit['max_missing_rows'] == 288
+          assert premium_audit['max_missing_ratio'] == 0.002
           assert w['months_included']==['2026-04','2026-05','2026-06']
           assert w['days_included']==91
           assert w['uses_monthly_archives_only'] is True
