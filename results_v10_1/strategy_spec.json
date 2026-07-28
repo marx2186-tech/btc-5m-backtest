@@ -1,0 +1,188 @@
+{
+  "channels": [
+    {
+      "channel_id": "60m_trend_baseline_rr2_0",
+      "timeframe_minutes": 60,
+      "family": "trend_pullback",
+      "profile": "baseline",
+      "reward_risk": 2.0
+    },
+    {
+      "channel_id": "60m_range_baseline_rr2_0",
+      "timeframe_minutes": 60,
+      "family": "range_reversal",
+      "profile": "baseline",
+      "reward_risk": 2.0
+    },
+    {
+      "channel_id": "60m_trend_pullback_quality_rr2_0",
+      "timeframe_minutes": 60,
+      "family": "trend_pullback",
+      "profile": "quality",
+      "reward_risk": 2.0
+    },
+    {
+      "channel_id": "60m_trend_pullback_quality_rr2_5",
+      "timeframe_minutes": 60,
+      "family": "trend_pullback",
+      "profile": "quality",
+      "reward_risk": 2.5
+    },
+    {
+      "channel_id": "60m_trend_pullback_quality_rr3_0",
+      "timeframe_minutes": 60,
+      "family": "trend_pullback",
+      "profile": "quality",
+      "reward_risk": 3.0
+    },
+    {
+      "channel_id": "60m_trend_pullback_confirmation_rr2_0",
+      "timeframe_minutes": 60,
+      "family": "trend_pullback",
+      "profile": "confirmation",
+      "reward_risk": 2.0
+    },
+    {
+      "channel_id": "60m_trend_pullback_confirmation_rr2_5",
+      "timeframe_minutes": 60,
+      "family": "trend_pullback",
+      "profile": "confirmation",
+      "reward_risk": 2.5
+    },
+    {
+      "channel_id": "60m_trend_pullback_confirmation_rr3_0",
+      "timeframe_minutes": 60,
+      "family": "trend_pullback",
+      "profile": "confirmation",
+      "reward_risk": 3.0
+    },
+    {
+      "channel_id": "60m_range_reversal_quality_rr2_0",
+      "timeframe_minutes": 60,
+      "family": "range_reversal",
+      "profile": "quality",
+      "reward_risk": 2.0
+    },
+    {
+      "channel_id": "60m_range_reversal_quality_rr2_5",
+      "timeframe_minutes": 60,
+      "family": "range_reversal",
+      "profile": "quality",
+      "reward_risk": 2.5
+    },
+    {
+      "channel_id": "60m_range_reversal_quality_rr3_0",
+      "timeframe_minutes": 60,
+      "family": "range_reversal",
+      "profile": "quality",
+      "reward_risk": 3.0
+    },
+    {
+      "channel_id": "60m_range_reversal_confirmation_rr2_0",
+      "timeframe_minutes": 60,
+      "family": "range_reversal",
+      "profile": "confirmation",
+      "reward_risk": 2.0
+    },
+    {
+      "channel_id": "60m_range_reversal_confirmation_rr2_5",
+      "timeframe_minutes": 60,
+      "family": "range_reversal",
+      "profile": "confirmation",
+      "reward_risk": 2.5
+    },
+    {
+      "channel_id": "60m_range_reversal_confirmation_rr3_0",
+      "timeframe_minutes": 60,
+      "family": "range_reversal",
+      "profile": "confirmation",
+      "reward_risk": 3.0
+    }
+  ],
+  "quality_profiles": {
+    "trend_quality": {
+      "minimum_adx": 23.0,
+      "minimum_directional_di_advantage": 4.0,
+      "minimum_ema_separation_atr": 0.65,
+      "minimum_abs_ema20_slope_3_atr": 0.1,
+      "volume_ratio_minimum": 0.8,
+      "close_location_minimum": 0.65,
+      "long_rsi_range": [
+        50.0,
+        69.0
+      ],
+      "short_rsi_range": [
+        31.0,
+        50.0
+      ]
+    },
+    "trend_confirmation": {
+      "minimum_adx": 25.0,
+      "minimum_directional_di_advantage": 6.0,
+      "minimum_ema_separation_atr": 0.8,
+      "minimum_abs_ema20_slope_3_atr": 0.14,
+      "requires_previous_pullback_bar": true,
+      "requires_close_beyond_previous_bar_extreme": true,
+      "volume_ratio_minimum": 0.9,
+      "close_location_minimum": 0.7
+    },
+    "range_quality": {
+      "maximum_adx": 18.0,
+      "maximum_di_spread": 8.0,
+      "maximum_ema_separation_atr": 0.55,
+      "channel_width_atr_range": [
+        4.0,
+        10.0
+      ],
+      "minimum_sweep_atr": 0.1,
+      "minimum_reentry_atr": 0.05,
+      "long_rsi_maximum": 36.0,
+      "short_rsi_minimum": 64.0,
+      "minimum_wick_to_body": 1.1
+    },
+    "range_confirmation": {
+      "requires_previous_sweep_and_reentry": true,
+      "requires_close_beyond_previous_bar_extreme": true,
+      "current_maximum_adx": 20.0,
+      "current_maximum_ema_separation_atr": 0.7,
+      "current_close_location_minimum": 0.65
+    }
+  },
+  "execution": {
+    "fee_rate_per_side": 0.0005,
+    "tick_size": 0.1,
+    "slippage_ticks_per_fill": 2,
+    "minimum_stop_distance_pct": 0.002,
+    "reward_risk_grid": [
+      2.0,
+      2.5,
+      3.0
+    ],
+    "same_bar_stop_target_rule": "STOP_FIRST_CONSERVATIVE",
+    "entry_rule": "NEXT_5M_OPEN_AFTER_CLOSED_1H_SIGNAL_BAR",
+    "one_open_trade_per_channel": true,
+    "cross_channel_positions_are_independent_for_research": true,
+    "partial_exits": false,
+    "break_even_stop": false
+  },
+  "no_lookahead_rules": {
+    "aggregate_only_from_complete_5m_bars": true,
+    "signal_uses_only_closed_1h_bar": true,
+    "entry_is_next_5m_open": true,
+    "one_signal_one_complete_trade": true,
+    "same_bar_ambiguity_is_stop_first": true,
+    "future_data_is_never_backfilled": true
+  },
+  "research_candidate_thresholds": {
+    "minimum_trades": 60,
+    "minimum_win_rate": 0.4,
+    "minimum_avg_win_loss_ratio": 1.7,
+    "minimum_profit_factor": 1.25,
+    "minimum_expectancy_R": 0.08,
+    "maximum_drawdown_R": 12.0,
+    "minimum_positive_months": 7,
+    "minimum_positive_phases": 2,
+    "remove_best_fraction": 0.1,
+    "maximum_single_positive_month_share": 0.35
+  }
+}
