@@ -1,0 +1,44 @@
+{
+  "channels": [
+    {
+      "channel_id": "60m_long_shadow_v10_7",
+      "channel_label": "V10.7多头影子观察·冻结ADX≤45 RR2.5",
+      "role": "SHADOW_ONLY",
+      "signals": 0,
+      "long_signals": 0,
+      "short_signals": 0
+    },
+    {
+      "channel_id": "60m_short_primary_v10_7",
+      "channel_label": "V10.7空头主观察·冻结ADX衰减≥-4 RR2.5",
+      "role": "PRIMARY_FORWARD_OBSERVATION",
+      "signals": 0,
+      "long_signals": 0,
+      "short_signals": 0
+    },
+    {
+      "channel_id": "60m_legacy_portfolio_shadow_v10_7",
+      "channel_label": "V10.7原多空组合影子观察·共享单一仓位",
+      "role": "SHADOW_ONLY",
+      "signals": 0,
+      "long_signals": 0,
+      "short_signals": 0
+    }
+  ],
+  "portfolio_overlap": [
+    {
+      "channel_id": "60m_legacy_portfolio_shadow_v10_7",
+      "long_component_id": "60m_long_shadow_v10_7",
+      "short_component_id": "60m_short_primary_v10_7",
+      "long_component_signals": 0,
+      "short_component_signals": 0,
+      "conflict_timestamps": 0,
+      "portfolio_signals": 0
+    }
+  ],
+  "resample": {
+    "hourly_rows": 13752,
+    "first_hour_close_utc": "2025-01-01T01:00:00+00:00",
+    "last_hour_close_utc": "2026-07-28T00:00:00+00:00"
+  }
+}

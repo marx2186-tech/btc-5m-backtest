@@ -1,0 +1,48 @@
+{
+  "primary_channel_id": "60m_short_primary_v10_7",
+  "metrics": {
+    "trades": 0,
+    "wins": 0,
+    "losses": 0,
+    "win_rate": 0.0,
+    "avg_win_R": 0.0,
+    "avg_loss_R": 0.0,
+    "avg_win_loss_ratio": 0.0,
+    "profit_factor": 0.0,
+    "net_R": 0.0,
+    "max_drawdown_R": 0.0,
+    "expectancy_R": 0.0,
+    "median_R": 0.0
+  },
+  "best_10pct_removed": {
+    "removed_trades": 0,
+    "trades": 0,
+    "wins": 0,
+    "losses": 0,
+    "win_rate": 0.0,
+    "avg_win_R": 0.0,
+    "avg_loss_R": 0.0,
+    "avg_win_loss_ratio": 0.0,
+    "profit_factor": 0.0,
+    "net_R": 0.0,
+    "max_drawdown_R": 0.0,
+    "expectancy_R": 0.0,
+    "median_R": 0.0
+  },
+  "cost_1_5x_profit_factor": 0.0,
+  "checks": {
+    "minimum_closed_trades": false,
+    "minimum_win_rate": false,
+    "minimum_avg_win_loss_ratio": false,
+    "minimum_profit_factor": false,
+    "positive_expectancy": false,
+    "maximum_drawdown_R": true,
+    "best_10pct_removed_still_profitable": false,
+    "minimum_cost_1_5x_profit_factor": false
+  },
+  "minimum_sample_reached": false,
+  "progress_to_minimum_sample": 0.0,
+  "evidence_status": "COLLECTING_FORWARD_EVIDENCE",
+  "qualified_for_live_trading": false,
+  "parameters_may_be_changed": false
+}

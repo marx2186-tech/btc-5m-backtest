@@ -1,0 +1,12 @@
+{
+  "last_run_utc": "2026-07-28T11:07:45.443238+00:00",
+  "effective_data_end_date": "2026-07-27",
+  "complete_forward_days": 0,
+  "trade_records": 0,
+  "signal_records": 0,
+  "snapshot_records": 1,
+  "trade_chain_sha256": "GENESIS",
+  "signal_chain_sha256": "GENESIS",
+  "snapshot_chain_sha256": "4255ecd512d065f75d8b79f7a4a1e657db38f254447c5957b844c372fba08ef3",
+  "strategy_lock_sha256": "aa91c73fdb0036828c018ed2e65c1926acf8b698a9d8ffb191709b66db175998"
+}

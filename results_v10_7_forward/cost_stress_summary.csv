@@ -1,0 +1,7 @@
+scenario_id,fee_multiplier,slippage_multiplier,channel_id,channel_label,trades,wins,losses,win_rate,avg_win_R,avg_loss_R,avg_win_loss_ratio,profit_factor,net_R,max_drawdown_R,expectancy_R,median_R
+base_cost,1.0,1.0,60m_long_shadow_v10_7,V10.7多头影子观察·冻结ADX≤45 RR2.5,0,0,0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0
+base_cost,1.0,1.0,60m_short_primary_v10_7,V10.7空头主观察·冻结ADX衰减≥-4 RR2.5,0,0,0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0
+base_cost,1.0,1.0,60m_legacy_portfolio_shadow_v10_7,V10.7原多空组合影子观察·共享单一仓位,0,0,0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0
+cost_1_5x,1.5,1.5,60m_long_shadow_v10_7,V10.7多头影子观察·冻结ADX≤45 RR2.5,0,0,0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0
+cost_1_5x,1.5,1.5,60m_short_primary_v10_7,V10.7空头主观察·冻结ADX衰减≥-4 RR2.5,0,0,0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0
+cost_1_5x,1.5,1.5,60m_legacy_portfolio_shadow_v10_7,V10.7原多空组合影子观察·共享单一仓位,0,0,0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0,0.0

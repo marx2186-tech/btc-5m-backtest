@@ -1,0 +1,108 @@
+{
+  "channels": [
+    {
+      "channel_id": "60m_long_shadow_v10_7",
+      "direction_scope": "LONG",
+      "profile": "long_frozen_adx45",
+      "reward_risk": 2.5,
+      "stop_atr_multiple": 1.25,
+      "max_holding_hours": 36,
+      "role": "SHADOW_ONLY"
+    },
+    {
+      "channel_id": "60m_short_primary_v10_7",
+      "direction_scope": "SHORT",
+      "profile": "short_frozen_adx_decay_minus4",
+      "reward_risk": 2.5,
+      "stop_atr_multiple": 1.25,
+      "max_holding_hours": 48,
+      "role": "PRIMARY_FORWARD_OBSERVATION"
+    },
+    {
+      "channel_id": "60m_legacy_portfolio_shadow_v10_7",
+      "direction_scope": "BOTH",
+      "profile": "portfolio_shadow_v10_7",
+      "long_component_id": "60m_long_shadow_v10_7",
+      "short_component_id": "60m_short_primary_v10_7",
+      "role": "SHADOW_ONLY"
+    }
+  ],
+  "channel_roles": {
+    "60m_long_shadow_v10_7": "SHADOW_ONLY",
+    "60m_short_primary_v10_7": "PRIMARY_FORWARD_OBSERVATION",
+    "60m_legacy_portfolio_shadow_v10_7": "SHADOW_ONLY"
+  },
+  "direction_specific_parameters": {
+    "long_shadow_frozen": {
+      "source": "V10.6 frozen long component",
+      "base_signal": "V10.1 hourly long quality pullback",
+      "maximum_price_extension_from_ema20_atr": 1.2,
+      "maximum_adx14": 45.0,
+      "stop_atr_multiple": 1.25,
+      "reward_risk": 2.5,
+      "max_holding_hours": 36,
+      "shadow_only": true,
+      "all_parameters_locked": true
+    },
+    "short_primary_frozen": {
+      "source": "V10.6 frozen short component",
+      "base_signal": "V10.2 hourly short trend persistence",
+      "adx_range": [
+        23.0,
+        45.0
+      ],
+      "minimum_adx_change_3": -4.0,
+      "volume_ratio_range": [
+        0.7,
+        2.2
+      ],
+      "channel_width_atr_range": [
+        3.0,
+        8.0
+      ],
+      "maximum_price_extension_from_ema20_atr": 0.8,
+      "trend_age_hours_range": [
+        8,
+        120
+      ],
+      "maximum_ema50_slope_6_atr": -0.04,
+      "minimum_two_of_last_three_closes_below_ema20": true,
+      "stop_atr_multiple": 1.25,
+      "reward_risk": 2.5,
+      "max_holding_hours": 48,
+      "primary_forward_observation": true,
+      "all_parameters_locked": true
+    }
+  },
+  "portfolio_rules": {
+    "components_keep_their_own_parameters": true,
+    "one_shared_open_position": true,
+    "same_timestamp_opposite_direction_conflict": "DROP_BOTH_CONSERVATIVE",
+    "long_component": "60m_long_shadow_v10_7",
+    "short_component": "60m_short_primary_v10_7",
+    "shadow_only": true,
+    "no_component_or_parameter_substitution": true
+  },
+  "execution": {
+    "fee_rate_per_side": 0.0005,
+    "tick_size": 0.1,
+    "slippage_ticks_per_fill": 2,
+    "minimum_stop_distance_pct": 0.002,
+    "same_bar_stop_target_rule": "STOP_FIRST_CONSERVATIVE",
+    "entry_rule": "NEXT_5M_OPEN_AFTER_CLOSED_1H_SIGNAL_BAR",
+    "one_open_trade_per_channel": true,
+    "portfolio_one_shared_open_position": true,
+    "cross_channel_positions_are_independent_for_research": true,
+    "partial_exits": false,
+    "break_even_stop": false
+  },
+  "forward_evidence_thresholds": {
+    "minimum_closed_trades": 20,
+    "minimum_win_rate": 0.4,
+    "minimum_avg_win_loss_ratio": 1.8,
+    "minimum_profit_factor": 1.25,
+    "maximum_drawdown_R": 8.0,
+    "remove_best_fraction": 0.1,
+    "minimum_cost_1_5x_profit_factor": 1.15
+  }
+}
