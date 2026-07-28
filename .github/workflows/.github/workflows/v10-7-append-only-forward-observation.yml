@@ -1,0 +1,190 @@
+name: BTCUSDT V10.7 append-only true forward observation
+
+on:
+  workflow_dispatch:
+    inputs:
+      forward_end_date:
+        description: "Optional complete UTC end date (YYYY-MM-DD); blank uses previous UTC day"
+        required: false
+        type: string
+  schedule:
+    - cron: "17 12 * * *"
+  push:
+    paths:
+      - "autonomous_forward_observer_v10_7.py"
+      - "_v107_engine.py"
+      - "_v106_engine.py"
+      - "_v105_engine.py"
+      - "_v104_engine.py"
+      - "_v103_engine.py"
+      - "_v102_engine.py"
+      - "request.v10_7.json"
+      - ".github/workflows/v10-7-append-only-forward-observation.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: btcusdt-v10-7-append-only-forward-observation
+  cancel-in-progress: false
+
+jobs:
+  observe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    env:
+      FORWARD_REQUEST_FILE: request.v10_7.json
+      FORWARD_END_DATE: ${{ inputs.forward_end_date }}
+      PYTHONUNBUFFERED: "1"
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Restore verified Binance archive cache
+        uses: actions/cache@v4
+        with:
+          path: .cache_v10_2
+          key: v107-binance-${{ runner.os }}-${{ github.run_id }}
+          restore-keys: |
+            v107-binance-${{ runner.os }}-
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install numpy==1.26.4 pandas==2.2.2 requests==2.32.3
+
+      - name: Verify exact V10.7 files and frozen rules
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(sha256sum autonomous_forward_observer_v10_7.py | awk '{print $1}')" = "bc1ddfdeea6e6e049aa46ab9ebb3c5b529fec490f1c502e08cb5c248040d786d"
+          test "$(sha256sum _v107_engine.py | awk '{print $1}')" = "7676ebb097300897c73d4c12bfeda34caa49e204d306ba83ff4a376ac2132b72"
+          test "$(sha256sum _v106_engine.py | awk '{print $1}')" = "2e671f05bee77265ecfa861fc0e0638ed1b2da37b193962aa1107dd96d6bf028"
+          test "$(sha256sum _v105_engine.py | awk '{print $1}')" = "47e0e5c0d4c88690303e04d91440930f904d3497fd769408a10df7e7fd5a23e1"
+          test "$(sha256sum _v104_engine.py | awk '{print $1}')" = "e17735548f938590e423c779c1649b5acb6aeed52920459ca78bdb3f73c33e02"
+          test "$(sha256sum _v103_engine.py | awk '{print $1}')" = "bf6946d9ebf38024c3eb4a208336be5f080e0d04145034050ec2639eee7a59e3"
+          test "$(sha256sum _v102_engine.py | awk '{print $1}')" = "c1e59bc04f0ad7d84bdba9691cfb93d56ecc36a182d722fb18494bd6ff990328"
+          test "$(sha256sum request.v10_7.json | awk '{print $1}')" = "72726664391bf14279427a200c6f7d3df4677720adee6922900139916cb3b4fb"
+          grep -F '"start_utc": "2026-07-29T00:00:00Z"' request.v10_7.json
+          grep -F '"short_primary_observation": true' request.v10_7.json
+          grep -F '"long_shadow_only": true' request.v10_7.json
+          grep -F '"portfolio_shadow_only": true' request.v10_7.json
+          grep -F '"no_parameter_search": true' request.v10_7.json
+          grep -F '"minimum_closed_trades": 20' request.v10_7.json
+          grep -F '"expected_strategy_lock_sha256": "aa91c73fdb0036828c018ed2e65c1926acf8b698a9d8ffb191709b66db175998"' request.v10_7.json
+          grep -F 'NEXT_5M_OPEN_AFTER_CLOSED_1H_SIGNAL_BAR' request.v10_7.json
+          grep -F 'STOP_FIRST_CONSERVATIVE' request.v10_7.json
+          ! grep -R -F 'fapi.binance.com' autonomous_forward_observer_v10_7.py _v107_engine.py _v106_engine.py _v105_engine.py _v104_engine.py _v103_engine.py _v102_engine.py request.v10_7.json
+
+      - name: Syntax and offline append-only tests
+        shell: bash
+        run: |
+          set -euo pipefail
+          python -m py_compile autonomous_forward_observer_v10_7.py _v107_engine.py _v106_engine.py _v105_engine.py _v104_engine.py _v103_engine.py _v102_engine.py
+          python autonomous_forward_observer_v10_7.py --self-test 2>&1 | tee v10-7-self-test.log
+          python autonomous_forward_observer_v10_7.py --pipeline-smoke 2>&1 | tee v10-7-pipeline-smoke.log
+
+      - name: Run append-only true forward observer
+        shell: bash
+        run: |
+          set -euo pipefail
+          python autonomous_forward_observer_v10_7.py 2>&1 | tee v10-7-run.log
+
+      - name: Upload failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: btcusdt-v10-7-failure-diagnostics
+          path: |
+            v10-7-self-test.log
+            v10-7-pipeline-smoke.log
+            v10-7-run.log
+            results_v10_7_forward/
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Verify V10.7 forward outputs
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          for f in status.json state.json report.md strategy_lock.json primary_forward_audit.json append_only_audit.json data_audit.json signal_audit.json strategy_spec.json run_identity.json run_identity.txt forward_trade_ledger.csv forward_signal_ledger.csv daily_observation_snapshots.csv open_trade_snapshot.csv forward_summary.csv cost_stress_summary.csv signal_counts.csv portfolio_overlap_audit.csv; do
+            test -f "results_v10_7_forward/$f"
+          done
+          python - <<'PYCODE'
+          import json
+          from pathlib import Path
+          import pandas as pd
+
+          root=Path('results_v10_7_forward')
+          status=json.loads((root/'status.json').read_text(encoding='utf-8'))
+          state=json.loads((root/'state.json').read_text(encoding='utf-8'))
+          lock=json.loads((root/'strategy_lock.json').read_text(encoding='utf-8'))
+          append=json.loads((root/'append_only_audit.json').read_text(encoding='utf-8'))
+          audit=json.loads((root/'data_audit.json').read_text(encoding='utf-8'))
+          primary=json.loads((root/'primary_forward_audit.json').read_text(encoding='utf-8'))
+          summary=pd.read_csv(root/'forward_summary.csv')
+          stress=pd.read_csv(root/'cost_stress_summary.csv')
+          trades=pd.read_csv(root/'forward_trade_ledger.csv')
+          signals=pd.read_csv(root/'forward_signal_ledger.csv')
+          snapshots=pd.read_csv(root/'daily_observation_snapshots.csv')
+
+          assert status['release_version']=='10.7'
+          assert status['parameters_frozen'] is True
+          assert status['parameter_optimization_enabled'] is False
+          assert status['winner_selection_enabled'] is False
+          assert status['qualified_for_live_trading'] is False
+          assert status['primary_channel_id']=='60m_short_primary_v10_7'
+          assert status['long_channel_role']=='SHADOW_ONLY'
+          assert status['legacy_portfolio_role']=='SHADOW_ONLY'
+          assert status['append_only_passed'] is True
+          assert append['append_only_passed'] is True
+          assert lock['strategy_lock_sha256']=='aa91c73fdb0036828c018ed2e65c1926acf8b698a9d8ffb191709b66db175998'
+          assert state['strategy_lock_sha256']==lock['strategy_lock_sha256']
+          assert audit['passed'] is True
+          assert audit['missing_rows']==0
+          assert audit['duplicate_timestamps']==0
+          assert audit['uses_rest_fallback'] is False
+          assert len(summary)==3 and summary['channel_id'].nunique()==3
+          assert len(stress)==6 and stress['scenario_id'].nunique()==2
+          assert primary['qualified_for_live_trading'] is False
+          assert primary['parameters_may_be_changed'] is False
+          assert len(snapshots)>=1
+          for frame in (trades, signals, snapshots):
+              if not frame.empty:
+                  assert frame['record_id'].nunique()==len(frame)
+                  assert frame['record_sha256'].notna().all()
+                  assert frame['chain_sha256'].notna().all()
+          print(json.dumps({
+              'observation_status':status['observation_status'],
+              'effective_data_end_date':status['effective_data_end_date'],
+              'primary_closed_trades':status['primary_closed_trades'],
+              'new_trade_records':append['trades']['new_records_appended'],
+              'new_signal_records':append['signals']['new_records_appended']
+          },ensure_ascii=False,indent=2))
+          PYCODE
+
+      - name: Upload V10.7 forward observation artifact
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: btcusdt-v10-7-append-only-forward-observation
+          path: results_v10_7_forward/
+          retention-days: 90
+
+      - name: Commit append-only V10.7 observation records
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add results_v10_7_forward
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Append V10.7 forward observation $(date -u +%Y%m%dT%H%M%SZ)-${{ github.run_id }} [skip ci]"
+          git push
