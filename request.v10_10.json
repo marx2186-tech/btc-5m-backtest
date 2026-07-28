@@ -1,0 +1,171 @@
+{
+  "release": {
+    "version": "10.10",
+    "release_type": "frozen_v10_9_upper_state_machine_three_entry_layer_comparison",
+    "historical_diagnostic_only": true,
+    "parameter_optimization_enabled": false,
+    "winner_selection_enabled": false,
+    "upper_state_machine_identical_to_v10_9": true,
+    "same_confirmation_pool_for_all_experiments": true,
+    "one_setup_per_cycle": true,
+    "no_new_indicator_family": true
+  },
+  "symbol": "BTCUSDT",
+  "source_interval": "5m",
+  "start_month": "2025-01",
+  "end_month": "2026-06",
+  "warmup_window": {
+    "start_utc": "2025-01-01T00:00:00Z",
+    "end_utc": "2025-12-31T23:59:59Z",
+    "trades_counted": false
+  },
+  "evaluation_window": {
+    "start_utc": "2026-01-01T00:00:00Z",
+    "end_utc": "2026-06-30T23:59:59Z",
+    "entries_outside_window_are_excluded": true
+  },
+  "channel_count": 4,
+  "channels": [
+    {
+      "channel_id": "baseline_1h_shared_v10_6",
+      "role": "REFERENCE_BASELINE",
+      "description": "V10.6 frozen one-hour shared-position portfolio, unchanged, RR2.5"
+    },
+    {
+      "channel_id": "state_direct_after_1h_confirmation_rr2_0",
+      "role": "ENTRY_COMPARISON_A",
+      "description": "V10.9 frozen upper state machine; enter at next 5m open immediately after the closed one-hour confirmation"
+    },
+    {
+      "channel_id": "state_15m_single_local_break_rr2_0",
+      "role": "ENTRY_COMPARISON_B",
+      "description": "Same one-hour confirmations; first 15m local four-bar structural breakout only, without also requiring the one-hour confirmation extreme"
+    },
+    {
+      "channel_id": "state_15m_pullback_reclaim_rr2_0",
+      "role": "ENTRY_COMPARISON_C",
+      "description": "Same one-hour confirmations; wait for a 15m EMA20 touch and then a later closed 15m directional reclaim bar"
+    }
+  ],
+  "multi_timeframe_parameters": {
+    "four_hour_environment": {
+      "ema_fast": 20,
+      "ema_slow": 50,
+      "minimum_adx14": 18.0,
+      "minimum_abs_ema50_slope_3_atr": 0.02,
+      "require_directional_index_confirmation": true,
+      "long_requires_close_above_ema50": true,
+      "short_requires_close_below_ema50": true
+    }
+  },
+  "state_machine_parameters": {
+    "one_hour_cycle": {
+      "impulse_breakout_lookback_hours": 12,
+      "minimum_impulse_body_atr": 0.45,
+      "minimum_impulse_close_location_value": 0.65,
+      "minimum_impulse_volume_ratio": 0.90,
+      "minimum_impulse_extension_ema20_atr": 0.60,
+      "maximum_impulse_extension_ema20_atr": 2.00,
+      "minimum_pullback_retracement_atr": 0.50,
+      "pullback_touch_ema20_zone_atr": 0.20,
+      "ema50_structure_tolerance_atr": 0.15,
+      "maximum_hours_impulse_to_pullback": 18,
+      "maximum_hours_pullback_to_confirmation": 6,
+      "minimum_confirmation_body_atr": 0.25,
+      "minimum_confirmation_close_location_value": 0.65,
+      "maximum_confirmation_extension_ema20_atr": 0.90,
+      "cycle_cooldown_hours": 8,
+      "maximum_cycles_per_4h_environment_leg": 2
+    },
+    "execution": {
+      "stop_source": "ALIGNED_CLOSED_1H_ATR14",
+      "stop_atr_multiple": 1.25,
+      "reward_risk": 2.0,
+      "max_holding_hours": 48,
+      "exit_on_completed_4h_opposite_environment": true,
+      "one_shared_open_position_per_channel": true,
+      "partial_exits": false,
+      "pyramiding": false
+    },
+    "shadow_management": {
+      "break_even_activation_R": 1.0,
+      "activation_effective_from": "NEXT_COMPLETE_5M_BAR",
+      "same_bar_target_and_break_even_rule": "BREAK_EVEN_FIRST_CONSERVATIVE_ONCE_ACTIVE",
+      "signals_must_match_primary_exactly": true
+    }
+  },
+  "trigger_comparison_parameters": {
+    "direct_after_one_hour_confirmation": {
+      "signal_time": "CLOSED_1H_CONFIRMATION_TIME",
+      "entry_time": "NEXT_5M_OPEN",
+      "additional_filter": false
+    },
+    "single_local_breakout": {
+      "local_breakout_lookback_15m_bars": 4,
+      "minimum_delay_after_confirmation_minutes": 15,
+      "setup_validity_hours": 3.0,
+      "maximum_price_extension_ema20_atr": 1.20,
+      "require_directional_candle": true,
+      "require_correct_side_of_ema20": true,
+      "require_confirmation_extreme_break": false,
+      "require_volume_filter": false,
+      "first_valid_trigger_only": true
+    },
+    "pullback_reclaim": {
+      "minimum_delay_after_confirmation_minutes": 15,
+      "setup_validity_hours": 4.0,
+      "ema20_touch_zone_atr": 0.15,
+      "reclaim_must_occur_after_touch_bar": true,
+      "require_close_beyond_previous_15m_extreme": true,
+      "maximum_reclaim_extension_ema20_atr": 0.90,
+      "require_volume_filter": false,
+      "first_valid_trigger_only": true
+    }
+  },
+  "execution": {
+    "fee_rate_per_side": 0.0005,
+    "tick_size": 0.1,
+    "slippage_ticks_per_fill": 2,
+    "minimum_stop_distance_pct": 0.002,
+    "same_bar_stop_target_rule": "STOP_FIRST_CONSERVATIVE",
+    "entry_rule_direct_1h": "NEXT_5M_OPEN_AFTER_CLOSED_1H_CONFIRMATION",
+    "entry_rule_15m": "NEXT_5M_OPEN_AFTER_CLOSED_15M_TRIGGER_BAR",
+    "one_open_trade_per_channel": true,
+    "cross_channel_positions_are_independent_for_research": true,
+    "partial_exits": false
+  },
+  "phases": {
+    "evaluation_2026_h1": {
+      "start_utc": "2026-01-01T00:00:00Z",
+      "end_utc": "2026-06-30T23:59:59Z"
+    }
+  },
+  "evaluation_thresholds": {
+    "minimum_trades": 15,
+    "minimum_win_rate": 0.50,
+    "minimum_avg_win_loss_ratio": 1.70,
+    "minimum_profit_factor": 1.50,
+    "maximum_drawdown_R": 6.0,
+    "remove_best_fraction": 0.10
+  },
+  "no_lookahead_rules": {
+    "aggregate_only_complete_5m_bars": true,
+    "4h_environment_uses_only_closed_4h_bar": true,
+    "1h_state_machine_uses_only_closed_1h_bars": true,
+    "15m_trigger_uses_only_closed_15m_bar": true,
+    "higher_timeframe_alignment": "BACKWARD_ASOF_ONLY",
+    "direct_entry_occurs_at_next_5m_open_after_1h_confirmation_close": true,
+    "15m_entry_occurs_at_next_5m_open_after_trigger_close": true,
+    "pullback_reclaim_requires_a_later_bar_than_touch": true,
+    "same_bar_ambiguity_is_conservative": true,
+    "one_setup_one_trigger_maximum_per_channel": true,
+    "one_cycle_one_setup_maximum": true,
+    "one_signal_one_complete_trade": true
+  },
+  "governance": {
+    "qualified_for_live_trading": false,
+    "historical_data_already_viewed": true,
+    "do_not_tune_after_reading_2026_h1_result": true,
+    "primary_goal": "keep the V10.9 upper state machine frozen and isolate whether direct, local-breakout or pullback-reclaim entry best balances coverage and trade quality"
+  }
+}
