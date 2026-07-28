@@ -1,0 +1,158 @@
+{
+  "resample": {
+    "60": {
+      "rows": 13104,
+      "first_bar_close_utc": "2025-01-01T01:00:00+00:00",
+      "last_bar_close_utc": "2026-07-01T00:00:00+00:00",
+      "source_rows_per_bar": 12
+    }
+  },
+  "channels": [
+    {
+      "channel_id": "60m_long_quality_baseline_rr2_5",
+      "channel_label": "多头冻结基线·1小时质量回踩 RR2.5",
+      "profile": "long_quality_baseline",
+      "direction_scope": "LONG",
+      "reward_risk": 2.5,
+      "stop_atr_multiple": 1.25,
+      "max_holding_hours": 36,
+      "is_baseline": true,
+      "signals": 28,
+      "long_signals": 28,
+      "short_signals": 0
+    },
+    {
+      "channel_id": "60m_long_recovery_rr2_0",
+      "channel_label": "多头独立策略·趋势恢复 RR2.0",
+      "profile": "long_recovery",
+      "direction_scope": "LONG",
+      "reward_risk": 2.0,
+      "stop_atr_multiple": 1.2,
+      "max_holding_hours": 48,
+      "is_baseline": false,
+      "signals": 2,
+      "long_signals": 2,
+      "short_signals": 0
+    },
+    {
+      "channel_id": "60m_long_recovery_rr2_5",
+      "channel_label": "多头独立策略·趋势恢复 RR2.5",
+      "profile": "long_recovery",
+      "direction_scope": "LONG",
+      "reward_risk": 2.5,
+      "stop_atr_multiple": 1.2,
+      "max_holding_hours": 48,
+      "is_baseline": false,
+      "signals": 2,
+      "long_signals": 2,
+      "short_signals": 0
+    },
+    {
+      "channel_id": "60m_short_persistence_baseline_rr2_5",
+      "channel_label": "空头冻结基线·趋势持续性 RR2.5",
+      "profile": "short_persistence_baseline",
+      "direction_scope": "SHORT",
+      "reward_risk": 2.5,
+      "stop_atr_multiple": 1.25,
+      "max_holding_hours": 48,
+      "is_baseline": true,
+      "signals": 7,
+      "long_signals": 0,
+      "short_signals": 7
+    },
+    {
+      "channel_id": "60m_short_continuation_rr2_5",
+      "channel_label": "空头独立策略·下跌延续 RR2.5",
+      "profile": "short_continuation",
+      "direction_scope": "SHORT",
+      "reward_risk": 2.5,
+      "stop_atr_multiple": 1.3,
+      "max_holding_hours": 36,
+      "is_baseline": false,
+      "signals": 15,
+      "long_signals": 0,
+      "short_signals": 15
+    },
+    {
+      "channel_id": "60m_short_continuation_rr3_0",
+      "channel_label": "空头独立策略·下跌延续 RR3.0",
+      "profile": "short_continuation",
+      "direction_scope": "SHORT",
+      "reward_risk": 3.0,
+      "stop_atr_multiple": 1.3,
+      "max_holding_hours": 36,
+      "is_baseline": false,
+      "signals": 15,
+      "long_signals": 0,
+      "short_signals": 15
+    },
+    {
+      "channel_id": "60m_split_portfolio_frozen",
+      "channel_label": "多空分离组合·冻结基线",
+      "profile": "split_portfolio_frozen",
+      "direction_scope": "BOTH",
+      "reward_risk": "ASYMMETRIC",
+      "stop_atr_multiple": "ASYMMETRIC",
+      "max_holding_hours": "ASYMMETRIC",
+      "is_baseline": true,
+      "signals": 35,
+      "long_signals": 28,
+      "short_signals": 7
+    },
+    {
+      "channel_id": "60m_split_portfolio_balanced",
+      "channel_label": "多空分离组合·均衡版（多2.0/空2.5）",
+      "profile": "split_portfolio_balanced",
+      "direction_scope": "BOTH",
+      "reward_risk": "ASYMMETRIC",
+      "stop_atr_multiple": "ASYMMETRIC",
+      "max_holding_hours": "ASYMMETRIC",
+      "is_baseline": false,
+      "signals": 17,
+      "long_signals": 2,
+      "short_signals": 15
+    },
+    {
+      "channel_id": "60m_split_portfolio_growth",
+      "channel_label": "多空分离组合·进取版（多2.5/空3.0）",
+      "profile": "split_portfolio_growth",
+      "direction_scope": "BOTH",
+      "reward_risk": "ASYMMETRIC",
+      "stop_atr_multiple": "ASYMMETRIC",
+      "max_holding_hours": "ASYMMETRIC",
+      "is_baseline": false,
+      "signals": 17,
+      "long_signals": 2,
+      "short_signals": 15
+    }
+  ],
+  "portfolio_overlap": [
+    {
+      "channel_id": "60m_split_portfolio_frozen",
+      "long_component_id": "60m_long_quality_baseline_rr2_5",
+      "short_component_id": "60m_short_persistence_baseline_rr2_5",
+      "long_component_signals": 28,
+      "short_component_signals": 7,
+      "conflict_timestamps": 0,
+      "portfolio_signals": 35
+    },
+    {
+      "channel_id": "60m_split_portfolio_balanced",
+      "long_component_id": "60m_long_recovery_rr2_0",
+      "short_component_id": "60m_short_continuation_rr2_5",
+      "long_component_signals": 2,
+      "short_component_signals": 15,
+      "conflict_timestamps": 0,
+      "portfolio_signals": 17
+    },
+    {
+      "channel_id": "60m_split_portfolio_growth",
+      "long_component_id": "60m_long_recovery_rr2_5",
+      "short_component_id": "60m_short_continuation_rr3_0",
+      "long_component_signals": 2,
+      "short_component_signals": 15,
+      "conflict_timestamps": 0,
+      "portfolio_signals": 17
+    }
+  ]
+}
