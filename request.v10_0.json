@@ -1,0 +1,94 @@
+{
+  "release": {
+    "version": "10.0",
+    "release_type": "multi_timeframe_simple_strategy_benchmark",
+    "strategy_logic_reset": true,
+    "inherits_v9_data_audit_principles": true,
+    "inherits_v9_execution_conservatism": true,
+    "uses_v9_40_expert_system": false
+  },
+  "symbol": "BTCUSDT",
+  "source_interval": "5m",
+  "start_month": "2025-01",
+  "end_month": "2026-06",
+  "timeframes_minutes": [15, 30, 60],
+  "channel_count": 10,
+  "historical_diagnostic_only": true,
+  "winner_selection_enabled": false,
+  "channels": [
+    {"channel_id": "15m_trend_pullback", "timeframe": "15m", "strategy": "trend_pullback"},
+    {"channel_id": "15m_range_reversal", "timeframe": "15m", "strategy": "range_reversal"},
+    {"channel_id": "15m_volatility_breakout", "timeframe": "15m", "strategy": "volatility_breakout"},
+    {"channel_id": "30m_trend_pullback", "timeframe": "30m", "strategy": "trend_pullback"},
+    {"channel_id": "30m_range_reversal", "timeframe": "30m", "strategy": "range_reversal"},
+    {"channel_id": "30m_volatility_breakout", "timeframe": "30m", "strategy": "volatility_breakout"},
+    {"channel_id": "60m_trend_pullback", "timeframe": "60m", "strategy": "trend_pullback"},
+    {"channel_id": "60m_range_reversal", "timeframe": "60m", "strategy": "range_reversal"},
+    {"channel_id": "60m_volatility_breakout", "timeframe": "60m", "strategy": "volatility_breakout"},
+    {"channel_id": "1h_15m_5m_trend", "timeframe": "1h+15m+5m", "strategy": "mtf_trend_pullback"}
+  ],
+  "strategy_parameters": {
+    "trend_pullback": {
+      "ema_fast": 20,
+      "ema_slow": 50,
+      "adx_length": 14,
+      "minimum_adx": 18.0
+    },
+    "range_reversal": {
+      "channel_length": 20,
+      "maximum_adx": 22.0,
+      "maximum_ema_separation_atr": 1.0,
+      "long_rsi_maximum": 45.0,
+      "short_rsi_minimum": 55.0
+    },
+    "volatility_breakout": {
+      "channel_length": 20,
+      "atr_percentile_window": 100,
+      "atr_percentile": 0.30,
+      "volume_expansion_multiple": 1.15
+    }
+  },
+  "execution": {
+    "fee_rate_per_side": 0.0005,
+    "tick_size": 0.1,
+    "slippage_ticks_per_fill": 2,
+    "minimum_stop_distance_pct": 0.002,
+    "reward_risk": 2.0,
+    "same_bar_stop_target_rule": "STOP_FIRST_CONSERVATIVE",
+    "entry_rule": "NEXT_5M_OPEN_AFTER_CLOSED_SIGNAL_BAR",
+    "one_open_trade_per_channel": true,
+    "cross_channel_positions_are_independent_for_benchmark": true
+  },
+  "phases": {
+    "development": {
+      "start_utc": "2025-01-01T00:00:00Z",
+      "end_utc": "2025-09-30T23:59:59Z"
+    },
+    "validation": {
+      "start_utc": "2025-10-01T00:00:00Z",
+      "end_utc": "2026-03-31T23:59:59Z"
+    },
+    "historical_test": {
+      "start_utc": "2026-04-01T00:00:00Z",
+      "end_utc": "2026-06-30T23:59:59Z"
+    }
+  },
+  "research_candidate_thresholds": {
+    "minimum_trades": 80,
+    "minimum_profit_factor": 1.3,
+    "minimum_expectancy_R": 0.1,
+    "maximum_drawdown_R": 8.0,
+    "minimum_positive_months": 4,
+    "minimum_positive_phases": 2,
+    "remove_best_fraction": 0.1,
+    "maximum_single_positive_month_share": 0.4
+  },
+  "no_lookahead_rules": {
+    "aggregate_only_from_complete_5m_bars": true,
+    "signal_uses_only_closed_timeframe_bar": true,
+    "entry_is_next_5m_open": true,
+    "one_signal_one_complete_trade": true,
+    "same_bar_ambiguity_is_stop_first": true,
+    "future_data_is_never_backfilled": true
+  }
+}
