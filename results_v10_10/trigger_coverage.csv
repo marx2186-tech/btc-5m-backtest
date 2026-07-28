@@ -1,0 +1,4 @@
+channel_id,channel_label,available_1h_confirmations,signals_emitted,coverage_rate,long_signals,short_signals,all_signals_reference_valid_setup
+state_direct_after_1h_confirmation_rr2_0,实验A·严格状态机1H确认后直接成交 RR2.0,6,6,1.0,3,3,True
+state_15m_single_local_break_rr2_0,实验B·严格状态机+15M单一局部突破 RR2.0,6,2,0.3333333333333333,2,0,True
+state_15m_pullback_reclaim_rr2_0,实验C·严格状态机+15M回踩重新确认 RR2.0,6,5,0.8333333333333334,2,3,True

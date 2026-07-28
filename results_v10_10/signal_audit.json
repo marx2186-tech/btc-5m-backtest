@@ -1,0 +1,68 @@
+{
+  "resample": {
+    "15m_rows": 52416,
+    "1h_rows": 13104,
+    "4h_rows": 3276,
+    "no_lookahead_alignment": "BACKWARD_ASOF_ONLY_CLOSED_BARS"
+  },
+  "channels": [
+    {
+      "channel_id": "baseline_1h_shared_v10_6",
+      "channel_label": "基准·V10.6原1小时多空共享组合 RR2.5",
+      "profile": "baseline_1h_shared_v10_6",
+      "signals": 10,
+      "long_signals": 7,
+      "short_signals": 3,
+      "unique_signal_times": 10,
+      "unique_setup_ids": 10
+    },
+    {
+      "channel_id": "state_direct_after_1h_confirmation_rr2_0",
+      "channel_label": "实验A·严格状态机1H确认后直接成交 RR2.0",
+      "profile": "state_direct_after_1h_confirmation",
+      "signals": 6,
+      "long_signals": 3,
+      "short_signals": 3,
+      "unique_signal_times": 6,
+      "unique_setup_ids": 6
+    },
+    {
+      "channel_id": "state_15m_single_local_break_rr2_0",
+      "channel_label": "实验B·严格状态机+15M单一局部突破 RR2.0",
+      "profile": "state_15m_single_local_break",
+      "signals": 2,
+      "long_signals": 2,
+      "short_signals": 0,
+      "unique_signal_times": 2,
+      "unique_setup_ids": 2
+    },
+    {
+      "channel_id": "state_15m_pullback_reclaim_rr2_0",
+      "channel_label": "实验C·严格状态机+15M回踩重新确认 RR2.0",
+      "profile": "state_15m_pullback_reclaim",
+      "signals": 5,
+      "long_signals": 2,
+      "short_signals": 3,
+      "unique_signal_times": 5,
+      "unique_setup_ids": 5
+    }
+  ],
+  "state_machine": {
+    "environment_legs": 122,
+    "confirmation_setups_all_data": 12,
+    "confirmation_setups_evaluation_window": 6,
+    "one_setup_per_cycle": true,
+    "upper_state_machine_identical_to_v10_9": true
+  },
+  "trigger_comparison": {
+    "direct_signals": 6,
+    "single_local_break_signals": 2,
+    "pullback_reclaim_signals": 5,
+    "all_channels_use_same_confirmation_pool": true
+  },
+  "evaluation_window": {
+    "start_utc": "2026-01-01T00:00:00Z",
+    "end_utc": "2026-06-30T23:59:59Z",
+    "entries_outside_window_are_excluded": true
+  }
+}

@@ -1,0 +1,5 @@
+channel_id,channel_label,profile,signals,long_signals,short_signals,unique_signal_times,unique_setup_ids
+baseline_1h_shared_v10_6,基准·V10.6原1小时多空共享组合 RR2.5,baseline_1h_shared_v10_6,10,7,3,10,10
+state_direct_after_1h_confirmation_rr2_0,实验A·严格状态机1H确认后直接成交 RR2.0,state_direct_after_1h_confirmation,6,3,3,6,6
+state_15m_single_local_break_rr2_0,实验B·严格状态机+15M单一局部突破 RR2.0,state_15m_single_local_break,2,2,0,2,2
+state_15m_pullback_reclaim_rr2_0,实验C·严格状态机+15M回踩重新确认 RR2.0,state_15m_pullback_reclaim,5,2,3,5,5
