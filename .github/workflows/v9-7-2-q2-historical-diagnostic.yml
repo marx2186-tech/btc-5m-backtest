@@ -1,0 +1,190 @@
+name: BTC 5m V9.7.2 Q2 historical diagnostic backtest
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "autonomous_backtest_v9_7_2.py"
+      - "_v972_strategy_core.py"
+      - "_v961_reference_strategy.py"
+      - "_v972_base_engine.py"
+      - "request.v9_7_2.json"
+      - ".github/workflows/v9-7-2-q2-historical-diagnostic.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: btc-5m-v9-7-2-q2-historical-diagnostic
+  cancel-in-progress: false
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 480
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install numpy==1.26.4 pandas==2.2.2 requests==2.32.3 numba==0.60.0 scikit-learn==1.5.1 pyyaml==6.0.2
+
+      - name: Verify exact V9.7.2 files
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(sha256sum autonomous_backtest_v9_7_2.py | awk '{print $1}')" = "9bd9b673b0eda9e08f82850509693d435af76398fc32e2dabe5a7feed8140c18"
+          test "$(sha256sum _v972_strategy_core.py | awk '{print $1}')" = "a8353b07b3e9a44d54c40c617d23f136648be7ddbceb5f7fb7fc4ce74eaec285"
+          test "$(sha256sum _v961_reference_strategy.py | awk '{print $1}')" = "0895398fa92f471d3d1bedb7bb50430201c4cb02d33e7120d3847f75f6dc260d"
+          test "$(sha256sum _v972_base_engine.py | awk '{print $1}')" = "a0a66bbd8ba45338b401d03ade74b55835a97ba03b4ea7239bc2a7c3f03d1398"
+          test "$(sha256sum request.v9_7_2.json | awk '{print $1}')" = "30485065de58f84f6fce53bfce10193f226d0aed461b8aa84c19e53743b64c21"
+          grep -F 'FULL_MONTH_HISTORICAL_DIAGNOSTIC' request.v9_7_2.json
+          grep -F '2026-04-01T00:00:00Z' request.v9_7_2.json
+          grep -F '2026-06-30T23:59:59Z' request.v9_7_2.json
+          grep -F '"uses_monthly_archives_only": true' request.v9_7_2.json
+          grep -F '"uses_daily_archives": false' request.v9_7_2.json
+          grep -F '"uses_rest_fallback": false' request.v9_7_2.json
+          ! grep -F 'fapi.binance.com' autonomous_backtest_v9_7_2.py
+          grep -F '_load_q2_monthly_frames' autonomous_backtest_v9_7_2.py
+          grep -F 'q2_diagnostic_summary.json' autonomous_backtest_v9_7_2.py
+
+      - name: Syntax and offline tests
+        shell: bash
+        env:
+          BACKTEST_REQUEST_FILE: request.v9_7_2.json
+        run: |
+          set -euo pipefail
+          python -m py_compile autonomous_backtest_v9_7_2.py _v972_strategy_core.py _v961_reference_strategy.py _v972_base_engine.py
+          python autonomous_backtest_v9_7_2.py --self-test 2>&1 | tee v9-7-2-self-test.log
+          python autonomous_backtest_v9_7_2.py --pipeline-smoke 2>&1 | tee v9-7-2-pipeline-smoke.log
+          python - <<'PYCODE'
+          import json
+          from pathlib import Path
+          import yaml
+          r=json.loads(Path('request.v9_7_2.json').read_text(encoding='utf-8'))
+          d=r['historical_diagnostic_window']
+          assert r['release']['version']=='9.7.2'
+          assert r['release']['signal_logic_changed'] is False
+          assert r['release']['thresholds_changed'] is False
+          assert r['release']['policy_selection_changed'] is False
+          assert d['window_type']=='FULL_MONTH_HISTORICAL_DIAGNOSTIC'
+          assert d['start_month']=='2026-04' and d['end_month']=='2026-06'
+          assert d['window_start_utc']=='2026-04-01T00:00:00Z'
+          assert d['window_end_utc']=='2026-06-30T23:59:59Z'
+          assert d['uses_monthly_archives_only'] is True
+          assert d['uses_daily_archives'] is False
+          assert d['uses_rest_fallback'] is False
+          assert d['winner_selection_enabled'] is False
+          assert d['automatic_tier_activation_enabled'] is False
+          c=r['expert_coverage']
+          assert set(c['required_expert_ids'])==set(range(40))
+          assert set(c['v961_reference_ids'])==set(range(32))
+          assert set(c['extended_original_ids'])==set(range(32,40))
+          y=yaml.safe_load(Path('.github/workflows/v9-7-2-q2-historical-diagnostic.yml').read_text(encoding='utf-8'))
+          assert 'backtest' in y['jobs']
+          print('V972_Q2_CONFIG_AND_YAML_OK')
+          PYCODE
+
+      - name: Run V9.7.2 real backtest
+        shell: bash
+        env:
+          BACKTEST_REQUEST_FILE: request.v9_7_2.json
+          PYTHONUNBUFFERED: "1"
+        run: |
+          set -euo pipefail
+          rm -rf results_v9_7_2
+          python autonomous_backtest_v9_7_2.py 2>&1 | tee v9-7-2-run.log
+
+      - name: Upload failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: btc-5m-v9-7-2-failure-diagnostics
+          path: |
+            v9-7-2-self-test.log
+            v9-7-2-pipeline-smoke.log
+            v9-7-2-run.log
+            results_v9_7_2/
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Verify V9.7.2 outputs
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          for f in status.json report.md run_identity.txt expert_tier_audit.csv strategy_snapshot.json snapshot_replay_audit.json v961_reference_reproduction.json signal_selection_independence_audit.json rating_source_policy_coverage.csv rating_data_source_audit.json risk_budget_dual_track_validation.json q2_month_registry.csv q2_expert_trade_ledger.csv q2_risk_budget_trade_ledger.csv q2_diagnostic_summary.json q2_diagnostic_progress.json q2_integrity_audit.json q2_expert_diagnostic_audit.csv q2_decision_readiness.json; do
+            test -f "results_v9_7_2/$f"
+          done
+          python - <<'PYCODE'
+          import json
+          from pathlib import Path
+          import pandas as pd
+          root=Path('results_v9_7_2')
+          s=json.loads((root/'status.json').read_text(encoding='utf-8'))
+          p=json.loads((root/'q2_diagnostic_progress.json').read_text(encoding='utf-8'))
+          i=json.loads((root/'q2_integrity_audit.json').read_text(encoding='utf-8'))
+          w=json.loads((root/'q2_diagnostic_summary.json').read_text(encoding='utf-8'))
+          registry=pd.read_csv(root/'q2_month_registry.csv')
+          expert=pd.read_csv(root/'q2_expert_trade_ledger.csv')
+          risk=pd.read_csv(root/'q2_risk_budget_trade_ledger.csv')
+          assert s['engine']=='BTC 5m 2026 Q2 historical diagnostic backtest V9.7.2'
+          assert s['release_version']=='9.7.2'
+          assert s['release_type']=='q2_historical_diagnostic'
+          assert s['diagnostic_window_type']=='FULL_MONTH_HISTORICAL_DIAGNOSTIC'
+          assert s['diagnostic_window_start_utc']=='2026-04-01T00:00:00Z'
+          assert s['diagnostic_window_end_utc']=='2026-06-30T23:59:59Z'
+          assert s['diagnostic_complete_month_count']==3
+          assert s['diagnostic_winner_selection_enabled'] is False
+          assert s['diagnostic_automatic_tier_activation_enabled'] is False
+          assert p['window_evaluated'] is True
+          assert p['window_months']==['2026-04','2026-05','2026-06']
+          assert p['complete_month_count']==3
+          assert p['winner_decision']=='HISTORICAL_DIAGNOSTIC_ONLY_NO_WINNER'
+          assert i['uses_monthly_archives_only'] is True
+          assert i['uses_daily_archives'] is False
+          assert i['uses_rest_fallback'] is False
+          assert i['all_recorded_exits_at_or_before_window_end'] is True
+          assert i['monthly_data_audit']['official_monthly_audit']['passed'] is True
+          assert i['monthly_data_audit']['eth_monthly_audit']['passed'] is True
+          assert i['monthly_data_audit']['premium_monthly_audit']['passed'] is True
+          assert w['months_included']==['2026-04','2026-05','2026-06']
+          assert w['days_included']==91
+          assert w['uses_monthly_archives_only'] is True
+          assert set(registry['month'].astype(str))=={'2026-04','2026-05','2026-06'}
+          assert registry['calendar_complete'].astype(bool).all()
+          allowed={'2026-04','2026-05','2026-06'}
+          cutoff=pd.Timestamp('2026-06-30T23:59:59Z')
+          for frame in (expert,risk):
+              if not frame.empty:
+                  assert set(frame['month'].astype(str)).issubset(allowed)
+                  assert (pd.to_datetime(frame['exit_time_utc'],utc=True)<=cutoff).all()
+          print(json.dumps({'tiers':s['tier_counts'],'q2_risk_lanes':p['risk_lanes'],'summary':w},ensure_ascii=False,indent=2))
+          PYCODE
+
+      - name: Upload V9.7.2 results
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: btc-5m-v9-7-2-q2-historical-results
+          path: results_v9_7_2/
+          retention-days: 30
+
+      - name: Commit readable V9.7.2 results
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add results_v9_7_2
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Add V9.7.2 Q2 diagnostic result $(date -u +%Y%m%dT%H%M%SZ)-${{ github.run_id }} [skip ci]"
+          git push
