@@ -1,0 +1,251 @@
+name: BTCUSDT V10.11 34-channel batch matrix
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "autonomous_backtest_v10_11.py"
+      - "_v111_engine.py"
+      - "_v110_engine.py"
+      - "_v109_engine.py"
+      - "_v108_engine.py"
+      - "_v106_engine.py"
+      - "_v105_engine.py"
+      - "_v104_engine.py"
+      - "_v103_engine.py"
+      - "_v102_engine.py"
+      - "request.v10_11.json"
+      - ".github/workflows/v10-11-batch-matrix.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: btcusdt-v10-11-batch-matrix
+  cancel-in-progress: false
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install numpy==1.26.4 pandas==2.2.2 requests==2.32.3
+
+      - name: V10.11 preflight and file audit
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          required_files=(
+            autonomous_backtest_v10_11.py
+            _v111_engine.py
+            _v110_engine.py
+            _v109_engine.py
+            _v108_engine.py
+            _v106_engine.py
+            _v105_engine.py
+            _v104_engine.py
+            _v103_engine.py
+            _v102_engine.py
+            request.v10_11.json
+          )
+
+          for f in "${required_files[@]}"; do
+            if [[ ! -f "$f" ]]; then
+              echo "Missing required file: $f" >&2
+              exit 1
+            fi
+          done
+
+          # Record actual hashes for diagnostics without aborting because an
+          # inherited engine file has a different historical package hash.
+          sha256sum "${required_files[@]}" | tee v10-11-file-hashes.txt
+
+          grep -F '"version": "10.11"' request.v10_11.json
+          grep -F '"channel_count": 34' request.v10_11.json
+          grep -F '"fixed_directional_channels": 18' request.v10_11.json
+          grep -F '"fixed_shared_channels": 9' request.v10_11.json
+          grep -F '"break_even_shadow_channels": 6' request.v10_11.json
+          grep -F '"upper_state_machine_identical_to_v10_9": true' request.v10_11.json
+          grep -F '"same_confirmation_pool_for_all_experiments": true' request.v10_11.json
+          grep -F '"multiplier": 1.5' request.v10_11.json
+
+          if grep -R -F 'fapi.binance.com' "${required_files[@]}"; then
+            echo "REST fallback endpoint is forbidden in V10.11" >&2
+            exit 1
+          fi
+
+      - name: Syntax and offline tests
+        shell: bash
+        env:
+          BACKTEST_REQUEST_FILE: request.v10_11.json
+        run: |
+          set -euo pipefail
+          python -m py_compile \
+            autonomous_backtest_v10_11.py \
+            _v111_engine.py _v110_engine.py _v109_engine.py _v108_engine.py \
+            _v106_engine.py _v105_engine.py _v104_engine.py \
+            _v103_engine.py _v102_engine.py
+          python autonomous_backtest_v10_11.py --self-test 2>&1 | tee v10-11-self-test.log
+          python autonomous_backtest_v10_11.py --pipeline-smoke 2>&1 | tee v10-11-pipeline-smoke.log
+
+      - name: Run V10.11 real batch benchmark
+        shell: bash
+        env:
+          BACKTEST_REQUEST_FILE: request.v10_11.json
+          PYTHONUNBUFFERED: "1"
+        run: |
+          set -euo pipefail
+          rm -rf results_v10_11
+          python autonomous_backtest_v10_11.py 2>&1 | tee v10-11-run.log
+
+      - name: Upload failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: btcusdt-v10-11-failure-diagnostics
+          path: |
+            v10-11-file-hashes.txt
+            v10-11-self-test.log
+            v10-11-pipeline-smoke.log
+            v10-11-run.log
+            results_v10_11/
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Verify V10.11 outputs
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          required_outputs=(
+            status.json report.md data_audit.json signal_audit.json
+            qualification_audit.json strategy_spec.json run_identity.json
+            run_identity.txt channel_summary.csv diagnostic_rank.csv
+            direction_summary.csv monthly_summary.csv trigger_type_summary.csv
+            exit_reason_summary.csv loss_diagnostics.csv
+            management_comparison.csv cost_stress_summary.csv
+            state_machine_funnel.csv state_machine_event_ledger.csv
+            trigger_coverage.csv setup_signal_matrix.csv
+            setup_channel_matrix.csv signal_counts.csv trade_ledger.csv
+          )
+
+          for f in "${required_outputs[@]}"; do
+            test -f "results_v10_11/$f"
+          done
+
+          python - <<'PYCODE'
+          import json
+          from pathlib import Path
+          import pandas as pd
+
+          root = Path("results_v10_11")
+          status = json.loads((root / "status.json").read_text(encoding="utf-8"))
+          audit = json.loads((root / "data_audit.json").read_text(encoding="utf-8"))
+          signal_audit = json.loads((root / "signal_audit.json").read_text(encoding="utf-8"))
+          summary = pd.read_csv(root / "channel_summary.csv")
+          signals = pd.read_csv(root / "signal_counts.csv")
+          cost = pd.read_csv(root / "cost_stress_summary.csv")
+          management = pd.read_csv(root / "management_comparison.csv")
+          trades = pd.read_csv(root / "trade_ledger.csv")
+
+          assert status["release_version"] == "10.11"
+          assert status["historical_diagnostic_only"] is True
+          assert status["qualified_for_live_trading"] is False
+          assert status["parameter_optimization_enabled"] is False
+          assert status["winner_selection_enabled"] is False
+          assert status["channel_count"] == 34
+          assert status["evaluation_start_utc"] == "2026-01-01T00:00:00Z"
+          assert status["evaluation_end_utc"] == "2026-06-30T23:59:59Z"
+
+          assert audit["passed"] is True
+          assert audit["missing_rows"] == 0
+          assert audit["duplicate_timestamps"] == 0
+          assert audit["uses_rest_fallback"] is False
+
+          assert len(summary) == 34
+          assert summary["channel_id"].nunique() == 34
+          assert len(signals) == 34
+          assert signals["channel_id"].nunique() == 34
+          assert len(cost) == 34
+          assert cost["channel_id"].nunique() == 34
+          assert len(management) == 6
+          assert (cost["cost_multiplier"] == 1.5).all()
+
+          assert signal_audit["matrix"]["channel_count"] == 34
+          assert signal_audit["matrix"]["fixed_directional_channels"] == 18
+          assert signal_audit["matrix"]["fixed_shared_channels"] == 9
+          assert signal_audit["matrix"]["break_even_shadow_channels"] == 6
+          assert signal_audit["state_machine"]["one_setup_per_cycle"] is True
+          assert signal_audit["state_machine"]["upper_state_machine_identical_to_v10_9"] is True
+          assert signal_audit["trigger_comparison"]["all_channels_use_same_confirmation_pool"] is True
+
+          experiments = summary.loc[~summary["is_baseline"].astype(bool)]
+          fixed = experiments.loc[experiments["management_mode"] == "FIXED_STOP_TARGET"]
+          be = experiments.loc[experiments["management_mode"] == "BE_AT_1R_NEXT_5M_BAR"]
+          assert len(fixed.loc[fixed["direction_variant"].isin(["long", "short"])]) == 18
+          assert len(fixed.loc[fixed["direction_variant"] == "shared"]) == 9
+          assert len(be) == 6
+          assert set(fixed["reward_risk"].round(1)) == {1.5, 2.0, 2.5}
+          assert set(be["reward_risk"].round(1)) == {2.0}
+
+          if not trades.empty:
+              entries = pd.to_datetime(trades["entry_time_utc"], utc=True)
+              exits = pd.to_datetime(trades["exit_time_utc"], utc=True)
+              assert (entries >= pd.Timestamp("2026-01-01T00:00:00Z")).all()
+              assert (entries <= pd.Timestamp("2026-06-30T23:59:59Z")).all()
+              assert (exits >= entries).all()
+
+              for channel_id, group in trades.groupby("channel_id"):
+                  e = pd.to_datetime(group["entry_time_utc"], utc=True).reset_index(drop=True)
+                  x = pd.to_datetime(group["exit_time_utc"], utc=True).reset_index(drop=True)
+                  if len(group) > 1:
+                      assert (
+                          e.iloc[1:].reset_index(drop=True)
+                          >= x.iloc[:-1].reset_index(drop=True)
+                      ).all(), channel_id
+
+          print(summary[
+              [
+                  "channel_id", "entry_mode", "direction_variant",
+                  "management_mode", "reward_risk", "trades", "win_rate",
+                  "profit_factor", "net_R", "max_drawdown_R",
+                  "max_consecutive_losses", "cost_1_5x_profit_factor",
+              ]
+          ].to_string(index=False))
+          PYCODE
+
+      - name: Upload V10.11 results
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: btcusdt-v10-11-34-channel-batch-results
+          path: results_v10_11/
+          retention-days: 30
+
+      - name: Commit readable V10.11 results
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add results_v10_11
+          if git diff --cached --quiet; then
+            exit 0
+          fi
+          git commit -m "Add V10.11 batch matrix result $(date -u +%Y%m%dT%H%M%SZ)-${{ github.run_id }} [skip ci]"
+          git push
