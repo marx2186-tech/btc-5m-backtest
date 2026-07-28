@@ -1,0 +1,195 @@
+{
+  "release": {
+    "version": "10.7",
+    "release_type": "append_only_true_forward_observation",
+    "inherits_v10_6_frozen_parameters": true,
+    "inherits_v10_5_selected_short_component": true,
+    "parameters_fully_frozen": true,
+    "append_only_true_forward_observation": true,
+    "long_shadow_only": true,
+    "short_primary_observation": true,
+    "portfolio_shadow_only": true,
+    "no_parameter_search": true,
+    "no_new_indicator_or_strategy_family": true
+  },
+  "symbol": "BTCUSDT",
+  "source_interval": "5m",
+  "signal_timeframe_minutes": 60,
+  "channel_count": 3,
+  "parent_v10_6_parameter_lock_sha256": "93de0eae77afb536cf5f953ff73e2df439899ff5d8a99457256e659e22e732d9",
+  "expected_strategy_lock_sha256": "aa91c73fdb0036828c018ed2e65c1926acf8b698a9d8ffb191709b66db175998",
+  "channels": [
+    {
+      "channel_id": "60m_long_shadow_v10_7",
+      "direction_scope": "LONG",
+      "profile": "long_frozen_adx45",
+      "reward_risk": 2.5,
+      "stop_atr_multiple": 1.25,
+      "max_holding_hours": 36,
+      "role": "SHADOW_ONLY"
+    },
+    {
+      "channel_id": "60m_short_primary_v10_7",
+      "direction_scope": "SHORT",
+      "profile": "short_frozen_adx_decay_minus4",
+      "reward_risk": 2.5,
+      "stop_atr_multiple": 1.25,
+      "max_holding_hours": 48,
+      "role": "PRIMARY_FORWARD_OBSERVATION"
+    },
+    {
+      "channel_id": "60m_legacy_portfolio_shadow_v10_7",
+      "direction_scope": "BOTH",
+      "profile": "portfolio_shadow_v10_7",
+      "long_component_id": "60m_long_shadow_v10_7",
+      "short_component_id": "60m_short_primary_v10_7",
+      "role": "SHADOW_ONLY"
+    }
+  ],
+  "channel_roles": {
+    "60m_long_shadow_v10_7": "SHADOW_ONLY",
+    "60m_short_primary_v10_7": "PRIMARY_FORWARD_OBSERVATION",
+    "60m_legacy_portfolio_shadow_v10_7": "SHADOW_ONLY"
+  },
+  "direction_specific_parameters": {
+    "long_shadow_frozen": {
+      "source": "V10.6 frozen long component",
+      "base_signal": "V10.1 hourly long quality pullback",
+      "maximum_price_extension_from_ema20_atr": 1.2,
+      "maximum_adx14": 45.0,
+      "stop_atr_multiple": 1.25,
+      "reward_risk": 2.5,
+      "max_holding_hours": 36,
+      "shadow_only": true,
+      "all_parameters_locked": true
+    },
+    "short_primary_frozen": {
+      "source": "V10.6 frozen short component",
+      "base_signal": "V10.2 hourly short trend persistence",
+      "adx_range": [
+        23.0,
+        45.0
+      ],
+      "minimum_adx_change_3": -4.0,
+      "volume_ratio_range": [
+        0.7,
+        2.2
+      ],
+      "channel_width_atr_range": [
+        3.0,
+        8.0
+      ],
+      "maximum_price_extension_from_ema20_atr": 0.8,
+      "trend_age_hours_range": [
+        8,
+        120
+      ],
+      "maximum_ema50_slope_6_atr": -0.04,
+      "minimum_two_of_last_three_closes_below_ema20": true,
+      "stop_atr_multiple": 1.25,
+      "reward_risk": 2.5,
+      "max_holding_hours": 48,
+      "primary_forward_observation": true,
+      "all_parameters_locked": true
+    }
+  },
+  "portfolio_rules": {
+    "components_keep_their_own_parameters": true,
+    "one_shared_open_position": true,
+    "same_timestamp_opposite_direction_conflict": "DROP_BOTH_CONSERVATIVE",
+    "long_component": "60m_long_shadow_v10_7",
+    "short_component": "60m_short_primary_v10_7",
+    "shadow_only": true,
+    "no_component_or_parameter_substitution": true
+  },
+  "execution": {
+    "fee_rate_per_side": 0.0005,
+    "tick_size": 0.1,
+    "slippage_ticks_per_fill": 2,
+    "minimum_stop_distance_pct": 0.002,
+    "same_bar_stop_target_rule": "STOP_FIRST_CONSERVATIVE",
+    "entry_rule": "NEXT_5M_OPEN_AFTER_CLOSED_1H_SIGNAL_BAR",
+    "one_open_trade_per_channel": true,
+    "portfolio_one_shared_open_position": true,
+    "cross_channel_positions_are_independent_for_research": true,
+    "partial_exits": false,
+    "break_even_stop": false
+  },
+  "phases": {
+    "true_forward": {
+      "start_utc": "2026-07-29T00:00:00Z",
+      "end_utc": "2099-12-31T23:59:59Z"
+    }
+  },
+  "forward_observation": {
+    "start_utc": "2026-07-29T00:00:00Z",
+    "end_mode": "PREVIOUS_COMPLETE_UTC_DAY",
+    "append_only_after_complete_utc_days": true,
+    "parameters_must_remain_frozen": true,
+    "minimum_closed_trades_before_evaluation": 20,
+    "never_use_forward_results_for_automatic_retuning": true
+  },
+  "data_source": {
+    "source": "Binance USDⓈ-M Futures official verified archives",
+    "warmup_monthly_start": "2025-01",
+    "warmup_monthly_end": "2026-06",
+    "daily_archive_start_utc": "2026-07-01T00:00:00Z",
+    "max_archive_lag_days": 7,
+    "official_archives_only": true,
+    "rest_fallback": false,
+    "complete_utc_days_only": true
+  },
+  "cost_stress_scenarios": [
+    {
+      "scenario_id": "base_cost",
+      "fee_multiplier": 1.0,
+      "slippage_multiplier": 1.0
+    },
+    {
+      "scenario_id": "cost_1_5x",
+      "fee_multiplier": 1.5,
+      "slippage_multiplier": 1.5
+    }
+  ],
+  "forward_evidence_thresholds": {
+    "minimum_closed_trades": 20,
+    "minimum_win_rate": 0.4,
+    "minimum_avg_win_loss_ratio": 1.8,
+    "minimum_profit_factor": 1.25,
+    "maximum_drawdown_R": 8.0,
+    "remove_best_fraction": 0.1,
+    "minimum_cost_1_5x_profit_factor": 1.15
+  },
+  "append_only_rules": {
+    "existing_closed_trade_may_not_change": true,
+    "existing_signal_may_not_change": true,
+    "existing_record_may_not_disappear": true,
+    "new_records_are_hash_chained": true,
+    "open_trade_snapshots_are_not_counted_as_closed_trades": true,
+    "rerun_same_data_end_must_append_zero_records": true
+  },
+  "reference_metrics": {
+    "v10_6_cross_year_short": {
+      "trades": 35,
+      "win_rate": 0.4,
+      "avg_win_loss_ratio": 2.0709255606271033,
+      "profit_factor": 1.3806170404180689,
+      "net_R": 8.684981939534188,
+      "max_drawdown_R": 7.844061656001999
+    },
+    "v10_5_recent_short": {
+      "trades": 8,
+      "win_rate": 0.625,
+      "profit_factor": 3.5464591884327454,
+      "net_R": 8.458689847732927
+    }
+  },
+  "governance": {
+    "parameter_optimization_enabled": false,
+    "winner_selection_enabled": false,
+    "qualified_for_live_trading": false,
+    "long_results_cannot_promote_parameters": true,
+    "portfolio_shadow_results_cannot_promote_parameters": true,
+    "manual_review_required_after_minimum_sample": true
+  }
+}
