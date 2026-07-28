@@ -1,0 +1,198 @@
+{
+  "release": {
+    "version": "10.2",
+    "release_type": "hourly_trend_pullback_regime_robustness",
+    "inherits_v10_1_quality_baselines": true,
+    "inherits_v10_data_audit": true,
+    "inherits_v10_execution_conservatism": true,
+    "uses_v9_40_expert_system": false,
+    "only_one_hour_signal_timeframe": true,
+    "trend_pullback_only": true,
+    "range_reversal_removed": true,
+    "secondary_confirmation_removed": true
+  },
+  "symbol": "BTCUSDT",
+  "source_interval": "5m",
+  "start_month": "2025-01",
+  "end_month": "2026-06",
+  "signal_timeframe_minutes": 60,
+  "channel_count": 8,
+  "baseline_channel_count": 2,
+  "optimized_channel_count": 6,
+  "historical_diagnostic_only": true,
+  "winner_selection_enabled": false,
+  "primary_research_goals": [
+    "make_2026_q2_historical_test_positive_without_using_future_data",
+    "remain_profitable_after_removing_best_10_percent_of_trades",
+    "reduce_drawdown_vs_matching_v10_1_quality_baseline",
+    "retain_balanced_long_and_short_diagnostics",
+    "avoid_late_stage_or_exhausted_trend_entries"
+  ],
+  "channels": [
+    {
+      "channel_id": "60m_trend_pullback_quality_rr2_5",
+      "timeframe_minutes": 60,
+      "family": "trend_pullback",
+      "profile": "quality",
+      "reward_risk": 2.5,
+      "is_baseline": true
+    },
+    {
+      "channel_id": "60m_trend_pullback_quality_rr3_0",
+      "timeframe_minutes": 60,
+      "family": "trend_pullback",
+      "profile": "quality",
+      "reward_risk": 3.0,
+      "is_baseline": true
+    },
+    {
+      "channel_id": "60m_trend_pullback_anti_exhaustion_rr2_5",
+      "timeframe_minutes": 60,
+      "family": "trend_pullback",
+      "profile": "anti_exhaustion",
+      "reward_risk": 2.5,
+      "is_baseline": false
+    },
+    {
+      "channel_id": "60m_trend_pullback_anti_exhaustion_rr3_0",
+      "timeframe_minutes": 60,
+      "family": "trend_pullback",
+      "profile": "anti_exhaustion",
+      "reward_risk": 3.0,
+      "is_baseline": false
+    },
+    {
+      "channel_id": "60m_trend_pullback_balanced_rr2_5",
+      "timeframe_minutes": 60,
+      "family": "trend_pullback",
+      "profile": "balanced",
+      "reward_risk": 2.5,
+      "is_baseline": false
+    },
+    {
+      "channel_id": "60m_trend_pullback_balanced_rr3_0",
+      "timeframe_minutes": 60,
+      "family": "trend_pullback",
+      "profile": "balanced",
+      "reward_risk": 3.0,
+      "is_baseline": false
+    },
+    {
+      "channel_id": "60m_trend_pullback_persistence_rr2_5",
+      "timeframe_minutes": 60,
+      "family": "trend_pullback",
+      "profile": "persistence",
+      "reward_risk": 2.5,
+      "is_baseline": false
+    },
+    {
+      "channel_id": "60m_trend_pullback_persistence_rr3_0",
+      "timeframe_minutes": 60,
+      "family": "trend_pullback",
+      "profile": "persistence",
+      "reward_risk": 3.0,
+      "is_baseline": false
+    }
+  ],
+  "frozen_v10_1_quality_profile": {
+    "minimum_adx": 23.0,
+    "minimum_directional_di_advantage": 4.0,
+    "minimum_ema_separation_atr": 0.65,
+    "minimum_abs_ema20_slope_3_atr": 0.10,
+    "volume_ratio_minimum": 0.80,
+    "close_location_minimum": 0.65,
+    "long_rsi_range": [50.0, 69.0],
+    "short_rsi_range": [31.0, 50.0],
+    "stop_atr_multiple": 1.25,
+    "maximum_holding_hours": 36
+  },
+  "robustness_profiles": {
+    "anti_exhaustion": {
+      "adx_range": [23.0, 42.0],
+      "directional_di_advantage_range": [4.0, 18.0],
+      "abs_ema20_slope_3_atr_range": [0.10, 0.36],
+      "volume_ratio_range": [0.75, 1.80],
+      "channel_width_atr_range": [3.0, 7.0],
+      "maximum_price_extension_from_ema20_atr": 0.85,
+      "trend_age_hours_range": [5, 96],
+      "atr_regime": "rolling_252h_20th_to_90th_percentile",
+      "long_rsi_range": [52.0, 64.5],
+      "short_rsi_range": [35.5, 48.0]
+    },
+    "balanced": {
+      "adx_range": [23.0, 36.0],
+      "directional_di_advantage_range": [5.0, 14.5],
+      "ema_separation_atr_range": [0.65, 1.60],
+      "abs_ema20_slope_3_atr_range": [0.10, 0.28],
+      "adx_change_3_range": [-2.5, 8.0],
+      "volume_ratio_range": [0.75, 1.60],
+      "channel_width_atr_range": [3.5, 6.25],
+      "maximum_price_extension_from_ema20_atr": 0.70,
+      "trend_age_hours_range": [6, 72],
+      "atr_regime": "rolling_252h_20th_to_90th_percentile",
+      "long_rsi_range": [52.0, 63.5],
+      "short_rsi_range": [36.5, 48.0]
+    },
+    "persistence": {
+      "adx_range": [23.0, 45.0],
+      "minimum_adx_change_3": -3.0,
+      "volume_ratio_range": [0.70, 2.20],
+      "channel_width_atr_range": [3.0, 8.0],
+      "maximum_price_extension_from_ema20_atr": 0.80,
+      "trend_age_hours_range": [8, 120],
+      "minimum_abs_ema50_slope_6_atr": 0.04,
+      "minimum_two_of_last_three_closes_on_trend_side_of_ema20": true
+    }
+  },
+  "execution": {
+    "fee_rate_per_side": 0.0005,
+    "tick_size": 0.1,
+    "slippage_ticks_per_fill": 2,
+    "minimum_stop_distance_pct": 0.002,
+    "reward_risk_grid": [2.5, 3.0],
+    "same_bar_stop_target_rule": "STOP_FIRST_CONSERVATIVE",
+    "entry_rule": "NEXT_5M_OPEN_AFTER_CLOSED_1H_SIGNAL_BAR",
+    "one_open_trade_per_channel": true,
+    "cross_channel_positions_are_independent_for_research": true,
+    "partial_exits": false,
+    "break_even_stop": false
+  },
+  "phases": {
+    "development": {
+      "start_utc": "2025-01-01T00:00:00Z",
+      "end_utc": "2025-09-30T23:59:59Z"
+    },
+    "validation": {
+      "start_utc": "2025-10-01T00:00:00Z",
+      "end_utc": "2026-03-31T23:59:59Z"
+    },
+    "historical_test": {
+      "start_utc": "2026-04-01T00:00:00Z",
+      "end_utc": "2026-06-30T23:59:59Z"
+    }
+  },
+  "research_candidate_thresholds": {
+    "minimum_trades": 45,
+    "minimum_win_rate": 0.40,
+    "minimum_avg_win_loss_ratio": 1.85,
+    "minimum_profit_factor": 1.30,
+    "minimum_expectancy_R": 0.12,
+    "maximum_drawdown_R": 8.0,
+    "minimum_positive_months": 9,
+    "minimum_positive_phases": 3,
+    "remove_best_fraction": 0.10,
+    "maximum_single_positive_month_share": 0.30,
+    "minimum_historical_test_profit_factor": 1.0,
+    "minimum_positive_rolling_quarters": 9,
+    "minimum_worst_rolling_quarter_net_R": -4.0
+  },
+  "no_lookahead_rules": {
+    "aggregate_only_from_complete_5m_bars": true,
+    "signal_uses_only_closed_1h_bar": true,
+    "entry_is_next_5m_open": true,
+    "one_signal_one_complete_trade": true,
+    "same_bar_ambiguity_is_stop_first": true,
+    "future_data_is_never_backfilled": true,
+    "rolling_percentiles_use_shifted_past_data_only": true
+  }
+}
