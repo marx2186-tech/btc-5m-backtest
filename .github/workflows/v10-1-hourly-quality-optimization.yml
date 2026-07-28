@@ -1,0 +1,182 @@
+name: BTCUSDT V10.1 hourly quality optimization
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "autonomous_backtest_v10_1.py"
+      - "_v101_engine.py"
+      - "request.v10_1.json"
+      - ".github/workflows/v10-1-hourly-quality-optimization.yml"
+
+permissions:
+  contents: write
+
+concurrency:
+  group: btcusdt-v10-1-hourly-quality-optimization
+  cancel-in-progress: false
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 360
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install numpy==1.26.4 pandas==2.2.2 requests==2.32.3
+
+      - name: Verify exact V10.1 files
+        shell: bash
+        run: |
+          set -euo pipefail
+          test "$(sha256sum autonomous_backtest_v10_1.py | awk '{print $1}')" = "37056671c12dbfb343647759de67f122df855baf05b28b85ad5aa3ecf615fceb"
+          test "$(sha256sum _v101_engine.py | awk '{print $1}')" = "60125ce9111854240d2215c556c99e3d4e922f5fb56a14be122f6743fdab4a5f"
+          test "$(sha256sum request.v10_1.json | awk '{print $1}')" = "75313070d61ccbd41f10525edfca72d0cb5da4224bfe2c5265bd043dd83ac03a"
+          grep -F '"signal_timeframe_minutes": 60' request.v10_1.json
+          grep -F '"channel_count": 14' request.v10_1.json
+          grep -F '"baseline_channel_count": 2' request.v10_1.json
+          grep -F '"optimized_channel_count": 12' request.v10_1.json
+          grep -F '"reward_risk_grid": [' request.v10_1.json
+          grep -F 'NEXT_5M_OPEN_AFTER_CLOSED_1H_SIGNAL_BAR' request.v10_1.json
+          grep -F 'STOP_FIRST_CONSERVATIVE' request.v10_1.json
+          ! grep -R -F 'fapi.binance.com' autonomous_backtest_v10_1.py _v101_engine.py request.v10_1.json
+
+      - name: Syntax and offline tests
+        shell: bash
+        env:
+          BACKTEST_REQUEST_FILE: request.v10_1.json
+        run: |
+          set -euo pipefail
+          python -m py_compile autonomous_backtest_v10_1.py _v101_engine.py
+          python autonomous_backtest_v10_1.py --self-test 2>&1 | tee v10-1-self-test.log
+          python autonomous_backtest_v10_1.py --pipeline-smoke 2>&1 | tee v10-1-pipeline-smoke.log
+          python - <<'PYCODE'
+          import json
+          from pathlib import Path
+          request=json.loads(Path('request.v10_1.json').read_text(encoding='utf-8'))
+          assert request['release']['version']=='10.1'
+          assert request['signal_timeframe_minutes']==60
+          assert request['channel_count']==14
+          assert request['baseline_channel_count']==2
+          assert request['optimized_channel_count']==12
+          assert len(request['channels'])==14
+          assert all(row['timeframe_minutes']==60 for row in request['channels'])
+          assert sorted(set(row['reward_risk'] for row in request['channels']))==[2.0,2.5,3.0]
+          assert request['historical_diagnostic_only'] is True
+          assert request['winner_selection_enabled'] is False
+          assert request['execution']['one_open_trade_per_channel'] is True
+          assert request['execution']['partial_exits'] is False
+          assert request['execution']['entry_rule']=='NEXT_5M_OPEN_AFTER_CLOSED_1H_SIGNAL_BAR'
+          assert request['execution']['same_bar_stop_target_rule']=='STOP_FIRST_CONSERVATIVE'
+          assert request['research_candidate_thresholds']['minimum_win_rate']==0.40
+          assert request['research_candidate_thresholds']['minimum_avg_win_loss_ratio']==1.70
+          print('V101_CONFIG_OK')
+          PYCODE
+
+      - name: Run V10.1 real hourly optimization
+        shell: bash
+        env:
+          BACKTEST_REQUEST_FILE: request.v10_1.json
+          PYTHONUNBUFFERED: "1"
+        run: |
+          set -euo pipefail
+          rm -rf results_v10_1
+          python autonomous_backtest_v10_1.py 2>&1 | tee v10-1-run.log
+
+      - name: Upload failure diagnostics
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: btcusdt-v10-1-failure-diagnostics
+          path: |
+            v10-1-self-test.log
+            v10-1-pipeline-smoke.log
+            v10-1-run.log
+            results_v10_1/
+          if-no-files-found: warn
+          retention-days: 30
+
+      - name: Verify V10.1 outputs
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          for f in status.json report.md benchmark_summary.json data_audit.json resample_and_signal_audit.json robustness_audit.json strategy_spec.json run_identity.json run_identity.txt channel_summary.csv baseline_comparison.csv channel_phase_summary.csv channel_monthly_summary.csv trade_ledger.csv signal_counts.csv; do
+            test -f "results_v10_1/$f"
+          done
+          python - <<'PYCODE'
+          import json
+          from pathlib import Path
+          import pandas as pd
+          root=Path('results_v10_1')
+          status=json.loads((root/'status.json').read_text(encoding='utf-8'))
+          audit=json.loads((root/'data_audit.json').read_text(encoding='utf-8'))
+          benchmark=json.loads((root/'benchmark_summary.json').read_text(encoding='utf-8'))
+          signal_audit=json.loads((root/'resample_and_signal_audit.json').read_text(encoding='utf-8'))
+          summary=pd.read_csv(root/'channel_summary.csv')
+          comparison=pd.read_csv(root/'baseline_comparison.csv')
+          phases=pd.read_csv(root/'channel_phase_summary.csv')
+          trades=pd.read_csv(root/'trade_ledger.csv')
+          assert status['release_version']=='10.1'
+          assert status['qualified_for_live_trading'] is False
+          assert status['historical_diagnostic_only'] is True
+          assert status['signal_timeframe_minutes']==60
+          assert status['channel_count']==14
+          assert status['baseline_channel_count']==2
+          assert status['optimized_channel_count']==12
+          assert status['reward_risk_grid']==[2.0,2.5,3.0]
+          assert status['winner_selection_enabled'] is False
+          assert audit['passed'] is True
+          assert audit['missing_rows']==0
+          assert audit['duplicate_timestamps']==0
+          assert audit['uses_rest_fallback'] is False
+          assert len(summary)==14
+          assert summary['channel_id'].nunique()==14
+          assert set(summary['timeframe_minutes'])=={60}
+          assert len(comparison)==14
+          assert set(phases['phase'])=={'development','validation','historical_test'}
+          assert len(phases)==42
+          assert len(signal_audit['channels'])==14
+          assert benchmark['winner_decision']=='HISTORICAL_HOURLY_OPTIMIZATION_ONLY_NO_AUTOMATIC_WINNER'
+          if not trades.empty:
+              entries=pd.to_datetime(trades['entry_time_utc'],utc=True)
+              signals=pd.to_datetime(trades['signal_time_utc'],utc=True)
+              exits=pd.to_datetime(trades['exit_time_utc'],utc=True)
+              assert (entries>=signals).all()
+              assert (exits>=entries).all()
+              assert set(trades['channel_id']).issubset(set(summary['channel_id']))
+          print(json.dumps({
+              'leader':status['research_leader'],
+              'candidate_channels':status['research_candidate_channels'],
+              'both_goals_improved':status['channels_improving_win_rate_and_avg_win_loss_ratio'],
+          },ensure_ascii=False,indent=2))
+          PYCODE
+
+      - name: Upload V10.1 results
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: btcusdt-v10-1-hourly-optimization-results
+          path: results_v10_1/
+          retention-days: 30
+
+      - name: Commit readable V10.1 results
+        if: success()
+        shell: bash
+        run: |
+          set -euo pipefail
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add results_v10_1
+          if git diff --cached --quiet; then exit 0; fi
+          git commit -m "Add V10.1 hourly optimization result $(date -u +%Y%m%dT%H%M%SZ)-${{ github.run_id }} [skip ci]"
+          git push
